@@ -1,0 +1,1051 @@
+; ===============================================
+; C64 GALAGA CLONE - PROFESSIONAL VERSION
+; ===============================================
+; A Galaga-style shooter with raster interrupt sprite multiplexing
+; Based on Cadaver's sprite multiplexer technique
+; ===============================================
+
+!cpu 6510
+
+; ===============================================
+; MEMORY MAP & HARDWARE REGISTERS
+; ===============================================
+
+; VIC-II Registers
+SPRITE_ENABLE   = $d015
+SPRITE_X        = $d000
+SPRITE_Y        = $d001
+SPRITE_MCOLOR   = $d025
+SPRITE_COLORS   = $d027
+SPRITE_PTR      = $07f8
+BORDER_COLOR    = $d020
+BG_COLOR        = $d021
+SCREEN_RAM      = $0400
+COLOR_RAM       = $d800
+
+; CIA Registers
+CIA1_PRA        = $dc00      ; Joystick port 2
+
+; Game Constants
+MAX_ENEMIES     = 24            ; More enemies for epic battles!
+MAX_BULLETS     = 1
+MAX_SPRITES     = 26            ; Player + Enemies + Bullet
+PLAYER_Y        = 220
+SCREEN_LEFT     = 24
+SCREEN_RIGHT    = 250
+
+; Raster IRQ Constants
+IRQ1_LINE       = $fc           ; Sorting interrupt at bottom of screen
+IRQ2_LINE       = $2a           ; Display interrupt start (line 42)
+
+; ===============================================
+; PROGRAM START
+; ===============================================
+
+* = $0801                     ; BASIC start address
+
+; BASIC stub: 10 SYS 2064
+!byte $0c,$08,$0a,$00,$9e,$20,$32,$30,$36,$34,$00,$00,$00
+
+* = $0810                     ; Program start
+
+init:
+    jsr clear_screen
+    jsr setup_colors
+    jsr init_sprites
+    jsr init_game_state
+    jsr init_multiplexer
+    jsr init_raster
+
+game_loop:
+    jsr wait_frame
+
+    ; Check if game is over
+    lda game_over_flag
+    bne game_over_loop
+
+    jsr read_joystick
+    jsr update_player
+    jsr update_bullets
+    jsr update_enemies
+    jsr check_collisions
+    jsr update_sprite_data      ; Update sprites for IRQ multiplexer
+    jsr wait_for_irq            ; CRITICAL: Wait for IRQ to finish!
+    jsr draw_score
+    jmp game_loop
+
+game_over_loop:
+    ; Game over - just display the screen, no updates
+    jsr wait_frame
+    jsr draw_score
+    jmp game_over_loop
+
+; ===============================================
+; SCREEN & COLOR SETUP
+; ===============================================
+
+clear_screen:
+    ldx #0
+    lda #$20
+.loop:
+    sta SCREEN_RAM,x
+    sta SCREEN_RAM+$100,x
+    sta SCREEN_RAM+$200,x
+    sta SCREEN_RAM+$2e8,x
+    inx
+    bne .loop
+    rts
+
+setup_colors:
+    lda #0
+    sta BG_COLOR
+    sta BORDER_COLOR
+    ldx #0
+    lda #3
+.color_loop:
+    sta COLOR_RAM,x
+    sta COLOR_RAM+$100,x
+    sta COLOR_RAM+$200,x
+    sta COLOR_RAM+$2e8,x
+    inx
+    bne .color_loop
+    rts
+
+; ===============================================
+; SPRITE INITIALIZATION
+; ===============================================
+
+init_sprites:
+    ; Copy sprite data to standard sprite memory locations
+    ldx #0
+.copy_player:
+    lda player_sprite,x
+    sta $3000,x          ; $3000 = pointer $C0
+    inx
+    cpx #64
+    bne .copy_player
+
+    ldx #0
+.copy_enemy:
+    lda enemy_sprite,x
+    sta $3040,x          ; $3040 = pointer $C1
+    inx
+    cpx #64
+    bne .copy_enemy
+
+    ldx #0
+.copy_bullet:
+    lda bullet_sprite,x
+    sta $3080,x          ; $3080 = pointer $C2
+    inx
+    cpx #64
+    bne .copy_bullet
+
+    ; Set sprite pointers
+    lda #$C0
+    sta SPRITE_PTR+0    ; Player
+    lda #$C1
+    sta SPRITE_PTR+1    ; Enemies
+    sta SPRITE_PTR+2
+    sta SPRITE_PTR+3
+    sta SPRITE_PTR+4
+    sta SPRITE_PTR+5
+    sta SPRITE_PTR+6
+    lda #$C2
+    sta SPRITE_PTR+7    ; Bullet
+
+    ; Set sprite colors
+    lda #1
+    sta SPRITE_COLORS+0  ; Player white
+    lda #2
+    sta SPRITE_COLORS+1  ; Enemies red
+    sta SPRITE_COLORS+2
+    sta SPRITE_COLORS+3
+    sta SPRITE_COLORS+4
+    sta SPRITE_COLORS+5
+    sta SPRITE_COLORS+6
+    lda #14
+    sta SPRITE_COLORS+7  ; Bullet light blue
+
+    rts
+
+; ===============================================
+; GAME STATE INITIALIZATION
+; ===============================================
+
+init_game_state:
+    ; Player
+    lda #160
+    sta player_x
+    lda #PLAYER_Y
+    sta player_y
+
+    ; Enemies
+    ldx #0
+.init_loop:
+    lda enemy_start_x,x
+    sta enemy_x,x
+    lda enemy_start_y,x
+    sta enemy_y,x
+    lda #1
+    sta enemy_active,x
+    inx
+    cpx #MAX_ENEMIES
+    bne .init_loop
+
+    ; Bullets
+    lda #0
+    sta bullet_active
+    sta score
+    sta score+1
+    sta fire_pressed
+    sta game_over_flag
+
+    ; Lives
+    lda #3
+    sta lives
+
+    ; Direction
+    lda #1
+    sta enemy_dir
+    sta enemy_counter
+
+    rts
+
+; ===============================================
+; UPDATE SPRITE DATA FOR MULTIPLEXER
+; ===============================================
+; Copies game state to virtual sprite tables
+
+update_sprite_data:
+    lda #0
+    sta num_sprites         ; Count active sprites
+
+    ; Add player sprite (always sprite 0)
+    lda player_x
+    sta spr_x
+    lda player_y
+    sta spr_y
+    lda #$C0               ; Player sprite pointer ($3000)
+    sta spr_f
+    lda #1                 ; Player color (white)
+    sta spr_c
+    inc num_sprites
+
+    ; Add enemy sprites
+    ldx #0
+.enemy_loop:
+    cpx #MAX_ENEMIES
+    beq .add_bullet
+
+    lda enemy_active,x
+    beq .next_enemy
+
+    ; Add this enemy
+    ldy num_sprites
+    lda enemy_x,x
+    sta spr_x,y
+    lda enemy_y,x
+    sta spr_y,y
+    lda #$C1               ; Enemy sprite pointer ($3040)
+    sta spr_f,y
+    lda #2                 ; Enemy color (red)
+    sta spr_c,y
+    inc num_sprites
+
+.next_enemy:
+    inx
+    jmp .enemy_loop
+
+.add_bullet:
+    lda bullet_active
+    beq .done
+
+    ; Add bullet
+    ldy num_sprites
+    lda bullet_x
+    sta spr_x,y
+    lda bullet_y
+    sta spr_y,y
+    lda #$C2               ; Bullet sprite pointer ($3080)
+    sta spr_f,y
+    lda #14                ; Bullet color (light blue)
+    sta spr_c,y
+    inc num_sprites
+
+.done:
+    lda #1
+    sta spr_update_flag    ; Signal IRQ to sort and display
+    rts
+
+; ===============================================
+; JOYSTICK INPUT
+; ===============================================
+
+read_joystick:
+    lda CIA1_PRA
+    sta joystick_state
+    rts
+
+; ===============================================
+; PLAYER UPDATE
+; ===============================================
+
+update_player:
+    ; Check left
+    lda joystick_state
+    and #$04
+    bne .check_right
+    lda player_x
+    cmp #SCREEN_LEFT
+    bcc .check_right
+    dec player_x
+    dec player_x
+
+.check_right:
+    lda joystick_state
+    and #$08
+    bne .check_fire
+    lda player_x
+    cmp #SCREEN_RIGHT
+    bcs .check_fire
+    inc player_x
+    inc player_x
+
+.check_fire:
+    lda joystick_state
+    and #$10
+    bne .fire_released
+
+    lda fire_pressed
+    bne .player_done
+
+    jsr shoot_bullet
+    lda #1
+    sta fire_pressed
+    jmp .player_done
+
+.fire_released:
+    lda #0
+    sta fire_pressed
+
+.player_done:
+    rts
+
+; ===============================================
+; SHOOTING
+; ===============================================
+
+shoot_bullet:
+    lda bullet_active
+    bne .shoot_done
+
+    lda #1
+    sta bullet_active
+    lda player_x
+    clc
+    adc #12
+    sta bullet_x
+    lda #PLAYER_Y
+    sec
+    sbc #16
+    sta bullet_y
+
+.shoot_done:
+    rts
+
+; ===============================================
+; BULLET UPDATE
+; ===============================================
+
+update_bullets:
+    lda bullet_active
+    beq .bullet_done
+
+    lda bullet_y
+    sec
+    sbc #3
+    sta bullet_y
+
+    cmp #20
+    bcs .bullet_done
+
+    lda #0
+    sta bullet_active
+
+.bullet_done:
+    rts
+
+; ===============================================
+; ENEMY UPDATE
+; ===============================================
+
+update_enemies:
+    inc enemy_counter
+    lda enemy_counter
+    cmp #6
+    bcs .do_update
+    rts
+
+.do_update:
+    lda #0
+    sta enemy_counter
+
+    ; First pass: check if any enemy needs to turn
+    lda #0
+    sta temp            ; temp = need_turn flag
+    ldx #0
+.check_loop:
+    cpx #MAX_ENEMIES
+    beq .done_checking
+
+    lda enemy_active,x
+    beq .skip_check
+
+    lda enemy_dir
+    bne .check_right_edge
+
+.check_left_edge:
+    lda enemy_x,x
+    cmp #30
+    bcs .skip_check
+    lda #1              ; Need to turn right
+    sta temp
+    jmp .done_checking
+
+.check_right_edge:
+    lda enemy_x,x
+    cmp #240
+    bcc .skip_check
+    lda #2              ; Need to turn left
+    sta temp
+    jmp .done_checking
+
+.skip_check:
+    inx
+    jmp .check_loop
+
+.done_checking:
+    ; If need to turn, change direction and move all down
+    lda temp
+    beq .move_all
+    cmp #1
+    beq .turn_all_right
+    jmp .turn_all_left
+
+.turn_all_right:
+    lda #1
+    sta enemy_dir
+    ldx #0
+.move_down_right:
+    cpx #MAX_ENEMIES
+    beq .move_all
+    lda enemy_active,x
+    beq .skip_down_right
+    lda enemy_y,x
+    clc
+    adc #10
+    sta enemy_y,x
+.skip_down_right:
+    inx
+    jmp .move_down_right
+
+.turn_all_left:
+    lda #0
+    sta enemy_dir
+    ldx #0
+.move_down_left:
+    cpx #MAX_ENEMIES
+    beq .move_all
+    lda enemy_active,x
+    beq .skip_down_left
+    lda enemy_y,x
+    clc
+    adc #10
+    sta enemy_y,x
+.skip_down_left:
+    inx
+    jmp .move_down_left
+
+.move_all:
+    ; Move all enemies in current direction
+    ldx #0
+.move_loop:
+    cpx #MAX_ENEMIES
+    beq .update_done
+
+    lda enemy_active,x
+    beq .skip_move
+
+    lda enemy_dir
+    bne .move_right
+
+.move_left:
+    lda enemy_x,x
+    sec
+    sbc #3
+    sta enemy_x,x
+    jmp .skip_move
+
+.move_right:
+    lda enemy_x,x
+    clc
+    adc #3
+    sta enemy_x,x
+
+.skip_move:
+    inx
+    jmp .move_loop
+
+.update_done:
+    rts
+
+; ===============================================
+; COLLISION DETECTION
+; ===============================================
+
+check_collisions:
+    ; Check bullet-enemy collisions
+    lda bullet_active
+    beq .check_player_enemy
+
+    ldx #0
+.bullet_enemy_loop:
+    lda enemy_active,x
+    beq .next_bullet_collision
+
+    ; Check X overlap
+    lda bullet_x
+    sec
+    sbc enemy_x,x
+    clc
+    adc #12
+    cmp #24
+    bcs .next_bullet_collision
+
+    ; Check Y overlap
+    lda bullet_y
+    sec
+    sbc enemy_y,x
+    clc
+    adc #12
+    cmp #24
+    bcs .next_bullet_collision
+
+    ; Hit!
+    lda #0
+    sta bullet_active
+    sta enemy_active,x
+
+    ; Increment score in BCD (0-99)
+    sed                 ; Set decimal mode
+    lda score
+    clc
+    adc #1
+    sta score
+    cld                 ; Clear decimal mode
+    jmp .check_player_enemy
+
+.next_bullet_collision:
+    inx
+    cpx #MAX_ENEMIES
+    bne .bullet_enemy_loop
+
+.check_player_enemy:
+    ; Check player-enemy collisions
+    ldx #0
+.player_enemy_loop:
+    lda enemy_active,x
+    beq .next_player_collision
+
+    ; Check X overlap
+    lda player_x
+    sec
+    sbc enemy_x,x
+    clc
+    adc #12
+    cmp #24
+    bcs .next_player_collision
+
+    ; Check Y overlap
+    lda player_y
+    sec
+    sbc enemy_y,x
+    clc
+    adc #12
+    cmp #24
+    bcs .next_player_collision
+
+    ; Player hit! Lose a life
+    lda #0
+    sta enemy_active,x
+
+    lda lives
+    beq .collision_done     ; Already dead, don't decrement further
+    dec lives
+    bne .collision_done
+
+    ; Lives reached 0 - game over
+    lda #1
+    sta game_over_flag
+    jmp .collision_done
+
+.next_player_collision:
+    inx
+    cpx #MAX_ENEMIES
+    bne .player_enemy_loop
+
+.collision_done:
+    rts
+
+; ===============================================
+; SCORE DISPLAY
+; ===============================================
+
+draw_score:
+    ; Draw "SCORE:"
+    ldx #0
+.text:
+    lda score_text,x
+    beq .numbers
+    sta SCREEN_RAM,x
+    inx
+    jmp .text
+
+.numbers:
+    lda score
+    and #$f0
+    lsr
+    lsr
+    lsr
+    lsr
+    clc
+    adc #48
+    sta SCREEN_RAM+7
+
+    lda score
+    and #$0f
+    clc
+    adc #48
+    sta SCREEN_RAM+8
+
+    ; Draw "LIVES:"
+    ldx #0
+.lives_text:
+    lda lives_text,x
+    beq .lives_num
+    sta SCREEN_RAM+40,x
+    inx
+    jmp .lives_text
+
+.lives_num:
+    lda lives
+    clc
+    adc #48
+    sta SCREEN_RAM+40+7
+
+    rts
+
+; ===============================================
+; WAIT FOR FRAME
+; ===============================================
+
+wait_frame:
+    lda $d012
+.wait1:
+    cmp $d012
+    beq .wait1
+    rts
+
+; Wait for IRQ to finish processing sprites
+wait_for_irq:
+.wait_loop:
+    lda spr_update_flag
+    bne .wait_loop
+    rts
+
+; ===============================================
+; SPRITE MULTIPLEXER SYSTEM
+; ===============================================
+; Professional raster interrupt-based multiplexer
+
+; Initialize the multiplexer
+init_multiplexer:
+    lda #0
+    sta sorted_sprites
+    sta spr_update_flag
+
+    ; Init order table with 0,1,2,3... order
+    ldx #MAX_SPRITES-1
+.init_order:
+    txa
+    sta sort_order,x
+    dex
+    bpl .init_order
+    rts
+
+; Initialize raster interrupt system
+init_raster:
+    sei
+    lda #<irq1
+    sta $0314
+    lda #>irq1
+    sta $0315
+    lda #$7f                ; CIA interrupt off
+    sta $dc0d
+    lda #$01                ; Raster interrupt on
+    sta $d01a
+    lda #27                 ; High bit of IRQ position = 0
+    sta $d011
+    lda #IRQ1_LINE          ; Sorting interrupt line
+    sta $d012
+    lda $dc0d               ; Acknowledge IRQ
+    cli
+    rts
+
+; IRQ1: Sorting interrupt (runs at bottom of screen)
+irq1:
+    dec $d019               ; Acknowledge raster interrupt
+
+    ; Move all sprites to bottom to prevent glitches
+    lda #$ff
+    sta $d001
+    sta $d003
+    sta $d005
+    sta $d007
+    sta $d009
+    sta $d00b
+    sta $d00d
+    sta $d00f
+
+    ; Check if new sprites need sorting
+    lda spr_update_flag
+    beq .check_display
+
+    lda #0
+    sta spr_update_flag
+    lda num_sprites
+    sta sorted_sprites
+    beq .check_display      ; If zero, check if we have sprites to display
+
+    ; Sort sprites by Y coordinate
+    jsr sort_sprites
+
+.check_display:
+    ; Always display sorted sprites each frame
+    ldx sorted_sprites
+    beq .no_sprites_at_all   ; If zero sprites, skip display
+    cpx #9
+    bcc .not_more_than_8
+    ldx #8
+.not_more_than_8:
+    lda d015_table,x
+    sta $d015
+
+    ; Set up display interrupt
+    lda #0
+    sta spr_irq_counter
+    lda #<irq2
+    sta $0314
+    lda #>irq2
+    sta $0315
+    lda #IRQ2_LINE          ; Start display interrupt
+    sta $d012
+    jmp $ea81               ; Return from IRQ
+
+.no_sprites_at_all:
+    lda #0
+    sta $d015               ; Disable all sprites
+    jmp $ea81               ; Return from IRQ
+
+; Sort sprites by Y coordinate
+sort_sprites:
+    ; Clear unused sprite Y positions
+    ldx #MAX_SPRITES
+    dex
+    cpx sorted_sprites
+    bcc sort_clear_done
+    lda #$ff
+sort_clear_loop:
+    sta spr_y,x
+    dex
+    cpx sorted_sprites
+    bcs sort_clear_loop
+
+sort_clear_done:
+    ; Insertion sort on order table
+    ldx #0
+sort_main_loop:
+    ldy sort_order+1,x
+    lda spr_y,y
+    ldy sort_order,x
+    cmp spr_y,y
+    bcs sort_skip_swap
+
+    ; Swap needed - store X for later reload
+    stx sort_temp_x
+sort_swap_loop:
+    lda sort_order+1,x
+    pha
+    lda sort_order,x
+    sta sort_order+1,x
+    pla
+    sta sort_order,x
+    cpx #0
+    beq sort_reload_x
+    dex
+    ldy sort_order+1,x
+    lda spr_y,y
+    ldy sort_order,x
+    cmp spr_y,y
+    bcc sort_swap_loop
+
+sort_reload_x:
+    ldx sort_temp_x
+sort_skip_swap:
+    inx
+    cpx #MAX_SPRITES-1
+    bcc sort_main_loop
+
+    ; Copy sorted data
+    ldx sorted_sprites
+    lda #$ff
+    sta sort_spr_y,x        ; End marker
+
+    ldx #0
+sort_copy_loop:
+    ldy sort_order,x
+    lda spr_y,y
+    sta sort_spr_y,x
+    lda spr_x,y
+    sta sort_spr_x,x
+    lda spr_f,y
+    sta sort_spr_f,x
+    lda spr_c,y
+    sta sort_spr_c,x
+    inx
+    cpx sorted_sprites
+    bcc sort_copy_loop
+    rts
+
+; IRQ2: Display interrupt (runs multiple times per frame)
+irq2:
+    dec $d019               ; Acknowledge raster interrupt
+
+irq2_direct:
+    ldy spr_irq_counter     ; Get sprite index
+    lda sort_spr_y,y        ; Get Y of first sprite to display
+    clc
+    adc #$10                ; 16 lines down is endpoint
+    bcc irq2_not_over
+    lda #$ff                ; Cap at $ff
+irq2_not_over:
+    sta temp_var
+
+    ; Display sprites until we reach endpoint
+irq2_sprite_loop:
+    lda sort_spr_y,y
+    cmp temp_var
+    bcs irq2_end_sprites
+
+    ; Set sprite position
+    ldx phys_spr_tbl_2,y    ; Physical sprite * 2
+    sta $d001,x             ; Set Y
+    lda sort_spr_x,y
+    sta $d000,x             ; Set X
+
+    ; Set sprite pointer and color
+    ldx phys_spr_tbl_1,y    ; Physical sprite * 1
+    lda sort_spr_f,y
+    sta SPRITE_PTR,x
+    lda sort_spr_c,y
+    sta SPRITE_COLORS,x
+
+    iny
+    bne irq2_sprite_loop
+
+irq2_end_sprites:
+    cmp #$ff                ; Was it the end marker?
+    beq irq2_last_sprite
+
+    ; More sprites to come, set up next interrupt
+    sty spr_irq_counter
+    sec
+    sbc #$10
+    cmp $d012
+    bcc irq2_direct         ; Already late? Go direct
+    sta $d012
+    jmp $ea81
+
+irq2_last_sprite:
+    ; Last sprite displayed, return to sorting IRQ
+    lda #<irq1
+    sta $0314
+    lda #>irq1
+    sta $0315
+    lda #IRQ1_LINE
+    sta $d012
+    jmp $ea81
+
+
+; ===============================================
+; DATA SECTION
+; ===============================================
+
+player_x:              !byte 0
+player_y:              !byte 0
+joystick_state:        !byte 0
+fire_pressed:          !byte 0
+sprite_cycle:          !byte 0
+temp:                  !byte 0
+enemy_display_offset:  !byte 0
+
+enemy_x:        !fill MAX_ENEMIES, 0
+enemy_y:        !fill MAX_ENEMIES, 0
+enemy_active:   !fill MAX_ENEMIES, 0
+enemy_dir:      !byte 1
+enemy_counter:  !byte 0
+
+bullet_x:       !byte 0
+bullet_y:       !byte 0
+bullet_active:  !byte 0
+
+score:          !byte 0, 0
+lives:          !byte 3
+game_over_flag: !byte 0
+
+; 24 enemies in 4 rows of 6 - 26 pixel spacing horizontal, 30 pixel spacing vertical
+; All enemies in same row at exact same Y coordinate
+; Vertical spacing ensures no overlap between rows (sprites are 21 pixels tall)
+enemy_start_x:  !byte 50, 76, 102, 128, 154, 180, 50, 76, 102, 128, 154, 180
+                !byte 50, 76, 102, 128, 154, 180, 50, 76, 102, 128, 154, 180
+enemy_start_y:  !byte 50, 50, 50, 50, 50, 50, 80, 80, 80, 80, 80, 80
+                !byte 110, 110, 110, 110, 110, 110, 140, 140, 140, 140, 140, 140
+
+score_text:     !scr "score:", 0
+lives_text:     !scr "lives:", 0
+
+; ===============================================
+; MULTIPLEXER DATA TABLES
+; ===============================================
+
+; Multiplexer control variables
+num_sprites:        !byte 0
+spr_update_flag:    !byte 0
+sorted_sprites:     !byte 0
+spr_irq_counter:    !byte 0
+temp_var:           !byte 0
+sort_temp_x:        !byte 0
+
+; Virtual sprite tables (unsorted)
+spr_x:              !fill MAX_SPRITES, 0
+spr_y:              !fill MAX_SPRITES, 0
+spr_f:              !fill MAX_SPRITES, 0    ; Frame/pointer
+spr_c:              !fill MAX_SPRITES, 0    ; Color
+
+; Sort order table
+sort_order:         !fill MAX_SPRITES, 0
+
+; Sorted sprite tables
+sort_spr_x:         !fill MAX_SPRITES, 0
+sort_spr_y:         !fill MAX_SPRITES+1, 0  ; +1 for $ff end marker
+sort_spr_f:         !fill MAX_SPRITES, 0
+sort_spr_c:         !fill MAX_SPRITES, 0
+
+; Sprite enable table for $d015
+d015_table:         !byte %00000000
+                    !byte %00000001
+                    !byte %00000011
+                    !byte %00000111
+                    !byte %00001111
+                    !byte %00011111
+                    !byte %00111111
+                    !byte %01111111
+                    !byte %11111111
+
+; Physical sprite mapping tables
+phys_spr_tbl_1:     !byte 0,1,2,3,4,5,6,7
+                    !byte 0,1,2,3,4,5,6,7
+                    !byte 0,1,2,3,4,5,6,7
+                    !byte 0,1,2,3,4,5,6,7
+
+phys_spr_tbl_2:     !byte 0,2,4,6,8,10,12,14
+                    !byte 0,2,4,6,8,10,12,14
+                    !byte 0,2,4,6,8,10,12,14
+                    !byte 0,2,4,6,8,10,12,14
+
+; ===============================================
+; SPRITE DATA
+; ===============================================
+
+player_sprite:
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %01000000, %00000000
+    !byte %00000000, %11100000, %00000000
+    !byte %00000001, %11110000, %00000000
+    !byte %00000001, %11110000, %00000000
+    !byte %00000011, %11111000, %00000000
+    !byte %00000011, %11111000, %00000000
+    !byte %00000111, %11111100, %00000000
+    !byte %00000111, %11111100, %00000000
+    !byte %00001111, %11111110, %00000000
+    !byte %00001111, %11111110, %00000000
+    !byte %00011111, %11111111, %00000000
+    !byte %00111111, %11111111, %10000000
+    !byte %01111111, %11111111, %11000000
+    !byte %01111111, %11111111, %11000000
+    !byte %01110000, %00000000, %11000000
+    !byte %01100000, %00000000, %01100000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000                         ; Padding byte to make 64 bytes
+
+enemy_sprite:
+    !byte %00000000, %00000000, %00000000
+    !byte %00000001, %11111000, %00000000
+    !byte %00000011, %11111100, %00000000
+    !byte %00000111, %11111110, %00000000
+    !byte %00001111, %01101111, %00000000
+    !byte %00001111, %11111111, %00000000
+    !byte %00000111, %11111110, %00000000
+    !byte %00000011, %11111100, %00000000
+    !byte %00000111, %11111110, %00000000
+    !byte %00001111, %11111111, %00000000
+    !byte %00011111, %11111111, %10000000
+    !byte %00011100, %00000001, %11000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000                         ; Padding byte to make 64 bytes
+
+bullet_sprite:
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %10000000, %00000000
+    !byte %00000001, %11000000, %00000000
+    !byte %00000011, %11100000, %00000000
+    !byte %00000011, %11100000, %00000000
+    !byte %00000001, %11000000, %00000000
+    !byte %00000000, %10000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000                         ; Padding byte to make 64 bytes

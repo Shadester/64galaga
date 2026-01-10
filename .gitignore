@@ -1,0 +1,7 @@
+# Build output
+build/
+
+# Emulator temporary files
+*.d64
+*.prg
+*.log
