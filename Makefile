@@ -43,7 +43,7 @@ run: $(TARGET)
 	@echo "  D = Right"
 	@echo "  Space = Fire"
 	@echo ""
-	$(EMU) $(EMUFLAGS) -config .vice/vicerc -autostart $(TARGET)
+	$(EMU) $(EMUFLAGS) -autostart $(TARGET)
 
 # Clean build artifacts
 clean:

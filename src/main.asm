@@ -26,11 +26,31 @@ COLOR_RAM       = $d800
 ; CIA Registers
 CIA1_PRA        = $dc00      ; Joystick port 2
 
+; SID Registers (Sound Interface Device)
+SID_V1_FREQ_LO  = $d400      ; Voice 1 frequency low byte
+SID_V1_FREQ_HI  = $d401      ; Voice 1 frequency high byte
+SID_V1_PW_LO    = $d402      ; Voice 1 pulse width low
+SID_V1_PW_HI    = $d403      ; Voice 1 pulse width high
+SID_V1_CTRL     = $d404      ; Voice 1 control register
+SID_V1_AD       = $d405      ; Voice 1 attack/decay
+SID_V1_SR       = $d406      ; Voice 1 sustain/release
+
+SID_V2_FREQ_LO  = $d407      ; Voice 2 frequency low byte
+SID_V2_FREQ_HI  = $d408      ; Voice 2 frequency high byte
+SID_V2_CTRL     = $d40b      ; Voice 2 control register
+SID_V2_AD       = $d40c      ; Voice 2 attack/decay
+SID_V2_SR       = $d40d      ; Voice 2 sustain/release
+
+SID_FILTER_FC_LO = $d415     ; Filter cutoff low
+SID_FILTER_FC_HI = $d416     ; Filter cutoff high
+SID_FILTER_RES   = $d417     ; Filter resonance/routing
+SID_FILTER_MODE  = $d418     ; Filter mode/volume
+
 ; Game Constants
 MAX_ENEMIES     = 24            ; More enemies for epic battles!
 MAX_BULLETS     = 1
 MAX_SPRITES     = 26            ; Player + Enemies + Bullet
-PLAYER_Y        = 220
+PLAYER_Y        = 230
 SCREEN_LEFT     = 24
 SCREEN_RIGHT    = 250
 
@@ -53,6 +73,7 @@ init:
     jsr clear_screen
     jsr setup_colors
     jsr init_sprites
+    jsr init_sound
     jsr init_game_state
     jsr init_multiplexer
     jsr init_raster
@@ -69,16 +90,39 @@ game_loop:
     jsr update_bullets
     jsr update_enemies
     jsr check_collisions
+    jsr check_level_complete    ; Check if all enemies defeated
     jsr update_sprite_data      ; Update sprites for IRQ multiplexer
     jsr wait_for_irq            ; CRITICAL: Wait for IRQ to finish!
     jsr draw_score
     jmp game_loop
 
 game_over_loop:
-    ; Game over - just display the screen, no updates
+    ; Display GAME OVER message
+    jsr draw_game_over
     jsr wait_frame
     jsr draw_score
+
+    ; Check for fire button to restart
+    jsr read_joystick
+    lda joystick_state
+    and #$10
+    beq .restart_game       ; Fire button pressed (bit is 0)
+
     jmp game_over_loop
+
+.restart_game:
+    ; Clear GAME OVER message
+    ldx #0
+    lda #$20            ; Space character
+.clear_msg:
+    sta SCREEN_RAM+11*40+15,x
+    inx
+    cpx #9              ; "GAME OVER" is 9 characters
+    bne .clear_msg
+
+    ; Reset game state and restart
+    jsr init_game_state
+    jmp game_loop
 
 ; ===============================================
 ; SCREEN & COLOR SETUP
@@ -204,6 +248,10 @@ init_game_state:
     ; Lives
     lda #3
     sta lives
+
+    ; Level
+    lda #1
+    sta level
 
     ; Direction
     lda #1
@@ -351,6 +399,8 @@ shoot_bullet:
     sbc #16
     sta bullet_y
 
+    jsr sound_shoot         ; Play shoot sound
+
 .shoot_done:
     rts
 
@@ -383,14 +433,33 @@ update_bullets:
 update_enemies:
     inc enemy_counter
     lda enemy_counter
-    cmp #6
-    bcs .do_update
-    rts
+
+    ; Calculate speed threshold based on level: 10 - level (minimum 3)
+    ; Save counter for comparison
+    sta temp+1
+
+    lda level
+    cmp #8              ; Cap at level 8 for max speed
+    bcc .calc_speed
+    lda #8
+.calc_speed:
+    sta temp
+    lda #10
+    sec
+    sbc temp            ; A = 10 - level (speed threshold)
+
+    ; Compare threshold with counter
+    ; We want to update when counter >= threshold
+    cmp temp+1
+    bcc .do_update      ; If threshold < counter, do update
+    beq .do_update      ; If threshold = counter, do update
+    rts                  ; Otherwise threshold > counter, don't update
 
 .do_update:
     lda #0
     sta enemy_counter
 
+.continue_update:
     ; First pass: check if any enemy needs to turn
     lda #0
     sta temp            ; temp = need_turn flag
@@ -407,7 +476,7 @@ update_enemies:
 
 .check_left_edge:
     lda enemy_x,x
-    cmp #30
+    cmp #40
     bcs .skip_check
     lda #1              ; Need to turn right
     sta temp
@@ -415,7 +484,7 @@ update_enemies:
 
 .check_right_edge:
     lda enemy_x,x
-    cmp #240
+    cmp #250
     bcc .skip_check
     lda #2              ; Need to turn left
     sta temp
@@ -537,6 +606,8 @@ check_collisions:
     sta bullet_active
     sta enemy_active,x
 
+    jsr sound_explosion     ; Play explosion sound
+
     ; Increment score in BCD (0-99)
     sed                 ; Set decimal mode
     lda score
@@ -583,12 +654,15 @@ check_collisions:
     lda lives
     beq .collision_done     ; Already dead, don't decrement further
     dec lives
-    bne .collision_done
+
+    jsr sound_player_hit    ; Play player hit sound
+
+    lda lives               ; Check if lives is now 0
+    bne .collision_done     ; If not 0, continue game
 
     ; Lives reached 0 - game over
     lda #1
     sta game_over_flag
-    jmp .collision_done
 
 .next_player_collision:
     inx
@@ -596,6 +670,56 @@ check_collisions:
     bne .player_enemy_loop
 
 .collision_done:
+    rts
+
+; ===============================================
+; LEVEL PROGRESSION
+; ===============================================
+
+; Check if all enemies are defeated
+check_level_complete:
+    ldx #0
+.clc_loop:
+    lda enemy_active,x
+    bne .clc_enemies_remain     ; If any enemy is active, level not complete
+    inx
+    cpx #MAX_ENEMIES
+    bne .clc_loop
+
+    ; All enemies defeated! Start next level
+    jsr next_level
+    rts
+
+.clc_enemies_remain:
+    rts
+
+; Start next level
+next_level:
+    ; Increment level
+    inc level
+
+    ; Reset all enemies to starting positions
+    ldx #0
+.nl_reset_loop:
+    lda enemy_start_x,x
+    sta enemy_x,x
+    lda enemy_start_y,x
+    sta enemy_y,x
+    lda #1
+    sta enemy_active,x
+    inx
+    cpx #MAX_ENEMIES
+    bne .nl_reset_loop
+
+    ; Reset enemy direction and counter
+    lda #1
+    sta enemy_dir
+    lda #0
+    sta enemy_counter
+
+    ; Clear any active bullet
+    sta bullet_active
+
     rts
 
 ; ===============================================
@@ -644,6 +768,134 @@ draw_score:
     adc #48
     sta SCREEN_RAM+40+7
 
+    ; Draw "LEVEL:"
+    ldx #0
+.level_text:
+    lda level_text,x
+    beq .level_num
+    sta SCREEN_RAM+80,x
+    inx
+    jmp .level_text
+
+.level_num:
+    lda level
+    clc
+    adc #48
+    sta SCREEN_RAM+80+7
+
+    rts
+
+; Draw GAME OVER message
+draw_game_over:
+    ; Display "GAME OVER" in center of screen
+    ldx #0
+.dgo_text:
+    lda game_over_text,x
+    beq .dgo_done
+    sta SCREEN_RAM+11*40+15,x   ; Row 11, column 15
+    inx
+    jmp .dgo_text
+.dgo_done:
+    rts
+
+; ===============================================
+; SOUND EFFECTS
+; ===============================================
+
+; Initialize SID chip
+init_sound:
+    ; Clear all SID registers first
+    ldx #$18
+    lda #0
+.clear_loop:
+    sta $d400,x
+    dex
+    bpl .clear_loop
+
+    ; Set master volume to max (15) in lower nibble
+    lda #$0f
+    sta SID_FILTER_MODE
+
+    ; Initialize Voice 1 and 2 with basic settings
+    lda #$00
+    sta SID_V1_AD
+    sta SID_V1_SR
+    sta SID_V2_AD
+    sta SID_V2_SR
+
+    rts
+
+; Shoot sound effect - quick high beep
+sound_shoot:
+    ; Set frequency - higher for shoot sound
+    lda #$50
+    sta SID_V1_FREQ_HI
+    lda #$00
+    sta SID_V1_FREQ_LO
+
+    ; Set envelope - instant attack, quick decay
+    lda #$07                ; Attack=0, Decay=7
+    sta SID_V1_AD
+    lda #$00                ; Sustain=0, Release=0
+    sta SID_V1_SR
+
+    ; Trigger: close gate then open with triangle wave
+    lda #$10                ; Triangle wave, gate off
+    sta SID_V1_CTRL
+    lda #$11                ; Triangle wave, gate on
+    sta SID_V1_CTRL
+    rts
+
+; Explosion sound effect - noise burst
+sound_explosion:
+    ; Set frequency - mid-range for explosion
+    lda #$20
+    sta SID_V2_FREQ_HI
+    lda #$00
+    sta SID_V2_FREQ_LO
+
+    ; Set envelope - instant attack, longer decay
+    lda #$0A                ; Attack=0, Decay=A
+    sta SID_V2_AD
+    lda #$00                ; Sustain=0, Release=0
+    sta SID_V2_SR
+
+    ; Trigger: close gate then open with noise wave
+    lda #$80                ; Noise wave, gate off
+    sta SID_V2_CTRL
+    lda #$81                ; Noise wave, gate on
+    sta SID_V2_CTRL
+    rts
+
+; Player hit sound effect - lower descending tone
+sound_player_hit:
+    ; Set frequency - lower for damage
+    lda #$18
+    sta SID_V1_FREQ_HI
+    lda #$00
+    sta SID_V1_FREQ_LO
+
+    ; Set envelope - instant attack, medium decay
+    lda #$09                ; Attack=0, Decay=9
+    sta SID_V1_AD
+    lda #$00                ; Sustain=0, Release=0
+    sta SID_V1_SR
+
+    ; Trigger: close gate then open with sawtooth wave
+    lda #$20                ; Sawtooth wave, gate off
+    sta SID_V1_CTRL
+    lda #$21                ; Sawtooth wave, gate on
+    sta SID_V1_CTRL
+
+    ; Wait for sound to play
+    ldx #$30
+.delay_hit:
+    dex
+    bne .delay_hit
+
+    ; Turn off the gate
+    lda #$20
+    sta SID_V1_CTRL
     rts
 
 ; ===============================================
@@ -913,17 +1165,21 @@ bullet_active:  !byte 0
 score:          !byte 0, 0
 lives:          !byte 3
 game_over_flag: !byte 0
+level:          !byte 1
 
 ; 24 enemies in 4 rows of 6 - 26 pixel spacing horizontal, 30 pixel spacing vertical
 ; All enemies in same row at exact same Y coordinate
 ; Vertical spacing ensures no overlap between rows (sprites are 21 pixels tall)
-enemy_start_x:  !byte 50, 76, 102, 128, 154, 180, 50, 76, 102, 128, 154, 180
-                !byte 50, 76, 102, 128, 154, 180, 50, 76, 102, 128, 154, 180
+; Centered on screen: starting X = 80, formation center = 145
+enemy_start_x:  !byte 80, 106, 132, 158, 184, 210, 80, 106, 132, 158, 184, 210
+                !byte 80, 106, 132, 158, 184, 210, 80, 106, 132, 158, 184, 210
 enemy_start_y:  !byte 50, 50, 50, 50, 50, 50, 80, 80, 80, 80, 80, 80
                 !byte 110, 110, 110, 110, 110, 110, 140, 140, 140, 140, 140, 140
 
 score_text:     !scr "score:", 0
 lives_text:     !scr "lives:", 0
+level_text:     !scr "level:", 0
+game_over_text: !scr "game over", 0
 
 ; ===============================================
 ; MULTIPLEXER DATA TABLES
