@@ -229,6 +229,8 @@ init_game_state:
 .init_loop:
     lda enemy_start_x,x
     sta enemy_x,x
+    lda #0
+    sta enemy_x_msb,x       ; Initialize MSB to 0
     lda enemy_start_y,x
     sta enemy_y,x
     lda #1
@@ -272,6 +274,8 @@ update_sprite_data:
     ; Add player sprite (always sprite 0)
     lda player_x
     sta spr_x
+    lda #0
+    sta spr_x_msb           ; Player always at X < 256
     lda player_y
     sta spr_y
     lda #$C0               ; Player sprite pointer ($3000)
@@ -293,6 +297,8 @@ update_sprite_data:
     ldy num_sprites
     lda enemy_x,x
     sta spr_x,y
+    lda enemy_x_msb,x
+    sta spr_x_msb,y         ; Copy MSB
     lda enemy_y,x
     sta spr_y,y
     lda #$C1               ; Enemy sprite pointer ($3040)
@@ -313,6 +319,8 @@ update_sprite_data:
     ldy num_sprites
     lda bullet_x
     sta spr_x,y
+    lda #0
+    sta spr_x_msb,y         ; Bullet always at X < 256
     lda bullet_y
     sta spr_y,y
     lda #$C2               ; Bullet sprite pointer ($3080)
@@ -475,18 +483,24 @@ update_enemies:
     bne .check_right_edge
 
 .check_left_edge:
+    ; Check if X < 80: MSB must be 0 AND LSB < 80
+    lda enemy_x_msb,x
+    bne .skip_check     ; If MSB >= 1, then X >= 256 > 80
     lda enemy_x,x
-    cmp #40
+    cmp #80
     bcs .skip_check
-    lda #1              ; Need to turn right
+    lda #1              ; X < 80, turn right
     sta temp
     jmp .done_checking
 
 .check_right_edge:
+    ; Check if X >= 290: MSB must be 1 AND LSB >= 34
+    lda enemy_x_msb,x
+    beq .skip_check     ; If MSB = 0, then X < 256 < 290
     lda enemy_x,x
-    cmp #250
+    cmp #34             ; 290 - 256 = 34
     bcc .skip_check
-    lda #2              ; Need to turn left
+    lda #2              ; X >= 290, turn left
     sta temp
     jmp .done_checking
 
@@ -554,6 +568,11 @@ update_enemies:
     sec
     sbc #3
     sta enemy_x,x
+    bcs .skip_move      ; No underflow
+    ; Underflow: decrement MSB
+    lda enemy_x_msb,x
+    beq .skip_move      ; Already 0, can't go lower
+    dec enemy_x_msb,x
     jmp .skip_move
 
 .move_right:
@@ -561,6 +580,9 @@ update_enemies:
     clc
     adc #3
     sta enemy_x,x
+    bcc .skip_move      ; No overflow
+    ; Overflow: increment MSB
+    inc enemy_x_msb,x
 
 .skip_move:
     inx
@@ -703,6 +725,8 @@ next_level:
 .nl_reset_loop:
     lda enemy_start_x,x
     sta enemy_x,x
+    lda #0
+    sta enemy_x_msb,x       ; Reset MSB to 0
     lda enemy_start_y,x
     sta enemy_y,x
     lda #1
@@ -1071,6 +1095,8 @@ sort_copy_loop:
     sta sort_spr_y,x
     lda spr_x,y
     sta sort_spr_x,x
+    lda spr_x_msb,y
+    sta sort_spr_x_msb,x    ; Copy MSB
     lda spr_f,y
     sta sort_spr_f,x
     lda spr_c,y
@@ -1104,7 +1130,25 @@ irq2_sprite_loop:
     ldx phys_spr_tbl_2,y    ; Physical sprite * 2
     sta $d001,x             ; Set Y
     lda sort_spr_x,y
-    sta $d000,x             ; Set X
+    sta $d000,x             ; Set X LSB
+
+    ; Handle X MSB for this sprite
+    lda sort_spr_x_msb,y
+    beq .msb_clear
+    ; Set MSB bit for this sprite
+    ldx phys_spr_tbl_1,y    ; Physical sprite number
+    lda d015_msb_tbl,x      ; Get bit mask for this sprite
+    ora $d010               ; Set the bit
+    sta $d010
+    jmp .msb_done
+.msb_clear:
+    ; Clear MSB bit for this sprite
+    ldx phys_spr_tbl_1,y
+    lda d015_msb_tbl,x
+    eor #$ff                ; Invert mask
+    and $d010               ; Clear the bit
+    sta $d010
+.msb_done:
 
     ; Set sprite pointer and color
     ldx phys_spr_tbl_1,y    ; Physical sprite * 1
@@ -1153,6 +1197,7 @@ temp:                  !byte 0
 enemy_display_offset:  !byte 0
 
 enemy_x:        !fill MAX_ENEMIES, 0
+enemy_x_msb:    !fill MAX_ENEMIES, 0    ; 9th bit for X coordinates (0 or 1)
 enemy_y:        !fill MAX_ENEMIES, 0
 enemy_active:   !fill MAX_ENEMIES, 0
 enemy_dir:      !byte 1
@@ -1170,9 +1215,9 @@ level:          !byte 1
 ; 24 enemies in 4 rows of 6 - 26 pixel spacing horizontal, 30 pixel spacing vertical
 ; All enemies in same row at exact same Y coordinate
 ; Vertical spacing ensures no overlap between rows (sprites are 21 pixels tall)
-; Centered on screen: starting X = 80, formation center = 145
-enemy_start_x:  !byte 80, 106, 132, 158, 184, 210, 80, 106, 132, 158, 184, 210
-                !byte 80, 106, 132, 158, 184, 210, 80, 106, 132, 158, 184, 210
+; Properly centered at X=184: formation spans 119-249, moves 80-290
+enemy_start_x:  !byte 119, 145, 171, 197, 223, 249, 119, 145, 171, 197, 223, 249
+                !byte 119, 145, 171, 197, 223, 249, 119, 145, 171, 197, 223, 249
 enemy_start_y:  !byte 50, 50, 50, 50, 50, 50, 80, 80, 80, 80, 80, 80
                 !byte 110, 110, 110, 110, 110, 110, 140, 140, 140, 140, 140, 140
 
@@ -1195,6 +1240,7 @@ sort_temp_x:        !byte 0
 
 ; Virtual sprite tables (unsorted)
 spr_x:              !fill MAX_SPRITES, 0
+spr_x_msb:          !fill MAX_SPRITES, 0    ; MSB for X coordinates
 spr_y:              !fill MAX_SPRITES, 0
 spr_f:              !fill MAX_SPRITES, 0    ; Frame/pointer
 spr_c:              !fill MAX_SPRITES, 0    ; Color
@@ -1204,6 +1250,7 @@ sort_order:         !fill MAX_SPRITES, 0
 
 ; Sorted sprite tables
 sort_spr_x:         !fill MAX_SPRITES, 0
+sort_spr_x_msb:     !fill MAX_SPRITES, 0    ; MSB for sorted X
 sort_spr_y:         !fill MAX_SPRITES+1, 0  ; +1 for $ff end marker
 sort_spr_f:         !fill MAX_SPRITES, 0
 sort_spr_c:         !fill MAX_SPRITES, 0
@@ -1218,6 +1265,16 @@ d015_table:         !byte %00000000
                     !byte %00111111
                     !byte %01111111
                     !byte %11111111
+
+; MSB bit masks for $d010 (one bit per sprite)
+d015_msb_tbl:       !byte %00000001  ; Sprite 0
+                    !byte %00000010  ; Sprite 1
+                    !byte %00000100  ; Sprite 2
+                    !byte %00001000  ; Sprite 3
+                    !byte %00010000  ; Sprite 4
+                    !byte %00100000  ; Sprite 5
+                    !byte %01000000  ; Sprite 6
+                    !byte %10000000  ; Sprite 7
 
 ; Physical sprite mapping tables
 phys_spr_tbl_1:     !byte 0,1,2,3,4,5,6,7
