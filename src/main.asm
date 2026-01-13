@@ -15,7 +15,9 @@
 SPRITE_ENABLE   = $d015
 SPRITE_X        = $d000
 SPRITE_Y        = $d001
-SPRITE_MCOLOR   = $d025
+SPRITE_MCOLOR_EN = $d01c        ; Sprite multicolor enable
+SPRITE_MCOLOR1  = $d025         ; Shared multicolor 1
+SPRITE_MCOLOR2  = $d026         ; Shared multicolor 2
 SPRITE_COLORS   = $d027
 SPRITE_PTR      = $07f8
 BORDER_COLOR    = $d020
@@ -211,6 +213,16 @@ init_sprites:
     lda #14
     sta SPRITE_COLORS+7  ; Bullet light blue
 
+    ; Enable multicolor mode for all sprites
+    lda #$ff
+    sta SPRITE_MCOLOR_EN ; All sprites in multicolor mode
+
+    ; Set shared multicolor registers
+    lda #7               ; Yellow (shared color 1)
+    sta SPRITE_MCOLOR1
+    lda #3               ; Cyan (shared color 2)
+    sta SPRITE_MCOLOR2
+
     rts
 
 ; ===============================================
@@ -319,8 +331,8 @@ update_sprite_data:
     ldy num_sprites
     lda bullet_x
     sta spr_x,y
-    lda #0
-    sta spr_x_msb,y         ; Bullet always at X < 256
+    lda bullet_x_msb
+    sta spr_x_msb,y         ; Copy bullet MSB
     lda bullet_y
     sta spr_y,y
     lda #$C2               ; Bullet sprite pointer ($3080)
@@ -402,6 +414,11 @@ shoot_bullet:
     clc
     adc #12
     sta bullet_x
+    ; Check for overflow - if carry set, bullet X wrapped past 255
+    lda #0
+    adc #0              ; Add carry to accumulator (0 + carry)
+    sta bullet_x_msb    ; Store MSB (0 or 1)
+
     lda #PLAYER_Y
     sec
     sbc #16
@@ -811,6 +828,10 @@ draw_score:
 
 ; Draw GAME OVER message
 draw_game_over:
+    ; Hide all sprites so they don't cover the text
+    lda #0
+    sta SPRITE_ENABLE       ; Disable all sprites
+
     ; Display "GAME OVER" in center of screen
     ldx #0
 .dgo_text:
@@ -1008,6 +1029,10 @@ irq1:
     jsr sort_sprites
 
 .check_display:
+    ; Check if game is over - if so, don't enable sprites
+    lda game_over_flag
+    bne .no_sprites_at_all
+
     ; Always display sorted sprites each frame
     ldx sorted_sprites
     beq .no_sprites_at_all   ; If zero sprites, skip display
@@ -1204,6 +1229,7 @@ enemy_dir:      !byte 1
 enemy_counter:  !byte 0
 
 bullet_x:       !byte 0
+bullet_x_msb:   !byte 0
 bullet_y:       !byte 0
 bullet_active:  !byte 0
 
@@ -1292,23 +1318,25 @@ phys_spr_tbl_2:     !byte 0,2,4,6,8,10,12,14
 ; ===============================================
 
 player_sprite:
+    ; Multicolor player ship - simple symmetrical triangle design
+    ; 00=transparent, 01=yellow, 10=white, 11=cyan
     !byte %00000000, %00000000, %00000000
-    !byte %00000000, %01000000, %00000000
-    !byte %00000000, %11100000, %00000000
-    !byte %00000001, %11110000, %00000000
-    !byte %00000001, %11110000, %00000000
-    !byte %00000011, %11111000, %00000000
-    !byte %00000011, %11111000, %00000000
-    !byte %00000111, %11111100, %00000000
-    !byte %00000111, %11111100, %00000000
-    !byte %00001111, %11111110, %00000000
-    !byte %00001111, %11111110, %00000000
-    !byte %00011111, %11111111, %00000000
-    !byte %00111111, %11111111, %10000000
-    !byte %01111111, %11111111, %11000000
-    !byte %01111111, %11111111, %11000000
-    !byte %01110000, %00000000, %11000000
-    !byte %01100000, %00000000, %01100000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00100000, %00000000   ; T T T T T T W T T T T T
+    !byte %00000000, %10101000, %00000000   ; T T T T W W W W T T T T
+    !byte %00000000, %10101000, %00000000   ; T T T T W W W W T T T T
+    !byte %00001010, %10101010, %10000000   ; T T W W W W W W W W T T
+    !byte %00001010, %10101010, %10000000   ; T T W W W W W W W W T T
+    !byte %00101010, %10101010, %10100000   ; T W W W W W W W W W W T
+    !byte %10101010, %10101010, %10101000   ; W W W W W W W W W W W W
+    !byte %10100000, %00000000, %00101000   ; W W T T T T T T T T W W
+    !byte %00100000, %00000000, %00100000   ; T W T T T T T T T T W T
+    !byte %00000001, %00000001, %00000000   ; T T T Y T T T Y T T T T
+    !byte %00000001, %00000001, %00000000   ; T T T Y T T T Y T T T T
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
     !byte %00000000, %00000000, %00000000
     !byte %00000000, %00000000, %00000000
     !byte %00000000, %00000000, %00000000
@@ -1316,21 +1344,23 @@ player_sprite:
     !byte %00000000                         ; Padding byte to make 64 bytes
 
 enemy_sprite:
+    ; Multicolor enemy - classic Galaga-style alien
+    ; 00=transparent, 01=yellow, 10=red, 11=cyan
     !byte %00000000, %00000000, %00000000
-    !byte %00000001, %11111000, %00000000
-    !byte %00000011, %11111100, %00000000
-    !byte %00000111, %11111110, %00000000
-    !byte %00001111, %01101111, %00000000
-    !byte %00001111, %11111111, %00000000
-    !byte %00000111, %11111110, %00000000
-    !byte %00000011, %11111100, %00000000
-    !byte %00000111, %11111110, %00000000
-    !byte %00001111, %11111111, %00000000
-    !byte %00011111, %11111111, %10000000
-    !byte %00011100, %00000001, %11000000
-    !byte %00000000, %00000000, %00000000
-    !byte %00000000, %00000000, %00000000
-    !byte %00000000, %00000000, %00000000
+    !byte %00000001, %01010000, %00000000   ; Antennae (yellow)
+    !byte %00000010, %10101000, %00000000   ; Head
+    !byte %00001010, %10101010, %00000000
+    !byte %00001001, %01001010, %00000000   ; Eyes (yellow)
+    !byte %00001010, %10101010, %00000000
+    !byte %00101010, %10101010, %10000000   ; Body
+    !byte %00101010, %10101010, %10000000
+    !byte %10101111, %11111110, %10100000   ; Wing band (cyan)
+    !byte %10101010, %10101010, %10100000
+    !byte %00101010, %10101010, %10000000
+    !byte %00001010, %10101010, %00000000
+    !byte %00000010, %10101000, %00000000   ; Lower body
+    !byte %00000001, %01010000, %00000000   ; Legs (yellow)
+    !byte %00000001, %01010000, %00000000
     !byte %00000000, %00000000, %00000000
     !byte %00000000, %00000000, %00000000
     !byte %00000000, %00000000, %00000000
@@ -1340,15 +1370,17 @@ enemy_sprite:
     !byte %00000000                         ; Padding byte to make 64 bytes
 
 bullet_sprite:
+    ; Multicolor bullet - simple energy projectile
+    ; 00=transparent, 01=yellow, 10=light blue, 11=cyan
     !byte %00000000, %00000000, %00000000
     !byte %00000000, %00000000, %00000000
+    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %10000000, %00000000   ; Tip
     !byte %00000000, %10000000, %00000000
-    !byte %00000001, %11000000, %00000000
-    !byte %00000011, %11100000, %00000000
-    !byte %00000011, %11100000, %00000000
-    !byte %00000001, %11000000, %00000000
+    !byte %00000000, %11000000, %00000000   ; Bright center (cyan)
+    !byte %00000000, %11000000, %00000000
     !byte %00000000, %10000000, %00000000
-    !byte %00000000, %00000000, %00000000
+    !byte %00000000, %10000000, %00000000
     !byte %00000000, %00000000, %00000000
     !byte %00000000, %00000000, %00000000
     !byte %00000000, %00000000, %00000000
