@@ -412,7 +412,7 @@ shoot_bullet:
     sta bullet_active
     lda player_x
     clc
-    adc #12
+    adc #2
     sta bullet_x
     ; Check for overflow - if carry set, bullet X wrapped past 255
     lda #0
@@ -622,13 +622,10 @@ check_collisions:
     lda enemy_active,x
     beq .next_bullet_collision
 
-    ; Check X overlap
+    ; Check X overlap (9-bit)
     lda bullet_x
-    sec
-    sbc enemy_x,x
-    clc
-    adc #12
-    cmp #24
+    ldy bullet_x_msb
+    jsr x_overlap
     bcs .next_bullet_collision
 
     ; Check Y overlap
@@ -668,13 +665,10 @@ check_collisions:
     lda enemy_active,x
     beq .next_player_collision
 
-    ; Check X overlap
+    ; Check X overlap (9-bit, player always below 256)
     lda player_x
-    sec
-    sbc enemy_x,x
-    clc
-    adc #12
-    cmp #24
+    ldy #0
+    jsr x_overlap
     bcs .next_player_collision
 
     ; Check Y overlap
@@ -709,6 +703,30 @@ check_collisions:
     bne .player_enemy_loop
 
 .collision_done:
+    rts
+
+; X overlap test against enemy X
+; In: A = object X low, Y = object X msb, X = enemy index
+; Out: carry set = no overlap (|dx| >= 12)
+x_overlap:
+    sec
+    sbc enemy_x,x
+    sta col_lo
+    tya
+    sbc enemy_x_msb,x
+    tay                     ; Y = dx high byte
+    lda col_lo
+    clc
+    adc #12
+    sta col_lo
+    tya
+    adc #0                  ; high byte must be 0 after +12
+    bne .xo_miss
+    lda col_lo
+    cmp #24
+    rts
+.xo_miss:
+    sec
     rts
 
 ; ===============================================
@@ -931,16 +949,6 @@ sound_player_hit:
     sta SID_V1_CTRL
     lda #$21                ; Sawtooth wave, gate on
     sta SID_V1_CTRL
-
-    ; Wait for sound to play
-    ldx #$30
-.delay_hit:
-    dex
-    bne .delay_hit
-
-    ; Turn off the gate
-    lda #$20
-    sta SID_V1_CTRL
     rts
 
 ; ===============================================
@@ -1002,6 +1010,7 @@ init_raster:
 
 ; IRQ1: Sorting interrupt (runs at bottom of screen)
 irq1:
+    cld                     ; IRQ may hit inside score sed/cld window
     dec $d019               ; Acknowledge raster interrupt
 
     ; Move all sprites to bottom to prevent glitches
@@ -1133,6 +1142,7 @@ sort_copy_loop:
 
 ; IRQ2: Display interrupt (runs multiple times per frame)
 irq2:
+    cld
     dec $d019               ; Acknowledge raster interrupt
 
 irq2_direct:
@@ -1219,6 +1229,7 @@ joystick_state:        !byte 0
 fire_pressed:          !byte 0
 sprite_cycle:          !byte 0
 temp:                  !byte 0
+col_lo:                !byte 0
 enemy_display_offset:  !byte 0
 
 enemy_x:        !fill MAX_ENEMIES, 0
