@@ -85,6 +85,7 @@ GS_GAMEOVER     = 4
 ; Raster IRQ Constants
 IRQ1_LINE       = $fc           ; Sorting interrupt at bottom of screen
 IRQ2_LINE       = $2a           ; Display interrupt start (line 42)
+IRQ_LEAD        = 16            ; Lines before a sprite group's Y to start loading it
 
 ; Print a zero-terminated screen-code string: message, screen address, colour
 !macro print .msg, .addr, .col {
@@ -1872,6 +1873,58 @@ sort_copy_loop:
     inx
     cpx sorted_sprites
     bcc sort_copy_loop
+
+    ; Per sorted sprite: running $d010 / $d01c values (the player ship is the
+    ; only hires sprite) and the raster line its hardware sprite is free at.
+!zone sort_shadow
+    lda #0
+    sta sh_msb
+    lda #$ff
+    sta sh_mc
+    ldx #0
+.loop:
+    txa
+    and #7
+    tay
+    lda d015_msb_tbl,y
+    sta sh_mask
+    eor #$ff
+    and sh_msb
+    ldy sort_spr_x_msb,x
+    beq .msb0
+    ora sh_mask
+.msb0:
+    sta sh_msb
+    sta sort_d010,x
+    lda sh_mask
+    ldy sort_spr_f,x
+    cpy #SPR_PLAYER
+    beq .hires
+    ora sh_mc
+    jmp .mc_st
+.hires:
+    eor #$ff
+    and sh_mc
+.mc_st:
+    sta sh_mc
+    sta sort_d01c,x
+    lda #0
+    cpx #8
+    bcc .free_set
+    ldy sort_spr_f-8,x
+    lda sort_spr_y-8,x
+    clc
+    adc lastrow_tbl-SPR_PLAYER,y
+    bcs .none
+    cmp #$f0                    ; Near the bottom border: never wait across the raster wrap
+    bcc .free_set
+.none:
+    lda #0
+.free_set:
+    sta sort_free,x
+    inx
+    cpx sorted_sprites
+    bcc .loop
     rts
 
 ; IRQ2: Display interrupt (runs multiple times per frame)
@@ -1900,79 +1953,32 @@ irq2_sprite_loop:
     bcc .load
     jmp irq2_end_sprites
 .load:
-
-    ; Physical sprite y mod 8 is reused: wait until its previous user
-    ; (y-8) has drawn its last art row (lastrow_tbl) so we don't cut it off.
-    cpy #8
-    bcc irq2_go
-    pha
-    ldx sort_spr_f-8,y
-    lda sort_spr_y-8,y
-    clc
-    adc lastrow_tbl-SPR_PLAYER,x
-    bcs irq2_nowait
-    cmp #$f0                ; Near the bottom border: never wait across the raster wrap
-    bcs irq2_nowait
-!zone irq2_wait
-irq2_wait:
+.wait:                          ; Wait until the hardware sprite's previous user
+    lda sort_free,y             ; has drawn its last art row (0 = no wait)
     cmp $d012
-    bcs irq2_wait
-!zone irq2_nowait
-irq2_nowait:
-    pla
-!zone irq2_go
-irq2_go:
-    cmp $d012               ; Y line already passed (IRQ ran late)?
+    bcs .wait
+    lda sort_spr_y,y
+    cmp $d012                   ; Y line already passed (IRQ ran late)?
     bcs .on_time
-    lda $d012               ; Draw a few lines low instead of skipping the sprite
+    lda $d012                   ; Draw a few lines low instead of skipping the sprite
     clc
     adc #2
 .on_time:
-    ; Set sprite position
-    ldx phys_spr_tbl_2,y    ; Physical sprite * 2
-    sta $d001,x             ; Set Y
+    ldx phys_spr_tbl_2,y        ; Physical sprite * 2
+    sta $d001,x                 ; Y
     lda sort_spr_x,y
-    sta $d000,x             ; Set X LSB
-
-    ; Handle X MSB for this sprite
-    lda sort_spr_x_msb,y
-    beq .msb_clear
-    ; Set MSB bit for this sprite
-    ldx phys_spr_tbl_1,y    ; Physical sprite number
-    lda d015_msb_tbl,x      ; Get bit mask for this sprite
-    ora $d010               ; Set the bit
-    sta $d010
-    jmp .msb_done
-.msb_clear:
-    ; Clear MSB bit for this sprite
-    ldx phys_spr_tbl_1,y
-    lda d015_msb_tbl,x
-    eor #$ff                ; Invert mask
-    and $d010               ; Clear the bit
-    sta $d010
-.msb_done:
-
-    ; Set sprite pointer and color
-    ldx phys_spr_tbl_1,y    ; Physical sprite * 1
-    lda d015_msb_tbl,x      ; The player ship is the only hires sprite
-    ldx sort_spr_f,y
-    cpx #SPR_PLAYER
-    beq .hires
-    ora SPRITE_MCOLOR_EN    ; Multicolor
-    jmp .mc_set
-.hires:
-    eor #$ff
-    and SPRITE_MCOLOR_EN
-.mc_set:
+    sta $d000,x                 ; X low
+    lda sort_d010,y             ; X high bits and multicolor bits are
+    sta $d010                   ; precomputed per sprite by sort_sprites
+    lda sort_d01c,y
     sta SPRITE_MCOLOR_EN
-    ldx phys_spr_tbl_1,y
+    ldx phys_spr_tbl_1,y        ; Physical sprite * 1
     lda sort_spr_f,y
     sta SPRITE_PTR,x
     lda sort_spr_c,y
     sta SPRITE_COLORS,x
-
     iny
-    jmp irq2_sprite_loop    ; Ends via the sorted list's $ff marker
+    jmp irq2_sprite_loop        ; Ends via the sorted list's $ff marker
 
 !zone irq2_end_sprites
 irq2_end_sprites:
@@ -1982,13 +1988,15 @@ irq2_end_sprites:
     ; More sprites to come, set up next interrupt
     sty spr_irq_counter
     sec
-    sbc #$10
+    sbc #IRQ_LEAD           ; Start early: the loop waits for sprites to free up
+    bcc .go_direct          ; Underflow: too close to the top
     ldx $d012
     inx
     inx                     ; Margin: raster may move before the write
     stx sort_temp_x
     cmp sort_temp_x
     bcs .set_line
+.go_direct:
     jmp irq2_direct         ; Already late? Go direct
 .set_line:
     sta $d012
@@ -2189,6 +2197,12 @@ sort_spr_x_msb:     !fill MAX_SPRITES, 0    ; MSB for sorted X
 sort_spr_y:         !fill MAX_SPRITES+1, 0  ; +1 for $ff end marker
 sort_spr_f:         !fill MAX_SPRITES, 0
 sort_spr_c:         !fill MAX_SPRITES, 0
+sort_d010:          !fill MAX_SPRITES, 0    ; $d010 value after loading this sprite
+sort_d01c:          !fill MAX_SPRITES, 0    ; $d01c value after loading this sprite
+sort_free:          !fill MAX_SPRITES, 0    ; raster line the hardware sprite frees up (0 = now)
+sh_msb:             !byte 0
+sh_mc:              !byte 0
+sh_mask:            !byte 0
 
 ; Sprite enable table for $d015
 d015_table:         !byte %00000000
