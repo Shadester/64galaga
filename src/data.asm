@@ -72,6 +72,8 @@ enemy_state:    !fill MAX_ENEMIES, 0
 enemy_timer:    !fill MAX_ENEMIES, 0    ; dive peel-off / explosion frames left
 enemy_hp:       !fill MAX_ENEMIES, 0
 enemy_dir:      !fill MAX_ENEMIES, 0    ; dive side: 0 left, 1 right
+enemy_idx:      !fill MAX_ENEMIES, 0    ; challenge path step
+enemy_ptr:      !fill MAX_ENEMIES, 0    ; sprite pointer, frame A
 enemy_esc:      !fill MAX_ENEMIES, 0    ; boss index + 1 for an escort of that boss
 enemy_flag:     !fill MAX_ENEMIES, 0    ; 1 = has fired this dive
 
@@ -112,6 +114,12 @@ esc_cmp:               !byte 0
 esc_cnt:               !byte 0
 esc_slot:              !byte 0
 esc_pts_mid:           !byte $04, $08, $16   ; boss dive points (x100) with 0/1/2 escorts
+stage:                 !byte 1         ; Stage number (binary); every 4th is a challenge stage
+in_chal:               !byte 0         ; 1 = current stage is a challenge stage
+chal_mid:              !byte 0         ; BCD hundreds per hit in challenge stages
+ch_hits:               !byte 0
+step_dx:               !byte 0
+add_hi:                !byte 0         ; extra ten-thousands for add_score
 shots:                 !byte 0, 0      ; Bullets fired / enemies hit this stage
 hits:                  !byte 0, 0
 res_timer:             !byte 0
@@ -123,6 +131,10 @@ calc_hi:               !byte 0
 n_lo:                  !byte 0
 n_hi:                  !byte 0
 n_dig:                 !byte 0
+msg_nhits:      !scr "number of hits", 0
+msg_perfect:    !scr "perfect!", 0
+msg_bonus:      !scr "bonus 10000", 0
+msg_chal:       !scr "challenging stage", 0
 msg_shots:      !scr "shots", 0
 msg_hits:       !scr "hits", 0
 msg_ratio:      !scr "ratio", 0

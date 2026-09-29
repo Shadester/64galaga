@@ -16,6 +16,13 @@ hit_enemy:
     jsr boss_killed
     ldx hit_idx
 .plain:
+    lda in_chal
+    beq .normal
+    inc ch_hits                 ; Challenge stage: flat points per hit
+    ldx chal_mid
+    lda #0
+    jmp .add
+.normal:
     ldy enemy_type_tbl,x
     lda enemy_state,x
     cmp #2
@@ -81,8 +88,10 @@ add_score:
     adc score+1
     sta score+1
     lda score+2
-    adc #0
+    adc add_hi
     sta score+2
+    lda #0
+    sta add_hi
     cld
     lda score+2             ; Bonus ship at 20,000, 70,000, then every 70,000
     cmp next_bonus
@@ -154,6 +163,9 @@ next_level:
     adc #1
     sta level
     cld
+    inc stage
+    lda in_chal
+    bne .capped                 ; A challenge stage doesn't make the game harder
     lda diff
     cmp #8
     bcs .capped

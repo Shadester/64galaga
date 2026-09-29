@@ -75,6 +75,8 @@ update_enemies:
     beq .explode
     cmp #5
     beq .next               ; Beaming boss holds still
+    cmp #6
+    beq .next               ; Challenge stage aliens move in update_challenge
     jsr return_step
     jmp .next
 .dive:

@@ -11,6 +11,9 @@ A Galaga clone for the Commodore 64, written in 6502 assembly ([ACME](https://so
 - **Tractor beam capture:** a boss can capture your ship. Shoot that boss while it dives to free the ship and fly a **dual fighter** with double firepower. Shoot it while it is still in formation and the captive is lost
 - Bosses take two hits
 - Arcade scoring: 50/100 (bee), 80/160 (butterfly), 150/400 (boss, formation/diving), 1,000 for a rescue
+- **Escorts:** a diving boss brings two butterflies along. Shooting the boss is worth 400, or 800 / 1,600 with one / two escorts still flying
+- **Challenge stages** (3, 7, 11, ...): 32 aliens fly set paths and never shoot; points for every hit and a 10,000 bonus for a perfect clear
+- Shots / hits / ratio screen after each stage
 - Bonus ship at 20,000 and 70,000 points, then every 70,000
 - Stage intro, respawn invulnerability, title screen, hi-score, game over
 - Scrolling starfield, jingles and sound effects (SID)
@@ -45,6 +48,10 @@ Pass to ACME (`acme -f cbm -DAUTOPLAY=1 -o out.prg src/main.asm`) for headless t
 | `AUTOPLAY` | Synthetic joystick input: sweeps left and right and fires |
 | `NOFIRE` | With `AUTOPLAY`: no shooting during play |
 | `DUAL` | Start with a dual fighter |
+| `FEW` | Only three bees per stage (fast stage clears) |
+| `BOSSDIVE` | Boss 1 always dives (escort test) |
+| `STAGE=n` | Start at stage n (e.g. 3 for a challenge stage) |
+| `FORCEPERFECT` | Challenge stages count as perfect |
 | `CAPTURE` | With `AUTOPLAY`: a boss always dives to capture, and the ship shoots it once it carries the captive |
 
 ## Source layout
@@ -65,4 +72,5 @@ Pass to ACME (`acme -f cbm -DAUTOPLAY=1 -o out.prg src/main.asm`) for headless t
 | `sound.asm` | SID effects and jingles |
 | `multiplexer.asm` | Raster interrupt sprite multiplexer |
 | `data.asm` | Variables and tables |
+| `challenge.asm` | Challenge stage logic (paths in generated `paths.asm`, see `tools/gen_paths.py`) |
 | `art.asm` | Sprite art, copied to `$3000` at start-up |

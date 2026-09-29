@@ -58,6 +58,7 @@ reset_formation:
     lda type_hp,y
     sta enemy_hp,x
     lda enemy_ptr_tbl,x
+    sta enemy_ptr,x
     clc
     adc anim
     sta spr_f,x
@@ -85,7 +86,7 @@ refresh_anim:
     lda enemy_state,x
     cmp #4
     beq .next                   ; Exploding: keeps its explosion frame
-    lda enemy_ptr_tbl,x
+    lda enemy_ptr,x
     clc
     adc anim
     sta spr_f,x

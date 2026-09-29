@@ -8,7 +8,8 @@
 ; Debug:  acme -DAUTOPLAY=1 ...   synthetic joystick input, for headless tests
 ;         add -DNOFIRE=1 to stop shooting during play (tests player death)
 ;         -DDUAL=1 dual fighter at start, -DCAPTURE=1 scripted capture, -DFEW=1 three bees per stage,
-;         -DBOSSDIVE=1 boss 1 always dives (escort test)
+;         -DBOSSDIVE=1 boss 1 always dives (escort test), -DSTAGE=n start at stage n,
+;         -DFORCEPERFECT=1 challenge stages count as perfect
 ; ===============================================
 
 !cpu 6510
@@ -105,6 +106,7 @@ run_state:
 !src "src/enemies.asm"
 !src "src/combat.asm"
 !src "src/capture.asm"
+!src "src/challenge.asm"
 !src "src/progress.asm"
 !src "src/sound.asm"
 !src "src/multiplexer.asm"

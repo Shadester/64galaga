@@ -65,13 +65,23 @@ start_game:
     lda #1
     sta level
     sta diff
+    sta stage
     sta fire_pressed            ; Fire held from the title must not shoot
     lda #160
     sta player_x
     lda $d012                   ; Seed RNG from the raster
     ora #1
     sta rnd
+    lda #0
+    sta in_chal
+    sta chal_mid
     jsr reset_formation
+!ifdef STAGE {
+    lda #STAGE                  ; -DSTAGE=n: start at stage n (challenge stage testing)
+    sta stage
+    sta level
+    jsr begin_stage
+}
     ; fall through
 
 ; --- Stage intro ---
@@ -81,10 +91,16 @@ start_stage:
     sta game_state
     lda #120
     sta intro_timer
+    lda in_chal
+    bne .chal
     +print msg_stage, SCREEN_RAM+16*40+16, 1   ; Below the formation
     +setdst SCREEN_RAM+16*40+22
     lda level
     jsr draw_bcd
+    lda #jin_stage-jin_data
+    jmp play_jingle
+.chal:
+    +print msg_chal, SCREEN_RAM+16*40+11, 1
     lda #jin_stage-jin_data
     jmp play_jingle
 
@@ -105,6 +121,10 @@ enter_result:
     sta game_state
     lda #150
     sta res_timer
+    lda in_chal
+    beq .std
+    jmp chal_result
+.std:
     +print msg_shots, SCREEN_RAM+9*40+14, 1
     +setdst SCREEN_RAM+9*40+21
     lda shots
@@ -139,7 +159,7 @@ st_result:
     sta shots+1
     sta hits
     sta hits+1
-    jsr reset_formation
+    jsr begin_stage
     jmp start_stage
 .rts:
     rts
@@ -279,10 +299,17 @@ st_play:
 .no_invuln:
     jsr update_player
     jsr update_bullets
+    lda in_chal
+    beq .std_stage
+    jsr update_challenge        ; Bonus stage: scripted flights, no shooting back
+    jsr update_enemies
+    jmp .coll
+.std_stage:
     jsr update_formation
     jsr update_enemies
     jsr update_dives
     jsr update_ebullets
+.coll:
     jsr check_collisions
     jsr update_capture
     lda game_state
