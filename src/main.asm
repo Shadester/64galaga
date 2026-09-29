@@ -53,7 +53,7 @@ MAX_ENEMIES     = 24            ; More enemies for epic battles!
 MAX_SPRITES     = 26            ; Player + Enemies + Bullet
 PLAYER_Y        = 230
 SCREEN_LEFT     = 24
-SCREEN_RIGHT    = 250
+SCREEN_RIGHT    = 320           ; Max player X (9-bit), sprite right edge at 344
 
 ; Raster IRQ Constants
 IRQ1_LINE       = $fc           ; Sorting interrupt at bottom of screen
@@ -213,6 +213,8 @@ init_game_state:
     ; Player
     lda #160
     sta player_x
+    lda #0
+    sta player_x_msb
     lda #PLAYER_Y
     sta player_y
 
@@ -266,8 +268,8 @@ update_sprite_data:
     ; Add player sprite (always sprite 0)
     lda player_x
     sta spr_x
-    lda #0
-    sta spr_x_msb           ; Player always at X < 256
+    lda player_x_msb
+    sta spr_x_msb
     lda player_y
     sta spr_y
     lda #$C0               ; Player sprite pointer ($3000)
@@ -344,21 +346,35 @@ update_player:
     lda joystick_state
     and #$04
     bne .check_right
+    lda player_x_msb
+    bne .pl_left          ; X >= 256, always above left limit
     lda player_x
     cmp #SCREEN_LEFT
     bcc .check_right
-    dec player_x
-    dec player_x
+.pl_left:
+    lda player_x
+    sec
+    sbc #2
+    sta player_x
+    bcs .check_right
+    dec player_x_msb
 
 .check_right:
     lda joystick_state
     and #$08
     bne .check_fire
+    lda player_x_msb
+    beq .pl_right         ; X < 256, below right limit
     lda player_x
-    cmp #SCREEN_RIGHT
+    cmp #<SCREEN_RIGHT
     bcs .check_fire
-    inc player_x
-    inc player_x
+.pl_right:
+    lda player_x
+    clc
+    adc #2
+    sta player_x
+    bcc .check_fire
+    inc player_x_msb
 
 .check_fire:
     lda joystick_state
@@ -394,10 +410,9 @@ shoot_bullet:
     clc
     adc #2
     sta bullet_x
-    ; Check for overflow - if carry set, bullet X wrapped past 255
-    lda #0
-    adc #0              ; Add carry to accumulator (0 + carry)
-    sta bullet_x_msb    ; Store MSB (0 or 1)
+    lda player_x_msb    ; Carry from low byte adds into MSB
+    adc #0
+    sta bullet_x_msb
 
     lda #PLAYER_Y
     sec
@@ -659,9 +674,9 @@ check_collisions:
     lda enemy_active,x
     beq .next_player_collision
 
-    ; Check X overlap (9-bit, player always below 256)
+    ; Check X overlap (9-bit)
     lda player_x
-    ldy #0
+    ldy player_x_msb
     jsr x_overlap
     bcs .next_player_collision
 
@@ -1230,6 +1245,7 @@ irq2_last_sprite:
 ; ===============================================
 
 player_x:              !byte 0
+player_x_msb:          !byte 0
 player_y:              !byte 0
 joystick_state:        !byte 0
 fire_pressed:          !byte 0
