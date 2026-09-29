@@ -50,7 +50,6 @@ SID_FILTER_MODE  = $d418     ; Filter mode/volume
 
 ; Game Constants
 MAX_ENEMIES     = 24            ; More enemies for epic battles!
-MAX_BULLETS     = 1
 MAX_SPRITES     = 26            ; Player + Enemies + Bullet
 PLAYER_Y        = 230
 SCREEN_LEFT     = 24
@@ -108,9 +107,14 @@ game_over_loop:
     jsr read_joystick
     lda joystick_state
     and #$10
-    beq .restart_game       ; Fire button pressed (bit is 0)
-
+    beq .go_fire            ; Fire button pressed (bit is 0)
+    lda #0
+    sta fire_pressed        ; Released: arm restart
     jmp game_over_loop
+
+.go_fire:
+    lda fire_pressed
+    bne game_over_loop      ; Still held from gameplay, wait for release
 
 .restart_game:
     ; Clear GAME OVER message
@@ -124,6 +128,8 @@ game_over_loop:
 
     ; Reset game state and restart
     jsr init_game_state
+    lda #1
+    sta fire_pressed        ; Fire still held: no instant shot
     jmp game_loop
 
 ; ===============================================
@@ -186,32 +192,6 @@ init_sprites:
     inx
     cpx #64
     bne .copy_bullet
-
-    ; Set sprite pointers
-    lda #$C0
-    sta SPRITE_PTR+0    ; Player
-    lda #$C1
-    sta SPRITE_PTR+1    ; Enemies
-    sta SPRITE_PTR+2
-    sta SPRITE_PTR+3
-    sta SPRITE_PTR+4
-    sta SPRITE_PTR+5
-    sta SPRITE_PTR+6
-    lda #$C2
-    sta SPRITE_PTR+7    ; Bullet
-
-    ; Set sprite colors
-    lda #1
-    sta SPRITE_COLORS+0  ; Player white
-    lda #2
-    sta SPRITE_COLORS+1  ; Enemies red
-    sta SPRITE_COLORS+2
-    sta SPRITE_COLORS+3
-    sta SPRITE_COLORS+4
-    sta SPRITE_COLORS+5
-    sta SPRITE_COLORS+6
-    lda #14
-    sta SPRITE_COLORS+7  ; Bullet light blue
 
     ; Enable multicolor mode for all sprites
     lda #$ff
@@ -459,7 +439,7 @@ update_enemies:
     inc enemy_counter
     lda enemy_counter
 
-    ; Calculate speed threshold based on level: 10 - level (minimum 3)
+    ; Calculate speed threshold based on level: 10 - level (minimum 2)
     ; Save counter for comparison
     sta temp+1
 
@@ -545,7 +525,10 @@ update_enemies:
     lda enemy_y,x
     clc
     adc #10
+    bcs .invaded            ; Wrapped past 255
     sta enemy_y,x
+    cmp #PLAYER_Y
+    bcs .invaded
 .skip_down_right:
     inx
     jmp .move_down_right
@@ -562,7 +545,10 @@ update_enemies:
     lda enemy_y,x
     clc
     adc #10
+    bcs .invaded            ; Wrapped past 255
     sta enemy_y,x
+    cmp #PLAYER_Y
+    bcs .invaded
 .skip_down_left:
     inx
     jmp .move_down_left
@@ -608,6 +594,11 @@ update_enemies:
 .update_done:
     rts
 
+.invaded:
+    lda #1                  ; Enemies reached player row
+    sta game_over_flag
+    rts
+
 ; ===============================================
 ; COLLISION DETECTION
 ; ===============================================
@@ -644,12 +635,15 @@ check_collisions:
 
     jsr sound_explosion     ; Play explosion sound
 
-    ; Increment score in BCD (0-99)
+    ; Increment score in BCD (0-9999)
     sed                 ; Set decimal mode
     lda score
     clc
     adc #1
     sta score
+    lda score+1
+    adc #0
+    sta score+1
     cld                 ; Clear decimal mode
     jmp .check_player_enemy
 
@@ -752,8 +746,13 @@ check_level_complete:
 
 ; Start next level
 next_level:
-    ; Increment level
-    inc level
+    ; Increment level (BCD)
+    sed
+    lda level
+    clc
+    adc #1
+    sta level
+    cld
 
     ; Reset all enemies to starting positions
     ldx #0
@@ -796,21 +795,12 @@ draw_score:
     jmp .text
 
 .numbers:
+    lda score+1
+    ldx #7
+    jsr draw_bcd
     lda score
-    and #$f0
-    lsr
-    lsr
-    lsr
-    lsr
-    clc
-    adc #48
-    sta SCREEN_RAM+7
-
-    lda score
-    and #$0f
-    clc
-    adc #48
-    sta SCREEN_RAM+8
+    ldx #9
+    jsr draw_bcd
 
     ; Draw "LIVES:"
     ldx #0
@@ -838,10 +828,26 @@ draw_score:
 
 .level_num:
     lda level
+    ldx #80+7
+    jsr draw_bcd
+
+    rts
+
+; Draw BCD byte A as two digits at SCREEN_RAM,x
+draw_bcd:
+    pha
+    lsr
+    lsr
+    lsr
+    lsr
     clc
     adc #48
-    sta SCREEN_RAM+80+7
-
+    sta SCREEN_RAM,x
+    pla
+    and #$0f
+    clc
+    adc #48
+    sta SCREEN_RAM+1,x
     rts
 
 ; Draw GAME OVER message
@@ -956,10 +962,10 @@ sound_player_hit:
 ; ===============================================
 
 wait_frame:
-    lda $d012
+    lda #$20                ; Top border, before IRQ2 display
 .wait1:
     cmp $d012
-    beq .wait1
+    bne .wait1
     rts
 
 ; Wait for IRQ to finish processing sprites
@@ -1227,10 +1233,8 @@ player_x:              !byte 0
 player_y:              !byte 0
 joystick_state:        !byte 0
 fire_pressed:          !byte 0
-sprite_cycle:          !byte 0
-temp:                  !byte 0
+temp:                  !byte 0, 0      ; temp+1 also used
 col_lo:                !byte 0
-enemy_display_offset:  !byte 0
 
 enemy_x:        !fill MAX_ENEMIES, 0
 enemy_x_msb:    !fill MAX_ENEMIES, 0    ; 9th bit for X coordinates (0 or 1)
