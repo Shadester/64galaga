@@ -59,9 +59,14 @@ zp_src          = $fb        ; string source (word)
 zp_dst          = $fd        ; screen destination (word)
 
 ; Game Constants
-MAX_ENEMIES     = 24
-MAX_SPRITES     = 30            ; Player + 24 enemies + 2 player bullets + 3 enemy bullets
-NUM_STARS       = 16
+MAX_ENEMIES     = 32
+MAX_SPRITES     = 44            ; Player + 32 enemies + 4 player bullets + 3 enemy bullets + extras
+NUM_STARS       = 12
+
+; Virtual sprite slots (stable indices keep the per-frame sort cheap)
+VS_PLAYER       = MAX_ENEMIES
+VS_PBUL         = VS_PLAYER+1   ; 4 slots
+VS_EBUL         = VS_PBUL+4     ; 3 slots
 PLAYER_Y        = 230
 SCREEN_LEFT     = 24
 SCREEN_RIGHT    = 320           ; Max player X (9-bit), sprite right edge at 344
@@ -658,7 +663,7 @@ set_slot_x:
     adc form_dx
     sta enemy_x,x
     lda form_ext                ; $00 / $ff sign extension of form_dx
-    adc #0
+    adc base_xh,x               ; plus slot bit 8 and the carry from the low byte
     and #1
     sta enemy_x_msb,x
     rts
@@ -679,14 +684,17 @@ update_sprite_data:
 .skip:
     jmp .done
 
+; Every sprite has a fixed virtual slot (enemy i = slot i, player, bullets...)
+; and hidden ones get Y=$ff. Keeping slots stable keeps last frame's sort
+; order nearly correct, which makes the per-frame sort cheap.
 .player:
     cmp #GS_DYING
     beq .p_dying
     lda invuln
     and #4
-    bne .enemies                ; Blink while invulnerable
+    bne .p_hide                 ; Blink while invulnerable
     lda #SPR_PLAYER
-    ldy #1                      ; White
+    ldx #1                      ; White
     jmp .p_add
 .p_dying:
     lda dying_timer
@@ -694,49 +702,62 @@ update_sprite_data:
     lsr
     lsr
     lsr
-    beq .enemies                ; Gone for the last 16 frames
+    beq .p_hide                 ; Gone for the last 16 frames
     sta temp
     lda #SPR_EXPL1+3
     sec
     sbc temp
-    ldy #8                      ; Orange
+    ldx #8                      ; Orange
 .p_add:
-    sta spr_f
-    sty spr_c
+    sta spr_f+VS_PLAYER
+    stx spr_c+VS_PLAYER
     lda player_x
-    sta spr_x
+    sta spr_x+VS_PLAYER
     lda player_x_msb
-    sta spr_x_msb
+    beq .p_m0
+    lda #$ff
+.p_m0:
+    sta spr_x_msb+VS_PLAYER
     lda player_y
-    sta spr_y
+    sta spr_y+VS_PLAYER
     inc num_sprites
+    jmp .enemies
+.p_hide:
+    lda #$ff
+    sta spr_y+VS_PLAYER
 
 .enemies:
     ldx #0
 .en_loop:
     lda enemy_state,x
-    beq .en_next
-    ldy num_sprites
+    bne .en_on
+    lda #$ff
+    sta spr_y,x
+    jmp .en_next
+.en_on:
     lda enemy_x,x
-    sta spr_x,y
+    sta spr_x,x
     lda enemy_x_msb,x
-    sta spr_x_msb,y
+    beq .en_m0
+    lda #$ff                    ; $d010 bit value: 0 / $ff
+.en_m0:
+    sta spr_x_msb,x
     lda enemy_y,x
-    sta spr_y,y
+    sta spr_y,x
     lda enemy_state,x
     cmp #4
     beq .en_explode
     lda enemy_ptr_tbl,x
     clc
     adc anim
-    sta spr_f,y
+    sta spr_f,x
     lda enemy_hp,x
     cmp #2
     lda enemy_col_tbl,x
     bcs .en_col
     lda enemy_hitcol_tbl,x      ; Damaged boss changes colour
 .en_col:
-    sta spr_c,y
+    sta spr_c,x
     jmp .en_added
 .en_explode:
     lda enemy_timer,x
@@ -746,9 +767,9 @@ update_sprite_data:
     lda #SPR_EXPL1+2
     sec
     sbc temp
-    sta spr_f,y
+    sta spr_f,x
     lda #8                      ; Orange
-    sta spr_c,y
+    sta spr_c,x
 .en_added:
     inc num_sprites
 .en_next:
@@ -760,18 +781,24 @@ update_sprite_data:
     ldx #1
 .pb_loop:
     lda pbul_active,x
-    beq .pb_next
-    ldy num_sprites
+    bne .pb_on
+    lda #$ff
+    sta spr_y+VS_PBUL,x
+    jmp .pb_next
+.pb_on:
     lda pbul_x,x
-    sta spr_x,y
+    sta spr_x+VS_PBUL,x
     lda pbul_msb,x
-    sta spr_x_msb,y
+    beq .pb_m0
+    lda #$ff
+.pb_m0:
+    sta spr_x_msb+VS_PBUL,x
     lda pbul_y,x
-    sta spr_y,y
+    sta spr_y+VS_PBUL,x
     lda #SPR_PBUL
-    sta spr_f,y
+    sta spr_f+VS_PBUL,x
     lda #14                     ; Light blue
-    sta spr_c,y
+    sta spr_c+VS_PBUL,x
     inc num_sprites
 .pb_next:
     dex
@@ -781,18 +808,24 @@ update_sprite_data:
     ldx #2
 .eb_loop:
     lda eb_active,x
-    beq .eb_next
-    ldy num_sprites
+    bne .eb_on
+    lda #$ff
+    sta spr_y+VS_EBUL,x
+    jmp .eb_next
+.eb_on:
     lda eb_x,x
-    sta spr_x,y
+    sta spr_x+VS_EBUL,x
     lda eb_msb,x
-    sta spr_x_msb,y
+    beq .eb_m0
+    lda #$ff
+.eb_m0:
+    sta spr_x_msb+VS_EBUL,x
     lda eb_y,x
-    sta spr_y,y
+    sta spr_y+VS_EBUL,x
     lda #SPR_EBUL
-    sta spr_f,y
+    sta spr_f+VS_EBUL,x
     lda #10                     ; Light red
-    sta spr_c,y
+    sta spr_c+VS_EBUL,x
     inc num_sprites
 .eb_next:
     dex
@@ -1137,10 +1170,16 @@ start_dive:
     sta enemy_timer,x
     lda #0
     sta enemy_flag,x
-    lda base_x,x
+    lda enemy_x_msb,x
+    bne .right              ; X >= 256: right of centre
+    lda enemy_x,x
     cmp #184
     lda #0
-    rol                     ; 1 = slot right of centre: peel off to the right
+    rol                     ; 1 = right of centre: peel off to the right
+    jmp .set_dir
+.right:
+    lda #1
+.set_dir:
     sta enemy_dir,x
     lda #24
     sta swoop_cnt
@@ -1709,11 +1748,13 @@ init_multiplexer:
     sta sorted_sprites
     sta spr_update_flag
 
-    ; Init order table with 0,1,2,3... order
+    ; Init order table with 0,1,2,3... order; all virtual sprites hidden
     ldx #MAX_SPRITES-1
 .init_order:
     txa
     sta sort_order,x
+    lda #$ff
+    sta spr_y,x
     dex
     bpl .init_order
     rts
@@ -1786,6 +1827,15 @@ irq1:
     sta $0314
     lda #>irq2
     sta $0315
+    lda $d011               ; Sorting can outlast the bottom border: if the raster
+    bmi .arm                ; already passed IRQ2_LINE, start displaying right away
+    lda $d012
+    cmp #IRQ2_LINE-4
+    bcc .arm
+    cmp #IRQ1_LINE
+    bcs .arm
+    jmp irq2_direct
+.arm:
     lda #IRQ2_LINE          ; Start display interrupt
     sta $d012
     jmp $ea81               ; Return from IRQ
@@ -1798,21 +1848,6 @@ irq1:
 ; Sort sprites by Y coordinate
 !zone sort_sprites
 sort_sprites:
-    ; Clear unused sprite Y positions
-    ldx #MAX_SPRITES
-    dex
-    cpx sorted_sprites
-    bcc sort_clear_done
-    lda #$ff
-!zone sort_clear_loop
-sort_clear_loop:
-    sta spr_y,x
-    dex
-    cpx sorted_sprites
-    bcs sort_clear_loop
-
-!zone sort_clear_done
-sort_clear_done:
     ; Insertion sort on order table
     ldx #0
 !zone sort_main_loop
@@ -1851,80 +1886,62 @@ sort_skip_swap:
     cpx #MAX_SPRITES-1
     bcc sort_main_loop
 
-    ; Copy sorted data
+    ; Copy sorted data, and precompute per sorted sprite the running $d010
+    ; value. $d01c is $ff except in the 8 entries from the player ship on
+    ; (the only hires sprite: its hardware sprite keeps the bit clear until
+    ; another sprite reuses it).
+!zone sort_copy
     ldx sorted_sprites
     lda #$ff
     sta sort_spr_y,x        ; End marker
-
+    ldx pk_prev             ; Undo last frame's hires window
+    ldy #8
+    lda #$ff
+.undo:
+    sta sort_d01c,x
+    inx
+    dey
+    bne .undo
+    lda #MAX_SPRITES
+    sta pk                  ; No player found yet: window lands in the spare entries
+    lda #0
+    sta sh_msb
     ldx #0
-!zone sort_copy_loop
-sort_copy_loop:
+.loop:
     ldy sort_order,x
     lda spr_y,y
     sta sort_spr_y,x
     lda spr_x,y
     sta sort_spr_x,x
-    lda spr_x_msb,y
-    sta sort_spr_x_msb,x    ; Copy MSB
-    lda spr_f,y
-    sta sort_spr_f,x
     lda spr_c,y
     sta sort_spr_c,x
-    inx
-    cpx sorted_sprites
-    bcc sort_copy_loop
-
-    ; Per sorted sprite: running $d010 / $d01c values (the player ship is the
-    ; only hires sprite) and the raster line its hardware sprite is free at.
-!zone sort_shadow
-    lda #0
-    sta sh_msb
-    lda #$ff
-    sta sh_mc
-    ldx #0
-.loop:
-    txa
-    and #7
-    tay
-    lda d015_msb_tbl,y
-    sta sh_mask
-    eor #$ff
-    and sh_msb
-    ldy sort_spr_x_msb,x
-    beq .msb0
-    ora sh_mask
-.msb0:
+    lda spr_f,y
+    sta sort_spr_f,x
+    cmp #SPR_PLAYER
+    bne .not_player
+    stx pk
+.not_player:
+    lda sh_msb              ; new = old ^ ((old ^ value) & bit)
+    eor spr_x_msb,y
+    and bit_tbl,x
+    eor sh_msb
     sta sh_msb
     sta sort_d010,x
-    lda sh_mask
-    ldy sort_spr_f,x
-    cpy #SPR_PLAYER
-    beq .hires
-    ora sh_mc
-    jmp .mc_st
-.hires:
-    eor #$ff
-    and sh_mc
-.mc_st:
-    sta sh_mc
-    sta sort_d01c,x
-    lda #0
-    cpx #8
-    bcc .free_set
-    ldy sort_spr_f-8,x
-    lda sort_spr_y-8,x
-    clc
-    adc lastrow_tbl-SPR_PLAYER,y
-    bcs .none
-    cmp #$f0                    ; Near the bottom border: never wait across the raster wrap
-    bcc .free_set
-.none:
-    lda #0
-.free_set:
-    sta sort_free,x
     inx
     cpx sorted_sprites
-    bcc .loop
+    bcs .done
+    jmp .loop
+.done:
+    ldx pk                  ; Hires window: this sprite and the next 7
+    stx pk_prev
+    lda bit_tbl,x
+    eor #$ff
+    ldy #8
+.window:
+    sta sort_d01c,x
+    inx
+    dey
+    bne .window
     rts
 
 ; IRQ2: Display interrupt (runs multiple times per frame)
@@ -1953,14 +1970,14 @@ irq2_sprite_loop:
     bcc .load
     jmp irq2_end_sprites
 .load:
-.wait:                          ; Wait until the hardware sprite's previous user
-    lda sort_free,y             ; has drawn its last art row (0 = no wait)
-    cmp $d012
-    bcs .wait
     lda sort_spr_y,y
     cmp $d012                   ; Y line already passed (IRQ ran late)?
     bcs .on_time
-    lda $d012                   ; Draw a few lines low instead of skipping the sprite
+    lda sort_spr_y,y
+    cmp #56
+    lda #$ff                    ; Late and mostly in the top border: hide it
+    bcc .on_time
+    lda $d012                   ; Late: draw a few lines low instead of skipping the sprite
     clc
     adc #2
 .on_time:
@@ -2112,29 +2129,47 @@ row_hi:  !byte 4,4,4,4,4,4,4,5
     !byte 6,6,6,6,7,7,7,7
     !byte 7
 
-base_x: ; formation slot X (left edge), 4 rows of 6
-    !byte 119,145,171,197,223,249,119,145,171,197,223,249
-    !byte 119,145,171,197,223,249,119,145,171,197,223,249
+base_x: ; formation slot X low byte (left edge): 4 bosses, then 4 rows of 7
+    !byte 145,171,197,223,106,132,158,184
+    !byte 210,236,6,106,132,158,184,210
+    !byte 236,6,106,132,158,184,210,236
+    !byte 6,106,132,158,184,210,236,6
+
+base_xh: ; formation slot X bit 8
+    !byte 0,0,0,0,0,0,0,0
+    !byte 0,0,1,0,0,0,0,0
+    !byte 0,1,0,0,0,0,0,0
+    !byte 1,0,0,0,0,0,0,1
 
 base_y: ; formation slot Y (clear of the HUD rows)
-    !byte 76,76,76,76,76,76,104,104,104,104,104,104
-    !byte 132,132,132,132,132,132,160,160,160,160,160,160
+    !byte 72,72,72,72,100,100,100,100
+    !byte 100,100,100,128,128,128,128,128
+    !byte 128,128,156,156,156,156,156,156
+    !byte 156,184,184,184,184,184,184,184
 
 enemy_type_tbl: ; 0=boss 1=butterfly 2=bee
-    !byte 0,0,0,0,0,0,1,1,1,1,1,1
-    !byte 2,2,2,2,2,2,2,2,2,2,2,2
+    !byte 0,0,0,0,1,1,1,1
+    !byte 1,1,1,1,1,1,1,1
+    !byte 1,1,2,2,2,2,2,2
+    !byte 2,2,2,2,2,2,2,2
 
 enemy_ptr_tbl: ; sprite pointer, frame A
-    !byte 199,199,199,199,199,199,197,197,197,197,197,197
-    !byte 195,195,195,195,195,195,195,195,195,195,195,195
+    !byte 199,199,199,199,197,197,197,197
+    !byte 197,197,197,197,197,197,197,197
+    !byte 197,197,195,195,195,195,195,195
+    !byte 195,195,195,195,195,195,195,195
 
 enemy_col_tbl: ; sprite colour
-    !byte 5,5,5,5,5,5,2,2,2,2,2,2
-    !byte 14,14,14,14,14,14,14,14,14,14,14,14
+    !byte 5,5,5,5,2,2,2,2
+    !byte 2,2,2,2,2,2,2,2
+    !byte 2,2,14,14,14,14,14,14
+    !byte 14,14,14,14,14,14,14,14
 
 enemy_hitcol_tbl: ; colour once damaged
-    !byte 4,4,4,4,4,4,2,2,2,2,2,2
-    !byte 14,14,14,14,14,14,14,14,14,14,14,14
+    !byte 4,4,4,4,2,2,2,2
+    !byte 2,2,2,2,2,2,2,2
+    !byte 2,2,14,14,14,14,14,14
+    !byte 14,14,14,14,14,14,14,14
 
 ; Per enemy type: 0 boss, 1 butterfly, 2 bee
 type_hp:        !byte 2, 1, 1
@@ -2150,7 +2185,7 @@ fire_mask_tbl:  !byte 0, 1, 1, 0, 0, 0, 0, 0, 0     ; fire when rand & mask == 0
 
 ; Last used art row per sprite pointer ($c0..$cb): a hardware sprite can be
 ; reused once the raster is past y + lastrow
-lastrow_tbl:    !byte 13, 8, 7, 12, 12, 9, 9, 9, 9, 6, 7, 8
+lastrow_tbl:    !byte 13, 8, 7, 10, 10, 9, 9, 9, 9, 6, 7, 8
 
 star_clr_tbl:   !byte 0, 0, 1, 15, 12, 11           ; by speed: fast = bright
 
@@ -2193,16 +2228,25 @@ sort_order:         !fill MAX_SPRITES, 0
 
 ; Sorted sprite tables
 sort_spr_x:         !fill MAX_SPRITES, 0
-sort_spr_x_msb:     !fill MAX_SPRITES, 0    ; MSB for sorted X
 sort_spr_y:         !fill MAX_SPRITES+1, 0  ; +1 for $ff end marker
 sort_spr_f:         !fill MAX_SPRITES, 0
 sort_spr_c:         !fill MAX_SPRITES, 0
 sort_d010:          !fill MAX_SPRITES, 0    ; $d010 value after loading this sprite
-sort_d01c:          !fill MAX_SPRITES, 0    ; $d01c value after loading this sprite
-sort_free:          !fill MAX_SPRITES, 0    ; raster line the hardware sprite frees up (0 = now)
+sort_d01c:          !fill MAX_SPRITES+8, $ff ; $d01c value after loading this sprite
+pk:                 !byte 0                 ; sorted index of the player ship
+pk_prev:            !byte MAX_SPRITES
 sh_msb:             !byte 0
 sh_mc:              !byte 0
 sh_mask:            !byte 0
+sh_val:             !byte 0
+
+; Hardware sprite bit for sorted index 0..47
+bit_tbl:            !byte 1,2,4,8,16,32,64,128
+                    !byte 1,2,4,8,16,32,64,128
+                    !byte 1,2,4,8,16,32,64,128
+                    !byte 1,2,4,8,16,32,64,128
+                    !byte 1,2,4,8,16,32,64,128
+                    !byte 1,2,4,8,16,32,64,128
 
 ; Sprite enable table for $d015
 d015_table:         !byte %00000000
@@ -2230,8 +2274,12 @@ phys_spr_tbl_1:     !byte 0,1,2,3,4,5,6,7
                     !byte 0,1,2,3,4,5,6,7
                     !byte 0,1,2,3,4,5,6,7
                     !byte 0,1,2,3,4,5,6,7
+                    !byte 0,1,2,3,4,5,6,7
+                    !byte 0,1,2,3,4,5,6,7
 
 phys_spr_tbl_2:     !byte 0,2,4,6,8,10,12,14
+                    !byte 0,2,4,6,8,10,12,14
+                    !byte 0,2,4,6,8,10,12,14
                     !byte 0,2,4,6,8,10,12,14
                     !byte 0,2,4,6,8,10,12,14
                     !byte 0,2,4,6,8,10,12,14
@@ -2323,7 +2371,6 @@ ebullet_sprite:
 bee_a_sprite:
     ; Bee, wings up
     ; 00=transparent, 01=yellow, 10=own colour, 11=cyan
-    !byte %00000000, %00000000, %00000000   ; ............
     !byte %00000001, %00000000, %01000000   ; ...a....a...
     !byte %00000000, %01000001, %00000000   ; ....a..a....
     !byte %00000000, %10101010, %00000000   ; ....bbbb....
@@ -2334,8 +2381,9 @@ bee_a_sprite:
     !byte %10100000, %10101010, %00001010   ; bb..bbbb..bb
     !byte %10000000, %10101010, %00000010   ; b...bbbb...b
     !byte %00000000, %10101010, %00000000   ; ....bbbb....
-    !byte %00000000, %00101000, %00000000   ; .....bb.....
     !byte %00000000, %01000001, %00000000   ; ....a..a....
+    !byte %00000000, %00000000, %00000000   ; ............
+    !byte %00000000, %00000000, %00000000   ; ............
     !byte %00000000, %00000000, %00000000   ; ............
     !byte %00000000, %00000000, %00000000   ; ............
     !byte %00000000, %00000000, %00000000   ; ............
@@ -2349,7 +2397,6 @@ bee_a_sprite:
 bee_b_sprite:
     ; Bee, wings down
     ; 00=transparent, 01=yellow, 10=own colour, 11=cyan
-    !byte %00000000, %00000000, %00000000   ; ............
     !byte %00000001, %00000000, %01000000   ; ...a....a...
     !byte %00000000, %01000001, %00000000   ; ....a..a....
     !byte %00000000, %10101010, %00000000   ; ....bbbb....
@@ -2360,8 +2407,9 @@ bee_b_sprite:
     !byte %10000000, %10101010, %00000010   ; b...bbbb...b
     !byte %10100000, %10101010, %00001010   ; bb..bbbb..bb
     !byte %10101000, %10101010, %00101010   ; bbb.bbbb.bbb
-    !byte %00000000, %00101000, %00000000   ; .....bb.....
     !byte %00000000, %01000001, %00000000   ; ....a..a....
+    !byte %00000000, %00000000, %00000000   ; ............
+    !byte %00000000, %00000000, %00000000   ; ............
     !byte %00000000, %00000000, %00000000   ; ............
     !byte %00000000, %00000000, %00000000   ; ............
     !byte %00000000, %00000000, %00000000   ; ............
