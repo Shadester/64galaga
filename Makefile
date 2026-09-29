@@ -6,7 +6,7 @@ ASMFLAGS = -f cbm -o
 
 # Emulator
 EMU = x64sc
-EMUFLAGS = -VICIIdsize -VICIIfilter 0
+EMUFLAGS = -VICIIdsize -VICIIfilter 0 -autostartprgmode 1
 
 # Directories
 SRC_DIR = src
