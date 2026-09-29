@@ -88,6 +88,7 @@ GS_INTRO        = 1
 GS_PLAY         = 2
 GS_DYING        = 3
 GS_GAMEOVER     = 4
+GS_CAPTURED     = 5             ; Player is being pulled up by a tractor beam
 
 ; Raster IRQ Constants
 IRQ1_LINE       = $fc           ; Sorting interrupt at bottom of screen
@@ -148,7 +149,11 @@ game_loop:
     lsr
     lsr
     and #1
+    cmp anim
+    beq .same_anim
     sta anim                    ; Wing flap toggles every 16 frames
+    jsr refresh_anim
+.same_anim:
     jsr read_joystick
     jsr update_stars
     jsr snd_tick
@@ -173,6 +178,10 @@ run_state:
     beq .play
     dex
     beq .dying
+    dex
+    beq .over
+    jmp st_captured
+.over:
     jmp st_gameover
 .title:
     jmp st_title
@@ -230,6 +239,9 @@ start_game:
     sta player_x_msb
     sta invuln
     sta dual
+    sta cap_state
+    sta beam_len
+    sta dying_quiet
 !ifdef DUAL {
     lda #1                      ; -DDUAL=1: start with a dual fighter (testing)
     sta dual
@@ -286,9 +298,10 @@ st_play:
     jsr update_dives
     jsr update_ebullets
     jsr check_collisions
+    jsr update_capture
     lda game_state
     cmp #GS_PLAY
-    bne .play_done          ; Player was hit this frame
+    bne .play_done          ; Player was hit or captured this frame
     jmp check_level_complete
 .play_done:
     rts
@@ -299,6 +312,7 @@ st_dying:
     jsr update_formation
     jsr update_enemies
     jsr update_ebullets
+    jsr update_capture
     lda dying_timer
     beq .done
     dec dying_timer
@@ -312,10 +326,52 @@ st_dying:
     sta player_x_msb
     lda #120
     sta invuln
+    lda #0
+    sta dying_quiet
     lda #GS_PLAY
     sta game_state
     rts
 .game_over:
+    jmp enter_gameover
+
+; --- Ship caught in a tractor beam ---
+!zone st_captured
+st_captured:
+    jsr update_formation
+    jsr update_enemies
+    jsr update_ebullets
+    jsr update_capture
+    lda player_y                ; Pulled up towards the boss
+    sec
+    sbc #2
+    sta player_y
+    ldx cap_boss
+    sec
+    sbc enemy_y,x
+    cmp #22
+    bcs .rts                    ; Not there yet
+    jsr beam_erase              ; Caught: the boss carries the ship away
+    lda #PLAYER_Y
+    sta player_y
+    ldx cap_boss
+    lda #3                      ; Boss flies back to its slot with the captive
+    sta enemy_state,x
+    lda #0
+    sta enemy_y,x
+    sta enemy_flag,x
+    lda #4
+    sta cap_state
+    lda #1
+    sta dying_quiet             ; No explosion for a captured ship
+    dec lives
+    beq .last
+    lda #GS_DYING
+    sta game_state
+    lda #45
+    sta dying_timer
+.rts:
+    rts
+.last:
     jmp enter_gameover
 
 ; --- Game over ---
@@ -639,6 +695,8 @@ reset_formation:
     sta pbul_active+1
     sta pbul_active+2
     sta pbul_active+3
+    sta cap_state
+    sta beam_len
     lda #1
     sta form_dir
     ldy diff
@@ -654,9 +712,45 @@ reset_formation:
     ldy enemy_type_tbl,x
     lda type_hp,y
     sta enemy_hp,x
+    lda enemy_ptr_tbl,x
+    clc
+    adc anim
+    sta spr_f,x
+    lda enemy_col_tbl,x
+    sta spr_c,x
     jsr set_slot_pos
     dex
     bpl .loop
+    rts
+
+; Point every enemy's sprite at the current wing-flap frame
+!zone refresh_anim
+refresh_anim:
+    ldx #MAX_ENEMIES-1
+.loop:
+    lda enemy_state,x
+    cmp #4
+    beq .next                   ; Exploding: keeps its explosion frame
+    lda enemy_ptr_tbl,x
+    clc
+    adc anim
+    sta spr_f,x
+.next:
+    dex
+    bpl .loop
+    rts
+
+; Enemy X turns into an explosion (state 4). Preserves X.
+!zone set_explode
+set_explode:
+    lda #4
+    sta enemy_state,x
+    lda #11
+    sta enemy_timer,x
+    lda #8                      ; Orange
+    sta spr_c,x
+    lda #SPR_EXPL1
+    sta spr_f,x
     rts
 
 ; Put enemy X at its formation slot (X and Y)
@@ -684,18 +778,23 @@ set_slot_x:
 
 !zone update_sprite_data
 update_sprite_data:
-    lda #0
-    sta num_sprites             ; Count active sprites
     lda game_state
-    beq .skip                   ; Title: no sprites
+    beq .hide_all               ; Title: no sprites
     cmp #GS_GAMEOVER
     bne .player
-.skip:
+.hide_all:
+    ldx #MAX_SPRITES-1
+    lda #$ff
+.hide:
+    sta spr_y,x
+    dex
+    bpl .hide
     jmp .done
 
-; Every sprite has a fixed virtual slot (enemy i = slot i, player, bullets...)
-; and hidden ones get Y=$ff. Keeping slots stable keeps last frame's sort
-; order nearly correct, which makes the per-frame sort cheap.
+; Every sprite has a fixed virtual slot: enemy i is slot i and shares its
+; x / y (and msb, pointer, colour) with the multiplexer tables, so only the
+; other sprites are copied here. Hidden sprites have Y=$ff. Stable slots keep
+; last frame's sort order nearly correct, which makes the sort cheap.
 .player:
     cmp #GS_DYING
     beq .p_dying
@@ -706,6 +805,8 @@ update_sprite_data:
     ldx #1                      ; White
     jmp .p_add
 .p_dying:
+    lda dying_quiet
+    bne .p_hide                 ; Captured: no explosion
     lda dying_timer
     lsr
     lsr
@@ -723,70 +824,16 @@ update_sprite_data:
     lda player_x
     sta spr_x+VS_PLAYER
     lda player_x_msb
-    beq .p_m0
-    lda #$ff
-.p_m0:
     sta spr_x_msb+VS_PLAYER
     lda player_y
     sta spr_y+VS_PLAYER
-    inc num_sprites
-    jmp .enemies
+    jmp .dual
 .p_hide:
     lda #$ff
     sta spr_y+VS_PLAYER
 
-.enemies:
-    ldx #0
-.en_loop:
-    lda enemy_state,x
-    bne .en_on
-    lda #$ff
-    sta spr_y,x
-    jmp .en_next
-.en_on:
-    lda enemy_x,x
-    sta spr_x,x
-    lda enemy_x_msb,x
-    beq .en_m0
-    lda #$ff                    ; $d010 bit value: 0 / $ff
-.en_m0:
-    sta spr_x_msb,x
-    lda enemy_y,x
-    sta spr_y,x
-    lda enemy_state,x
-    cmp #4
-    beq .en_explode
-    lda enemy_ptr_tbl,x
-    clc
-    adc anim
-    sta spr_f,x
-    lda enemy_hp,x
-    cmp #2
-    lda enemy_col_tbl,x
-    bcs .en_col
-    lda enemy_hitcol_tbl,x      ; Damaged boss changes colour
-.en_col:
-    sta spr_c,x
-    jmp .en_added
-.en_explode:
-    lda enemy_timer,x
-    lsr
-    lsr
-    sta temp
-    lda #SPR_EXPL1+2
-    sec
-    sbc temp
-    sta spr_f,x
-    lda #8                      ; Orange
-    sta spr_c,x
-.en_added:
-    inc num_sprites
-.en_next:
-    inx
-    cpx #MAX_ENEMIES
-    bne .en_loop
-
     ; Second ship of the dual fighter
+.dual:
     lda dual
     beq .d_hide
     lda invuln
@@ -802,18 +849,52 @@ update_sprite_data:
     sta spr_x+VS_DUAL
     lda player_x_msb
     adc #0
-    beq .d_m0
-    lda #$ff
-.d_m0:
     sta spr_x_msb+VS_DUAL
     lda player_y
     sta spr_y+VS_DUAL
-    inc num_sprites
     jmp .dual_done
 .d_hide:
     lda #$ff
     sta spr_y+VS_DUAL
 .dual_done:
+
+    ; Captured ship: carried by its boss, or falling back to the player
+    lda cap_state
+    cmp #4
+    bne .c_resc
+    ldx cap_boss
+    lda enemy_state,x
+    beq .c_hide
+    lda enemy_y,x
+    cmp #32
+    bcc .c_hide
+    sec
+    sbc #16
+    sta spr_y+VS_CAPT
+    lda enemy_x,x
+    sta spr_x+VS_CAPT
+    ldy #2                      ; Red
+    lda enemy_x_msb,x
+    jmp .c_set
+.c_resc:
+    cmp #5
+    bne .c_hide
+    lda cap_y
+    sta spr_y+VS_CAPT
+    lda cap_x
+    sta spr_x+VS_CAPT
+    ldy #1                      ; White
+    lda cap_msb
+.c_set:
+    sta spr_x_msb+VS_CAPT
+    lda #SPR_PLAYER
+    sta spr_f+VS_CAPT
+    sty spr_c+VS_CAPT
+    jmp .c_done
+.c_hide:
+    lda #$ff
+    sta spr_y+VS_CAPT
+.c_done:
 
     ; Player bullets
     ldx #3
@@ -827,9 +908,6 @@ update_sprite_data:
     lda pbul_x,x
     sta spr_x+VS_PBUL,x
     lda pbul_msb,x
-    beq .pb_m0
-    lda #$ff
-.pb_m0:
     sta spr_x_msb+VS_PBUL,x
     lda pbul_y,x
     sta spr_y+VS_PBUL,x
@@ -837,7 +915,6 @@ update_sprite_data:
     sta spr_f+VS_PBUL,x
     lda #14                     ; Light blue
     sta spr_c+VS_PBUL,x
-    inc num_sprites
 .pb_next:
     dex
     bpl .pb_loop
@@ -854,9 +931,6 @@ update_sprite_data:
     lda eb_x,x
     sta spr_x+VS_EBUL,x
     lda eb_msb,x
-    beq .eb_m0
-    lda #$ff
-.eb_m0:
     sta spr_x_msb+VS_EBUL,x
     lda eb_y,x
     sta spr_y+VS_EBUL,x
@@ -864,7 +938,6 @@ update_sprite_data:
     sta spr_f+VS_EBUL,x
     lda #10                     ; Light red
     sta spr_c+VS_EBUL,x
-    inc num_sprites
 .eb_next:
     dex
     bpl .eb_loop
@@ -884,6 +957,42 @@ read_joystick:
     ; Synthetic input: sweep the screen left/right, fire in bursts
     lda #$ff
     sta joystick_state
+!ifdef CAPTURE {
+    lda game_state          ; -DCAPTURE=1: pulse fire to leave title / game over,
+    cmp #GS_PLAY            ; idle while a boss beams (so it captures us), then
+    beq .cap_play           ; chase and shoot the boss once it dives with the captive
+    lda frame
+    and #$08
+    bne .auto_done
+    jmp .cap_fire
+.cap_play:
+    lda cap_state
+    cmp #4
+    bne .auto_done
+    ldx cap_boss
+    lda enemy_state,x
+    cmp #2
+    bne .auto_done
+    lda enemy_x,x
+    cmp player_x
+    bcs .cap_right
+    lda joystick_state
+    and #$fb
+    sta joystick_state
+    jmp .cap_fire
+.cap_right:
+    lda joystick_state
+    and #$f7
+    sta joystick_state
+.cap_fire:
+    lda frame
+    and #$04                ; Pulse the button so every press is a new shot
+    bne .auto_done
+    lda joystick_state
+    and #$ef
+    sta joystick_state
+    jmp .auto_done
+}
     lda frame
     and #$80                ; 128 frames per direction = 256px sweep
     beq .auto_right
@@ -1109,6 +1218,8 @@ update_enemies:
     beq .dive
     cmp #4
     beq .explode
+    cmp #5
+    beq .next               ; Beaming boss holds still
     jsr return_step
     jmp .next
 .dive:
@@ -1116,9 +1227,21 @@ update_enemies:
     jmp .next
 .explode:
     dec enemy_timer,x
-    bne .next
+    beq .gone
+    lda enemy_timer,x
+    lsr
+    lsr
+    sta temp
+    lda #SPR_EXPL1+2
+    sec
+    sbc temp
+    sta spr_f,x                 ; Explosion frame
+    jmp .next
+.gone:
     lda #0
     sta enemy_state,x
+    lda #$ff                    ; Dead enemies are hidden (Y=$ff)
+    sta enemy_y,x
 .next:
     dex
     bpl .loop
@@ -1171,6 +1294,24 @@ dive_step:
     clc
     adc #2
     sta enemy_y,x
+    cpx cap_boss
+    bne .not_cap
+    lda cap_state
+    cmp #1
+    bne .not_cap
+    lda enemy_y,x           ; Capture dive: stop below the formation, fire the beam
+    cmp #196
+    bcc .not_cap
+    lda #5
+    sta enemy_state,x
+    lda #2
+    sta cap_state
+    lda #0
+    sta beam_len
+    lda #180
+    sta beam_timer
+    rts
+.not_cap:
     lda enemy_flag,x
     bne .steer                  ; Already fired
     lda enemy_y,x
@@ -1184,9 +1325,16 @@ dive_step:
     bne .steer
     jsr spawn_ebullet
 .steer:
+    cpx cap_boss
+    bne .half
+    lda cap_state
+    cmp #1
+    beq .do_steer           ; A capture boss homes in on the player every frame
+.half:
     lda frame
     and #1
     bne .check_end          ; Steer every other frame
+.do_steer:
     lda enemy_x_msb,x
     cmp player_x_msb
     bne .cmp_done
@@ -1207,7 +1355,9 @@ dive_step:
 .check_end:
     lda enemy_y,x
     cmp #244
-    bcc .rts
+    bcs .off_bottom
+    rts
+.off_bottom:
     lda #3                  ; Off the bottom: re-enter from the top
     sta enemy_state,x
     lda #0
@@ -1269,6 +1419,13 @@ update_dives:
     bcs .rts
     lda #8                  ; Up to 8 random picks
     sta temp
+!ifdef CAPTURE {
+    ldx #1                  ; -DCAPTURE=1: boss 1 always dives (capture test)
+    lda enemy_state,x
+    cmp #1
+    beq .start
+    rts
+}
 .pick:
     jsr rand
     and #$1f
@@ -1284,6 +1441,32 @@ update_dives:
 .rts:
     rts
 .start:
+    lda enemy_type_tbl,x
+    bne .normal             ; Only bosses capture
+    lda cap_state
+    ora dual
+    bne .normal
+    lda game_state
+    cmp #GS_PLAY
+    bne .normal
+!ifndef CAPTURE {
+    jsr rand
+    and #1
+    bne .normal             ; Half of the boss dives are capture dives
+}
+    jsr start_dive
+    stx cap_boss
+    lda #1
+    sta cap_state
+    sta enemy_flag,x        ; No bullets on a capture dive
+    lda enemy_x,x           ; Peel off towards the player's side
+    cmp player_x
+    lda #0
+    rol
+    eor #1
+    sta enemy_dir,x
+    rts
+.normal:
     jmp start_dive
 
 ; ===============================================
@@ -1420,19 +1603,20 @@ check_collisions:
 .pb_loop:
     lda pbul_active,y
     beq .pb_next
+    lda pbul_y,y            ; Dead enemies have Y=$ff and never match
+    sec
+    sbc #8
+    sta ov_by
     ldx #MAX_ENEMIES-1
 .pb_enemy:
+    lda enemy_y,x
+    sec
+    sbc ov_by
+    cmp #16                 ; |enemy Y - bullet Y| < 8
+    bcs .pbe_next
     lda enemy_state,x
-    beq .pbe_next
     cmp #4
     beq .pbe_next           ; Exploding enemies can't be hit
-    lda pbul_y,y
-    sec
-    sbc enemy_y,x
-    clc
-    adc #8
-    cmp #16
-    bcs .pbe_next
     lda enemy_x,x
     sta ov_bl
     lda enemy_x_msb,x
@@ -1536,10 +1720,12 @@ check_ship:
     lda ship_xl
     jsr x_overlap
     bcs .pe_next
-    lda #4                  ; Enemy explodes with the ship
-    sta enemy_state,x
-    lda #11
-    sta enemy_timer,x
+    jsr set_explode         ; Enemy explodes with the ship
+    cpx cap_boss
+    bne .ram_done
+    lda #0                  ; A capture boss rammed the ship: its captive is lost
+    sta cap_state
+.ram_done:
     sec
     rts
 .pe_next:
@@ -1579,14 +1765,312 @@ check_ship:
     clc
     rts
 
+; ===============================================
+; TRACTOR BEAM / CAPTURE
+; ===============================================
+; cap_state: 0 none, 1 boss diving to capture, 2 beam on, 3 ship being
+; pulled up, 4 captive carried by cap_boss, 5 rescued captive flying down.
+
+; The capture boss was shot. In: X = boss. Preserves nothing.
+!zone boss_killed
+boss_killed:
+    lda cap_state
+    cmp #4
+    beq .carrying
+    cmp #2
+    bne .clear
+    jsr beam_erase
+.clear:
+    lda #0
+    sta cap_state
+    rts
+.carrying:
+    lda enemy_state,x
+    cmp #1
+    beq .clear              ; Shot in formation: the captive is destroyed
+    lda enemy_x,x           ; Shot while diving: the captive is freed
+    sta cap_x
+    lda enemy_x_msb,x
+    sta cap_msb
+    lda enemy_y,x
+    sec
+    sbc #16
+    sta cap_y
+    lda #5
+    sta cap_state
+    lda #$00                ; +1000
+    ldx #$10
+    jsr add_score
+    lda #jin_resc-jin_data
+    jmp play_jingle
+
+; Per-frame beam logic and drawing (cap_state 2 or 3) and rescue flight (5)
+!zone update_capture
+update_capture:
+    lda cap_state
+    cmp #5
+    bne .n5
+    jmp rescue_step
+.n5:
+    cmp #2
+    beq .beam
+    cmp #3
+    bne .none
+    jmp .draw
+.none:
+    rts
+.beam:
+    lda beam_len
+    cmp #4
+    bcs .full
+    lda frame
+    and #7
+    bne .draw
+    inc beam_len
+    jmp .draw
+.full:
+    lda game_state
+    cmp #GS_PLAY
+    bne .timer
+    lda invuln
+    bne .timer
+    ldx cap_boss
+    lda enemy_x,x
+    sta ov_bl
+    lda enemy_x_msb,x
+    sta ov_bh
+    lda player_x_msb
+    sta ov_ah
+    lda #20
+    sta ov_off
+    lda #40
+    sta ov_w
+    lda player_x
+    jsr x_overlap
+    bcs .timer
+    lda #GS_CAPTURED        ; Caught!
+    sta game_state
+    lda #3
+    sta cap_state
+    lda #0
+    sta pbul_active
+    sta pbul_active+1
+    sta pbul_active+2
+    sta pbul_active+3
+    lda #jin_capt-jin_data
+    jmp play_jingle
+.timer:
+    dec beam_timer
+    bne .draw
+    jsr beam_erase          ; Missed: the boss gives up and flies home
+    ldx cap_boss
+    lda #3
+    sta enemy_state,x
+    lda #0
+    sta enemy_y,x
+    sta enemy_flag,x
+    sta cap_state
+    rts
+.draw:
+    lda frame
+    and #31
+    bne .nosnd
+    lda #24
+    sta swoop_cnt           ; Beam hum on voice 3
+.nosnd:
+    lda frame
+    and #3
+    bne .rts
+    lda #$66
+    jmp beam_draw
+.rts:
+    rts
+
+!zone beam_erase
+beam_erase:
+    lda #$20
+    jsr beam_draw
+    lda #0
+    sta beam_len
+    rts
+
+; Draw (A = $66) or erase (A = $20) the cone of the beam under boss cap_boss
+!zone beam_draw
+beam_draw:
+    sta bd_chr
+    ldx cap_boss
+    lda enemy_x,x           ; Column of the boss centre: (x - 18) / 8
+    sec
+    sbc #18
+    sta bd_col
+    lda enemy_x_msb,x
+    sbc #0
+    lsr
+    ror bd_col
+    lsr bd_col
+    lsr bd_col
+    lda enemy_y,x           ; First row: just under the boss
+    sec
+    sbc #36
+    lsr
+    lsr
+    lsr
+    sta bd_row0
+    lda #0
+    sta bd_r
+.row:
+    ldx bd_r
+    cpx beam_len
+    bcs .end
+    lda hw_tbl,x
+    sta bd_hw
+    lda bd_col
+    sec
+    sbc bd_hw
+    bcs .c0ok
+    lda #0
+.c0ok:
+    sta bd_c0
+    lda bd_col
+    clc
+    adc bd_hw
+    cmp #40
+    bcc .c1ok
+    lda #39
+.c1ok:
+    sec
+    sbc bd_c0
+    sta bd_n                ; Cells in this row - 1
+    lda bd_row0
+    clc
+    adc bd_r
+    cmp #25
+    bcs .end
+    tax
+    lda row_lo,x
+    clc
+    adc bd_c0
+    sta zp_dst
+    sta zp_col
+    lda row_hi,x
+    adc #0
+    sta zp_dst+1
+    clc
+    adc #>(COLOR_RAM-SCREEN_RAM)
+    sta zp_col+1
+    ldy #0
+.cell:
+    lda bd_chr
+    sta (zp_dst),y
+    tya
+    clc
+    adc bd_r
+    sta temp
+    lda frame
+    lsr
+    lsr
+    clc
+    adc temp
+    and #3
+    tax
+    lda beam_clr_tbl,x
+    sta (zp_col),y
+    iny
+    cpy bd_n
+    beq .cell
+    bcc .cell
+    inc bd_r
+    jmp .row
+.end:
+    rts
+
+; A rescued ship falls towards the spot next to the player and docks
+!zone rescue_step
+rescue_step:
+    lda cap_y
+    clc
+    adc #3
+    cmp #PLAYER_Y
+    bcc .ynot
+    lda #PLAYER_Y
+.ynot:
+    sta cap_y
+    lda player_x            ; Dock spot: 16px right of the player
+    clc
+    adc #16
+    sta rs_tx
+    lda player_x_msb
+    adc #0
+    sta rs_th
+    lda cap_msb
+    cmp rs_th
+    bne .cmp
+    lda cap_x
+    cmp rs_tx
+.cmp:
+    bcs .left
+    lda cap_x
+    clc
+    adc #2
+    sta cap_x
+    bcc .steered
+    inc cap_msb
+    jmp .steered
+.left:
+    lda cap_x
+    sec
+    sbc #2
+    sta cap_x
+    bcs .steered
+    dec cap_msb
+.steered:
+    lda cap_y
+    cmp #PLAYER_Y
+    bcc .rts
+    lda game_state
+    cmp #GS_PLAY
+    bne .rts
+    lda cap_x               ; Close enough to dock?
+    sec
+    sbc rs_tx
+    clc
+    adc #4
+    cmp #8
+    bcs .rts
+    lda #1
+    sta dual
+    lda #0
+    sta cap_state
+    lda player_x_msb        ; Keep the pair on screen
+    beq .docked
+    lda player_x
+    cmp #<(SCREEN_RIGHT-16)
+    bcc .docked
+    lda #<(SCREEN_RIGHT-16)
+    sta player_x
+.docked:
+    lda #jin_resc-jin_data
+    jmp play_jingle
+.rts:
+    rts
+
 ; Player bullet hit enemy X: boss survives one hit, everything else dies
 !zone hit_enemy
 hit_enemy:
     dec enemy_hp,x
     beq .kill
-    jmp sound_shoot         ; Damaged, not dead
+    lda enemy_hitcol_tbl,x  ; Damaged boss changes colour
+    sta spr_c,x
+    jmp sound_shoot
 .kill:
     stx hit_idx
+    cpx cap_boss
+    bne .plain
+    lda cap_state
+    beq .plain
+    jsr boss_killed
+    ldx hit_idx
+.plain:
     ldy enemy_type_tbl,x
     lda enemy_state,x
     cmp #2
@@ -1602,10 +2086,7 @@ hit_enemy:
 .add:
     jsr add_score
     ldx hit_idx
-    lda #4
-    sta enemy_state,x
-    lda #11
-    sta enemy_timer,x
+    jsr set_explode
     jmp sound_explosion
 
 ; Add BCD points to the 6-digit score. In: A = low pair, X = middle pair
@@ -1649,6 +2130,9 @@ player_hit:
 ; All enemies gone (and none still exploding)? Start the next stage.
 !zone check_level_complete
 check_level_complete:
+    lda cap_state
+    cmp #5
+    beq .rts                ; A rescued ship is still on its way down
     ldx #MAX_ENEMIES-1
 .loop:
     lda enemy_state,x
@@ -1910,11 +2394,7 @@ irq1:
 
     lda #0
     sta spr_update_flag
-    lda num_sprites
-    sta sorted_sprites
-    beq .check_display      ; If zero, check if we have sprites to display
-
-    ; Sort sprites by Y coordinate
+    ; Sort sprites by Y coordinate (also counts the visible ones)
     jsr sort_sprites
 
 .check_display:
@@ -1999,9 +2479,6 @@ sort_skip_swap:
     ; (the only hires sprite: its hardware sprite keeps the bit clear until
     ; another sprite reuses it).
 !zone sort_copy
-    ldx sorted_sprites
-    lda #$ff
-    sta sort_spr_y,x        ; End marker
     ldx #MAX_SPRITES+7      ; $d01c: all multicolor, except the hires windows below
     lda #$ff
 .undo:
@@ -2010,12 +2487,13 @@ sort_skip_swap:
     bpl .undo
     lda #0
     sta pk_n
-    lda #0
     sta sh_msb
     ldx #0
 .loop:
     ldy sort_order,x
     lda spr_y,y
+    cmp #$ff                ; Hidden sprites sort last: stop at the first one
+    beq .done_copy
     sta sort_spr_y,x
     lda spr_x,y
     sta sort_spr_x,x
@@ -2031,16 +2509,25 @@ sort_skip_swap:
     inc pk_n
     ldy sort_order,x
 .not_player:
-    lda sh_msb              ; new = old ^ ((old ^ value) & bit)
-    eor spr_x_msb,y
-    and bit_tbl,x
-    eor sh_msb
+    lda spr_x_msb,y         ; Running $d010: set or clear this sprite's bit
+    beq .msb0
+    lda sh_msb
+    ora bit_tbl,x
+    jmp .msb_st
+.msb0:
+    lda bit_tbl,x
+    eor #$ff
+    and sh_msb
+.msb_st:
     sta sh_msb
     sta sort_d010,x
     inx
-    cpx sorted_sprites
-    bcs .done
-    jmp .loop
+    cpx #MAX_SPRITES
+    bcc .loop
+.done_copy:
+    stx sorted_sprites
+    lda #$ff
+    sta sort_spr_y,x        ; End marker
 .done:
     ldy pk_n                ; Each hires ship clears its hardware sprite's $d01c bit
 .next_pk:                   ; from itself until that sprite is reused (8 entries)
@@ -2155,6 +2642,23 @@ irq2_last_sprite:
 ; ===============================================
 
 dual:                  !byte 0         ; 1 = dual fighter
+cap_state:             !byte 0
+cap_boss:              !byte 0
+beam_len:              !byte 0         ; rows of beam drawn
+beam_timer:            !byte 0
+cap_x:                 !byte 0         ; rescued ship position
+cap_msb:               !byte 0
+cap_y:                 !byte 0
+dying_quiet:           !byte 0         ; 1 = respawn delay without explosion
+bd_chr:                !byte 0
+bd_col:                !byte 0
+bd_row0:               !byte 0
+bd_r:                  !byte 0
+bd_hw:                 !byte 0
+bd_c0:                 !byte 0
+bd_n:                  !byte 0
+rs_tx:                 !byte 0
+rs_th:                 !byte 0
 cur_ship:              !byte 0
 ship_xl:               !byte 0
 ship_xh:               !byte 0
@@ -2176,6 +2680,7 @@ ov_off:                !byte 0
 ov_w:                  !byte 0
 ov_t:                  !byte 0
 ov_th:                 !byte 0
+ov_by:                 !byte 0
 
 ; Timers
 intro_timer:           !byte 0
@@ -2201,9 +2706,6 @@ form_ext:              !byte 0
 form_dir:              !byte 1
 enemy_counter:         !byte 0
 
-enemy_x:        !fill MAX_ENEMIES, 0
-enemy_x_msb:    !fill MAX_ENEMIES, 0    ; 9th bit for X coordinates (0 or 1)
-enemy_y:        !fill MAX_ENEMIES, 0
 enemy_state:    !fill MAX_ENEMIES, 0
 enemy_timer:    !fill MAX_ENEMIES, 0    ; dive peel-off / explosion frames left
 enemy_hp:       !fill MAX_ENEMIES, 0
@@ -2310,6 +2812,9 @@ fire_mask_tbl:  !byte 0, 1, 1, 0, 0, 0, 0, 0, 0     ; fire when rand & mask == 0
 ; reused once the raster is past y + lastrow
 lastrow_tbl:    !byte 13, 8, 7, 10, 10, 9, 9, 9, 9, 6, 7, 8
 
+hw_tbl:         !byte 2, 3, 4, 5                          ; beam half-width per row
+beam_clr_tbl:   !byte 6, 14, 3, 14                     ; blue / light blue / cyan shimmer
+
 star_clr_tbl:   !byte 0, 0, 1, 15, 12, 11           ; by speed: fast = bright
 
 jin_data:
@@ -2325,6 +2830,21 @@ jin_over:
     !byte $45,$1d,12   ; A4
     !byte $3b,$17,12   ; F4
     !byte $67,$11,40   ; C4
+    !byte 0,0,0             ; end
+jin_capt:
+    !byte $ce,$22,6   ; C5
+    !byte $45,$1d,6   ; A4
+    !byte $3b,$17,6   ; F4
+    !byte $89,$13,6   ; D4
+    !byte $67,$11,20   ; C4
+    !byte 0,0,0             ; end
+jin_resc:
+    !byte $ce,$22,5   ; C5
+    !byte $da,$2b,5   ; E5
+    !byte $26,$34,5   ; G5
+    !byte $9c,$45,5   ; C6
+    !byte $26,$34,5   ; G5
+    !byte $9c,$45,20   ; C6
     !byte 0,0,0             ; end
 
 ; ===============================================
@@ -2345,6 +2865,11 @@ spr_x_msb:          !fill MAX_SPRITES, 0    ; MSB for X coordinates
 spr_y:              !fill MAX_SPRITES, 0
 spr_f:              !fill MAX_SPRITES, 0    ; Frame/pointer
 spr_c:              !fill MAX_SPRITES, 0    ; Color
+
+; Enemies are virtual sprites 0..MAX_ENEMIES-1 (dead enemies have Y=$ff)
+enemy_x     = spr_x
+enemy_x_msb = spr_x_msb
+enemy_y     = spr_y
 
 ; Sort order table
 sort_order:         !fill MAX_SPRITES, 0
