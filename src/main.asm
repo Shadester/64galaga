@@ -911,7 +911,7 @@ shoot_bullet:
     sta pbul_active,x
     lda player_x
     clc
-    adc #2                  ; Bullet art sits 2px left of the ship nose
+    adc #3                  ; Bullet art sits 3px left of the ship nose
     sta pbul_x,x
     lda player_x_msb
     adc #0
@@ -1941,6 +1941,18 @@ irq2_go:
 
     ; Set sprite pointer and color
     ldx phys_spr_tbl_1,y    ; Physical sprite * 1
+    lda d015_msb_tbl,x      ; The player ship is the only hires sprite
+    ldx sort_spr_f,y
+    cpx #SPR_PLAYER
+    beq .hires
+    ora SPRITE_MCOLOR_EN    ; Multicolor
+    jmp .mc_set
+.hires:
+    eor #$ff
+    and SPRITE_MCOLOR_EN
+.mc_set:
+    sta SPRITE_MCOLOR_EN
+    ldx phys_spr_tbl_1,y
     lda sort_spr_f,y
     sta SPRITE_PTR,x
     lda sort_spr_c,y
@@ -1959,7 +1971,9 @@ irq2_end_sprites:
     sec
     sbc #$10
     cmp $d012
-    bcc irq2_direct         ; Already late? Go direct
+    bcs .set_line
+    jmp irq2_direct         ; Already late? Go direct
+.set_line:
     sta $d012
     jmp $ea81
 
@@ -2195,29 +2209,28 @@ phys_spr_tbl_2:     !byte 0,2,4,6,8,10,12,14
 sprite_src:
 
 player_sprite:
-    ; Multicolor player ship - simple symmetrical triangle design
-    ; 00=transparent, 01=yellow, 10=white, 11=cyan
-    !byte %00000000, %00000000, %00000000
-    !byte %00000000, %00000000, %00000000
-    !byte %00000000, %00100000, %00000000   ; T T T T T T W T T T T T
-    !byte %00000000, %10101000, %00000000   ; T T T T W W W W T T T T
-    !byte %00000000, %10101000, %00000000   ; T T T T W W W W T T T T
-    !byte %00001010, %10101010, %10000000   ; T T W W W W W W W W T T
-    !byte %00001010, %10101010, %10000000   ; T T W W W W W W W W T T
-    !byte %00101010, %10101010, %10100000   ; T W W W W W W W W W W T
-    !byte %10101010, %10101010, %10101000   ; W W W W W W W W W W W W
-    !byte %10100000, %00000000, %00101000   ; W W T T T T T T T T W W
-    !byte %00100000, %00000000, %00100000   ; T W T T T T T T T T W T
-    !byte %00000001, %00000001, %00000000   ; T T T Y T T T Y T T T T
-    !byte %00000001, %00000001, %00000000   ; T T T Y T T T Y T T T T
-    !byte %00000000, %00000000, %00000000
-    !byte %00000000, %00000000, %00000000
-    !byte %00000000, %00000000, %00000000
-    !byte %00000000, %00000000, %00000000
-    !byte %00000000, %00000000, %00000000
-    !byte %00000000, %00000000, %00000000
-    !byte %00000000, %00000000, %00000000
-    !byte %00000000, %00000000, %00000000
+    ; Hires player ship (single colour, 1 bit per pixel)
+    !byte %00000000, %00000000, %00000000   ; ........................
+    !byte %00000000, %00000000, %00000000   ; ........................
+    !byte %00000000, %00011000, %00000000   ; ...........##...........
+    !byte %00000000, %00111100, %00000000   ; ..........####..........
+    !byte %00000000, %00111100, %00000000   ; ..........####..........
+    !byte %00000000, %01111110, %00000000   ; .........######.........
+    !byte %00000000, %11111111, %00000000   ; ........########........
+    !byte %00000111, %11111111, %11100000   ; .....##############.....
+    !byte %00111111, %11111111, %11111100   ; ..####################..
+    !byte %11111111, %11111111, %11111111   ; ########################
+    !byte %11110011, %11111111, %11001111   ; ####..############..####
+    !byte %11100001, %11000011, %10000111   ; ###....###....###....###
+    !byte %00000001, %11000011, %10000000   ; .......###....###.......
+    !byte %00000000, %00000000, %00000000   ; ........................
+    !byte %00000000, %00000000, %00000000   ; ........................
+    !byte %00000000, %00000000, %00000000   ; ........................
+    !byte %00000000, %00000000, %00000000   ; ........................
+    !byte %00000000, %00000000, %00000000   ; ........................
+    !byte %00000000, %00000000, %00000000   ; ........................
+    !byte %00000000, %00000000, %00000000   ; ........................
+    !byte %00000000, %00000000, %00000000   ; ........................
     !byte %00000000                         ; Padding byte to make 64 bytes
 
 bullet_sprite:
