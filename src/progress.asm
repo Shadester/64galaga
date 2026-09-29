@@ -25,6 +25,14 @@ hit_enemy:
     lda pts_form_lo,y
     jmp .add
 .dive_pts:
+    cpy #0
+    bne .std_dive
+    jsr count_escorts       ; Diving boss: 400 / 800 / 1600 with 0 / 1 / 2 escorts alive
+    tay
+    ldx esc_pts_mid,y
+    lda #0
+    jmp .add
+.std_dive:
     lda pts_dive_mid,y
     tax
     lda pts_dive_lo,y
@@ -33,6 +41,34 @@ hit_enemy:
     ldx hit_idx
     jsr set_explode
     jmp sound_explosion
+
+; Number of escorts of boss hit_idx still flying (A, 0..2); X = hit_idx
+!zone count_escorts
+count_escorts:
+    lda hit_idx
+    clc
+    adc #1
+    sta esc_cmp
+    lda #0
+    sta esc_cnt
+    ldx #MAX_ENEMIES-1
+.loop:
+    lda enemy_esc,x
+    cmp esc_cmp
+    bne .next
+    lda enemy_state,x
+    cmp #2
+    beq .yes
+    cmp #3
+    bne .next
+.yes:
+    inc esc_cnt
+.next:
+    dex
+    bpl .loop
+    ldx hit_idx
+    lda esc_cnt
+    rts
 
 ; Add BCD points to the 6-digit score. In: A = low pair, X = middle pair
 !zone add_score

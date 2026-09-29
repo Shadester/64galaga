@@ -229,6 +229,7 @@ start_dive:
     sta enemy_timer,x
     lda #0
     sta enemy_flag,x
+    sta enemy_esc,x         ; Not (yet) an escort
     lda enemy_x_msb,x
     bne .right              ; X >= 256: right of centre
     lda enemy_x,x
@@ -274,6 +275,13 @@ update_dives:
     bcs .rts
     lda #8                  ; Up to 8 random picks
     sta temp
+!ifdef BOSSDIVE {
+    ldx #1                  ; -DBOSSDIVE=1: boss 1 always dives (escort test)
+    lda enemy_state,x
+    cmp #1
+    beq .start
+    rts
+}
 !ifdef CAPTURE {
     ldx #1                  ; -DCAPTURE=1: boss 1 always dives (capture test)
     lda enemy_state,x
@@ -330,7 +338,50 @@ update_dives:
     sta enemy_dir,x
     rts
 .normal:
-    jmp start_dive
+    jsr start_dive
+    lda enemy_type_tbl,x
+    bne .rts2               ; Only bosses bring escorts
+    jmp start_escorts
+.rts2:
+    rts
+
+; Boss X dives: the two butterflies next to it in the row below go along as
+; escorts (boss i has the butterflies in slots 5+i and 6+i).
+!zone start_escorts
+start_escorts:
+    stx esc_boss
+    txa
+    clc
+    adc #5
+    sta esc_slot
+    lda #26                 ; First escort peels off a little later
+    sta esc_t
+    jsr .one
+    inc esc_slot
+    lda #32
+    sta esc_t
+    jsr .one
+    ldx esc_boss
+    rts
+.one:
+    ldx esc_slot
+    lda enemy_state,x
+    cmp #1
+    bne .no                 ; Already gone or away
+    jsr start_dive
+    lda esc_t
+    sta enemy_timer,x
+    lda esc_boss
+    clc
+    adc #1
+    sta enemy_esc,x         ; Boss index + 1
+    ldy esc_boss
+    lda enemy_dir,y
+    sta enemy_dir,x         ; Same side as the boss
+    lda #1
+    sta enemy_flag,x        ; Escorts don't shoot
+.no:
+    rts
 
 ; ===============================================
 ; ENEMY BULLETS

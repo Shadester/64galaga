@@ -7,7 +7,8 @@
 ; Build:  make          (acme)
 ; Debug:  acme -DAUTOPLAY=1 ...   synthetic joystick input, for headless tests
 ;         add -DNOFIRE=1 to stop shooting during play (tests player death)
-;         -DDUAL=1 dual fighter at start, -DCAPTURE=1 scripted capture, -DFEW=1 three bees per stage
+;         -DDUAL=1 dual fighter at start, -DCAPTURE=1 scripted capture, -DFEW=1 three bees per stage,
+;         -DBOSSDIVE=1 boss 1 always dives (escort test)
 ; ===============================================
 
 !cpu 6510

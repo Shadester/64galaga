@@ -72,6 +72,7 @@ enemy_state:    !fill MAX_ENEMIES, 0
 enemy_timer:    !fill MAX_ENEMIES, 0    ; dive peel-off / explosion frames left
 enemy_hp:       !fill MAX_ENEMIES, 0
 enemy_dir:      !fill MAX_ENEMIES, 0    ; dive side: 0 left, 1 right
+enemy_esc:      !fill MAX_ENEMIES, 0    ; boss index + 1 for an escort of that boss
 enemy_flag:     !fill MAX_ENEMIES, 0    ; 1 = has fired this dive
 
 pbul_x:         !fill 4, 0
@@ -105,6 +106,12 @@ msg_over:       !scr "game over", 0
 msg_stage:      !scr "stage   ", 0
 msg_title:      !scr "galaga 64", 0
 msg_hi:         !scr "hi-score", 0
+esc_boss:              !byte 0
+esc_t:                 !byte 0
+esc_cmp:               !byte 0
+esc_cnt:               !byte 0
+esc_slot:              !byte 0
+esc_pts_mid:           !byte $04, $08, $16   ; boss dive points (x100) with 0/1/2 escorts
 shots:                 !byte 0, 0      ; Bullets fired / enemies hit this stage
 hits:                  !byte 0, 0
 res_timer:             !byte 0
