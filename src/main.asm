@@ -67,6 +67,8 @@ NUM_STARS       = 12
 VS_PLAYER       = MAX_ENEMIES
 VS_PBUL         = VS_PLAYER+1   ; 4 slots
 VS_EBUL         = VS_PBUL+4     ; 3 slots
+VS_DUAL         = VS_EBUL+3     ; second ship of the dual fighter
+VS_CAPT         = VS_DUAL+1     ; captured ship carried by a boss
 PLAYER_Y        = 230
 SCREEN_LEFT     = 24
 SCREEN_RIGHT    = 320           ; Max player X (9-bit), sprite right edge at 344
@@ -227,6 +229,11 @@ start_game:
     sta score+2
     sta player_x_msb
     sta invuln
+    sta dual
+!ifdef DUAL {
+    lda #1                      ; -DDUAL=1: start with a dual fighter (testing)
+    sta dual
+}
     lda #3
     sta lives
     lda #1
@@ -630,6 +637,8 @@ reset_formation:
     sta eb_active+2
     sta pbul_active
     sta pbul_active+1
+    sta pbul_active+2
+    sta pbul_active+3
     lda #1
     sta form_dir
     ldy diff
@@ -777,8 +786,37 @@ update_sprite_data:
     cpx #MAX_ENEMIES
     bne .en_loop
 
+    ; Second ship of the dual fighter
+    lda dual
+    beq .d_hide
+    lda invuln
+    and #4
+    bne .d_hide
+    lda #SPR_PLAYER
+    sta spr_f+VS_DUAL
+    lda #1
+    sta spr_c+VS_DUAL
+    lda player_x
+    clc
+    adc #16
+    sta spr_x+VS_DUAL
+    lda player_x_msb
+    adc #0
+    beq .d_m0
+    lda #$ff
+.d_m0:
+    sta spr_x_msb+VS_DUAL
+    lda player_y
+    sta spr_y+VS_DUAL
+    inc num_sprites
+    jmp .dual_done
+.d_hide:
+    lda #$ff
+    sta spr_y+VS_DUAL
+.dual_done:
+
     ; Player bullets
-    ldx #1
+    ldx #3
 .pb_loop:
     lda pbul_active,x
     bne .pb_on
@@ -912,7 +950,13 @@ update_player:
     lda player_x_msb
     beq .pl_right           ; X < 256, below right limit
     lda player_x
+    ldy dual
+    beq .lim1
+    cmp #<(SCREEN_RIGHT-16)     ; Dual fighter is 16px wider
+    jmp .lim2
+.lim1:
     cmp #<SCREEN_RIGHT
+.lim2:
     bcs .check_fire
 .pl_right:
     lda player_x
@@ -940,31 +984,41 @@ update_player:
 
 !zone shoot_bullet
 shoot_bullet:
-    ldx #0
-    lda pbul_active
+    ldy #0                  ; Ship 0 = left / only ship, 1 = right of a dual pair
+.ship:
+    tya
+    asl
+    tax                     ; First of this ship's two bullet slots
+    lda pbul_active,x
     beq .use
     inx
-    lda pbul_active+1
-    bne .none
+    lda pbul_active,x
+    bne .next
 .use:
     lda #1
     sta pbul_active,x
     lda player_x
     clc
-    adc #3                  ; Bullet art sits 3px left of the ship nose
+    adc bul_off,y           ; Bullet art sits 3px left of the ship nose
     sta pbul_x,x
     lda player_x_msb
     adc #0
     sta pbul_msb,x
     lda #PLAYER_Y-16
     sta pbul_y,x
-    jmp sound_shoot
-.none:
+    jsr sound_shoot
+.next:
+    iny
+    cpy dual
+    beq .ship
+    bcc .ship
     rts
+
+bul_off:        !byte 3, 19
 
 !zone update_bullets
 update_bullets:
-    ldx #1
+    ldx #3
 .loop:
     lda pbul_active,x
     beq .next
@@ -1362,7 +1416,7 @@ check_collisions:
     sta ov_off
     lda #18                 ; Hit within 9px of the alien's centre
     sta ov_w
-    ldy #1
+    ldy #3
 .pb_loop:
     lda pbul_active,y
     beq .pb_next
@@ -1404,16 +1458,64 @@ check_collisions:
     bpl .pb_loop
 
     lda invuln
-    beq .pe_start
+    beq .ships
     rts                     ; Respawn protection
-.pe_start:
+.ships:
+    lda #0
+    sta cur_ship
+.ship_loop:
+    jsr check_ship
+    bcs .got_hit
+    lda dual
+    beq .done
+    lda cur_ship
+    bne .done
+    inc cur_ship
+    bne .ship_loop
+.got_hit:
+    lda dual
+    bne .lose_one
+    jmp player_hit
+.lose_one:                  ; One ship of the pair is lost, the other flies on
+    lda cur_ship
+    bne .keep_left
+    lda player_x            ; Left ship hit: the right one takes over
+    clc
+    adc #16
+    sta player_x
+    bcc .keep_left
+    inc player_x_msb
+.keep_left:
+    lda #0
+    sta dual
+    lda #90
+    sta invuln
+    jmp sound_player_hit
+.done:
+    rts
 
-    ; --- Diving enemies vs player ---
+; Hit test of ship cur_ship (0 = player_x, 1 = player_x+16) against divers and
+; enemy bullets. Carry set = hit (the enemy / bullet is already dealt with).
+!zone check_ship
+check_ship:
+    lda #0
+    ldy cur_ship
+    beq .off
+    lda #16
+.off:
+    clc
+    adc player_x
+    sta ship_xl
+    lda player_x_msb
+    adc #0
+    sta ship_xh
+
+    ; --- Diving enemies vs ship ---
     lda #8                  ; Ship is 16px wide
     sta ov_off
     lda #16
     sta ov_w
-    lda player_x_msb
+    lda ship_xh
     sta ov_ah
     ldx #MAX_ENEMIES-1
 .pe_loop:
@@ -1431,19 +1533,20 @@ check_collisions:
     sta ov_bl
     lda enemy_x_msb,x
     sta ov_bh
-    lda player_x
+    lda ship_xl
     jsr x_overlap
     bcs .pe_next
     lda #4                  ; Enemy explodes with the ship
     sta enemy_state,x
     lda #11
     sta enemy_timer,x
-    jmp player_hit
+    sec
+    rts
 .pe_next:
     dex
     bpl .pe_loop
 
-    ; --- Enemy bullets vs player ---
+    ; --- Enemy bullets vs ship ---
     lda #7
     sta ov_off
     lda #14
@@ -1463,14 +1566,17 @@ check_collisions:
     sta ov_bl
     lda eb_msb,x
     sta ov_bh
-    lda player_x
+    lda ship_xl
     jsr x_overlap
     bcs .eb_next
-    jmp player_hit
+    lda #0
+    sta eb_active,x
+    sec
+    rts
 .eb_next:
     dex
     bpl .eb_loop
-.done:
+    clc
     rts
 
 ; Player bullet hit enemy X: boss survives one hit, everything else dies
@@ -1531,6 +1637,8 @@ player_hit:
     sta eb_active+2
     sta pbul_active
     sta pbul_active+1
+    sta pbul_active+2
+    sta pbul_active+3
     jsr sound_player_hit
     jmp sound_player_die
 
@@ -1894,16 +2002,14 @@ sort_skip_swap:
     ldx sorted_sprites
     lda #$ff
     sta sort_spr_y,x        ; End marker
-    ldx pk_prev             ; Undo last frame's hires window
-    ldy #8
+    ldx #MAX_SPRITES+7      ; $d01c: all multicolor, except the hires windows below
     lda #$ff
 .undo:
     sta sort_d01c,x
-    inx
-    dey
-    bne .undo
-    lda #MAX_SPRITES
-    sta pk                  ; No player found yet: window lands in the spare entries
+    dex
+    bpl .undo
+    lda #0
+    sta pk_n
     lda #0
     sta sh_msb
     ldx #0
@@ -1919,7 +2025,11 @@ sort_skip_swap:
     sta sort_spr_f,x
     cmp #SPR_PLAYER
     bne .not_player
-    stx pk
+    txa                     ; Remember where the hires ships sit in the sorted list
+    ldy pk_n
+    sta pk_list,y
+    inc pk_n
+    ldy sort_order,x
 .not_player:
     lda sh_msb              ; new = old ^ ((old ^ value) & bit)
     eor spr_x_msb,y
@@ -1932,16 +2042,25 @@ sort_skip_swap:
     bcs .done
     jmp .loop
 .done:
-    ldx pk                  ; Hires window: this sprite and the next 7
-    stx pk_prev
+    ldy pk_n                ; Each hires ship clears its hardware sprite's $d01c bit
+.next_pk:                   ; from itself until that sprite is reused (8 entries)
+    dey
+    bmi .end
+    ldx pk_list,y
     lda bit_tbl,x
     eor #$ff
-    ldy #8
+    sta sh_mask
+    lda #8
+    sta sh_val
 .window:
+    lda sort_d01c,x
+    and sh_mask
     sta sort_d01c,x
     inx
-    dey
+    dec sh_val
     bne .window
+    beq .next_pk
+.end:
     rts
 
 ; IRQ2: Display interrupt (runs multiple times per frame)
@@ -2035,6 +2154,10 @@ irq2_last_sprite:
 ; DATA SECTION
 ; ===============================================
 
+dual:                  !byte 0         ; 1 = dual fighter
+cur_ship:              !byte 0
+ship_xl:               !byte 0
+ship_xh:               !byte 0
 game_state:            !byte GS_TITLE
 frame:                 !byte 0
 anim:                  !byte 0
@@ -2087,10 +2210,10 @@ enemy_hp:       !fill MAX_ENEMIES, 0
 enemy_dir:      !fill MAX_ENEMIES, 0    ; dive side: 0 left, 1 right
 enemy_flag:     !fill MAX_ENEMIES, 0    ; 1 = has fired this dive
 
-pbul_x:         !fill 2, 0
-pbul_msb:       !fill 2, 0
-pbul_y:         !fill 2, 0
-pbul_active:    !fill 2, 0
+pbul_x:         !fill 4, 0
+pbul_msb:       !fill 4, 0
+pbul_y:         !fill 4, 0
+pbul_active:    !fill 4, 0
 
 eb_x:           !fill 3, 0
 eb_msb:         !fill 3, 0
@@ -2233,8 +2356,8 @@ sort_spr_f:         !fill MAX_SPRITES, 0
 sort_spr_c:         !fill MAX_SPRITES, 0
 sort_d010:          !fill MAX_SPRITES, 0    ; $d010 value after loading this sprite
 sort_d01c:          !fill MAX_SPRITES+8, $ff ; $d01c value after loading this sprite
-pk:                 !byte 0                 ; sorted index of the player ship
-pk_prev:            !byte MAX_SPRITES
+pk_n:               !byte 0
+pk_list:            !fill 4, 0              ; sorted indices of hires ships
 sh_msb:             !byte 0
 sh_mc:              !byte 0
 sh_mask:            !byte 0
