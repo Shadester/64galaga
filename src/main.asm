@@ -242,6 +242,9 @@ start_game:
     sta cap_state
     sta beam_len
     sta dying_quiet
+    lda #2                      ; First bonus ship at 20,000
+    sta next_bonus
+    lda #0
 !ifdef DUAL {
     lda #1                      ; -DDUAL=1: start with a dual fighter (testing)
     sta dual
@@ -2111,6 +2114,28 @@ add_score:
     adc #0
     sta score+2
     cld
+    lda score+2             ; Bonus ship at 20,000, 70,000, then every 70,000
+    cmp next_bonus
+    bcc .rts
+    lda next_bonus
+    cmp #2
+    bne .repeat
+    lda #7
+    bne .set_next
+.repeat:
+    sed
+    clc
+    adc #7
+    cld
+.set_next:
+    sta next_bonus
+    lda lives
+    cmp #9
+    bcs .rts
+    inc lives
+    lda #jin_bonus-jin_data
+    jmp play_jingle
+.rts:
     rts
 
 !zone player_hit
@@ -2734,6 +2759,7 @@ eb_active:      !fill 3, 0
 score:          !byte 0, 0, 0           ; BCD, low pair first
 hiscore:        !byte 0, 0, 0
 lives:          !byte 3
+next_bonus:     !byte 2                 ; score+2 (BCD, x10000) of the next bonus ship
 level:          !byte 1                 ; BCD
 diff:           !byte 1                 ; Difficulty 1..8
 
@@ -2853,6 +2879,14 @@ jin_resc:
     !byte $9c,$45,5   ; C6
     !byte $26,$34,5   ; G5
     !byte $9c,$45,20   ; C6
+    !byte 0,0,0             ; end
+jin_bonus:
+    !byte $26,$34,4   ; G5
+    !byte $9c,$45,4   ; C6
+    !byte $26,$34,4   ; G5
+    !byte $9c,$45,4   ; C6
+    !byte $26,$34,4   ; G5
+    !byte $9c,$45,16   ; C6
     !byte 0,0,0             ; end
 
 ; ===============================================
