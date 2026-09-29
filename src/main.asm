@@ -65,7 +65,6 @@ NUM_STARS       = 16
 PLAYER_Y        = 230
 SCREEN_LEFT     = 24
 SCREEN_RIGHT    = 320           ; Max player X (9-bit), sprite right edge at 344
-SPR_H           = 15            ; All sprite art lives in the top 15 rows, the rest is blank
 
 ; Sprite pointers (block = pointer * 64, data starts at $3000)
 SPR_PLAYER      = $c0
@@ -274,7 +273,12 @@ st_play:
     jsr update_dives
     jsr update_ebullets
     jsr check_collisions
+    lda game_state
+    cmp #GS_PLAY
+    bne .play_done          ; Player was hit this frame
     jmp check_level_complete
+.play_done:
+    rts
 
 ; --- Player exploding ---
 !zone st_dying
@@ -339,6 +343,8 @@ st_gameover:
     beq .wait
     dec go_timer
     bne .rts
+    lda #1
+    sta fire_pressed        ; Held fire must be released first
     +print msg_press, SCREEN_RAM+14*40+15, 1
 .rts:
     rts
@@ -855,7 +861,7 @@ update_player:
     lda player_x_msb
     bne .pl_left            ; X >= 256, always above left limit
     lda player_x
-    cmp #SCREEN_LEFT
+    cmp #SCREEN_LEFT+2         ; Stop at SCREEN_LEFT after the 2px step
     bcc .check_right
 .pl_left:
     lda player_x
@@ -1011,14 +1017,12 @@ update_enemies:
     lda enemy_state,x
     beq .next
     cmp #2
-    bcc .form
+    bcc .next               ; In formation: placed by update_formation
     beq .dive
     cmp #4
     beq .explode
     jsr return_step
     jmp .next
-.form:
-    jmp .next               ; Placed by update_formation when it steps
 .dive:
     jsr dive_step
     jmp .next
@@ -1314,9 +1318,9 @@ x_overlap:
 !zone check_collisions
 check_collisions:
     ; --- Player bullets vs enemies ---
-    lda #9                  ; Bullet art is 3px left of enemy centre
+    lda #6                  ; Bullet art centre is 3px left of enemy centre
     sta ov_off
-    lda #24
+    lda #18                 ; Hit within 9px of the alien's centre
     sta ov_w
     ldy #1
 .pb_loop:
@@ -1332,8 +1336,8 @@ check_collisions:
     sec
     sbc enemy_y,x
     clc
-    adc #12
-    cmp #24
+    adc #8
+    cmp #16
     bcs .pbe_next
     lda enemy_x,x
     sta ov_bl
@@ -1365,9 +1369,9 @@ check_collisions:
 .pe_start:
 
     ; --- Diving enemies vs player ---
-    lda #10
+    lda #8                  ; Ship is 16px wide
     sta ov_off
-    lda #20
+    lda #16
     sta ov_w
     lda player_x_msb
     sta ov_ah
@@ -1380,8 +1384,8 @@ check_collisions:
     sec
     sbc enemy_y,x
     clc
-    adc #10
-    cmp #20
+    adc #8
+    cmp #16
     bcs .pe_next
     lda enemy_x,x
     sta ov_bl
@@ -1400,9 +1404,9 @@ check_collisions:
     bpl .pe_loop
 
     ; --- Enemy bullets vs player ---
-    lda #9
+    lda #7
     sta ov_off
-    lda #19
+    lda #14
     sta ov_w
     ldx #2
 .eb_loop:
@@ -1412,8 +1416,8 @@ check_collisions:
     sec
     sbc player_y
     clc
-    adc #5
-    cmp #18
+    adc #3
+    cmp #14
     bcs .eb_next
     lda eb_x,x
     sta ov_bl
@@ -1893,16 +1897,19 @@ irq2_not_over:
 irq2_sprite_loop:
     lda sort_spr_y,y
     cmp temp_var
-    bcs irq2_end_sprites
+    bcc .load
+    jmp irq2_end_sprites
+.load:
 
     ; Physical sprite y mod 8 is reused: wait until its previous user
-    ; (y-8) has drawn its SPR_H visible lines so we don't cut it off.
+    ; (y-8) has drawn its last art row (lastrow_tbl) so we don't cut it off.
     cpy #8
     bcc irq2_go
     pha
+    ldx sort_spr_f-8,y
     lda sort_spr_y-8,y
     clc
-    adc #SPR_H
+    adc lastrow_tbl-SPR_PLAYER,x
     bcs irq2_nowait
     cmp #$f0                ; Near the bottom border: never wait across the raster wrap
     bcs irq2_nowait
@@ -1915,6 +1922,12 @@ irq2_nowait:
     pla
 !zone irq2_go
 irq2_go:
+    cmp $d012               ; Y line already passed (IRQ ran late)?
+    bcs .on_time
+    lda $d012               ; Draw a few lines low instead of skipping the sprite
+    clc
+    adc #2
+.on_time:
     ; Set sprite position
     ldx phys_spr_tbl_2,y    ; Physical sprite * 2
     sta $d001,x             ; Set Y
@@ -1959,7 +1972,7 @@ irq2_go:
     sta SPRITE_COLORS,x
 
     iny
-    bne irq2_sprite_loop
+    jmp irq2_sprite_loop    ; Ends via the sorted list's $ff marker
 
 !zone irq2_end_sprites
 irq2_end_sprites:
@@ -1970,7 +1983,11 @@ irq2_end_sprites:
     sty spr_irq_counter
     sec
     sbc #$10
-    cmp $d012
+    ldx $d012
+    inx
+    inx                     ; Margin: raster may move before the write
+    stx sort_temp_x
+    cmp sort_temp_x
     bcs .set_line
     jmp irq2_direct         ; Already late? Go direct
 .set_line:
@@ -2092,8 +2109,8 @@ base_x: ; formation slot X (left edge), 4 rows of 6
     !byte 119,145,171,197,223,249,119,145,171,197,223,249
 
 base_y: ; formation slot Y (clear of the HUD rows)
-    !byte 76,76,76,76,76,76,102,102,102,102,102,102
-    !byte 128,128,128,128,128,128,154,154,154,154,154,154
+    !byte 76,76,76,76,76,76,104,104,104,104,104,104
+    !byte 132,132,132,132,132,132,160,160,160,160,160,160
 
 enemy_type_tbl: ; 0=boss 1=butterfly 2=bee
     !byte 0,0,0,0,0,0,1,1,1,1,1,1
@@ -2122,6 +2139,10 @@ pts_dive_mid:   !byte $04, $01, $01
 dive_int_tbl:   !byte 0, 130, 115, 100, 85, 70, 58, 48, 40
 max_div_tbl:    !byte 0, 1, 1, 2, 2, 3, 3, 4, 4
 fire_mask_tbl:  !byte 0, 1, 1, 0, 0, 0, 0, 0, 0     ; fire when rand & mask == 0
+
+; Last used art row per sprite pointer ($c0..$cb): a hardware sprite can be
+; reused once the raster is past y + lastrow
+lastrow_tbl:    !byte 13, 8, 7, 12, 12, 9, 9, 9, 9, 6, 7, 8
 
 star_clr_tbl:   !byte 0, 0, 1, 15, 12, 11           ; by speed: fast = bright
 
