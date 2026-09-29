@@ -49,4 +49,20 @@ Pass to ACME (`acme -f cbm -DAUTOPLAY=1 -o out.prg src/main.asm`) for headless t
 
 ## Source layout
 
-Everything is in `src/main.asm`: game states, enemy and capture logic, collisions, sound, the sprite multiplexer and the sprite data at the end. Sprite data is copied to `$3000` at start-up.
+`src/main.asm` holds the BASIC stub, start-up and the main loop, and includes the modules in memory order:
+
+| File | Contents |
+|------|----------|
+| `constants.asm` | Hardware registers, constants, macros |
+| `states.asm` | Title, stage intro, play, dying, captured, game over |
+| `screen.asm` | Screen and colours, text, HUD, starfield |
+| `sprites.asm` | Sprite setup, formation setup, game to multiplexer sprite copy |
+| `player.asm` | Joystick, player movement, shooting |
+| `enemies.asm` | Formation sway, enemy movement, dives, enemy bullets |
+| `combat.asm` | Collision detection |
+| `capture.asm` | Tractor beam, capture, rescue |
+| `progress.asm` | Hits, scoring, player death, stage progression |
+| `sound.asm` | SID effects and jingles |
+| `multiplexer.asm` | Raster interrupt sprite multiplexer |
+| `data.asm` | Variables and tables |
+| `art.asm` | Sprite art, copied to `$3000` at start-up |

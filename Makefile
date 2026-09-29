@@ -17,7 +17,7 @@ ASSETS_DIR = assets
 TARGET = $(BUILD_DIR)/galaga.prg
 
 # Source files
-SOURCES = $(SRC_DIR)/main.asm
+SOURCES = $(wildcard $(SRC_DIR)/*.asm)
 
 # Default target
 all: $(TARGET)
