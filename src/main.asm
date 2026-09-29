@@ -7,6 +7,7 @@
 ; Build:  make          (acme)
 ; Debug:  acme -DAUTOPLAY=1 ...   synthetic joystick input, for headless tests
 ;         add -DNOFIRE=1 to stop shooting during play (tests player death)
+;         -DDUAL=1 dual fighter at start, -DCAPTURE=1 scripted capture, -DFEW=1 three bees per stage
 ; ===============================================
 
 !cpu 6510
@@ -76,6 +77,10 @@ run_state:
     beq .dying
     dex
     beq .over
+    dex
+    beq .capt
+    jmp st_result
+.capt:
     jmp st_captured
 .over:
     jmp st_gameover

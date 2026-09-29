@@ -105,6 +105,20 @@ msg_over:       !scr "game over", 0
 msg_stage:      !scr "stage   ", 0
 msg_title:      !scr "galaga 64", 0
 msg_hi:         !scr "hi-score", 0
+shots:                 !byte 0, 0      ; Bullets fired / enemies hit this stage
+hits:                  !byte 0, 0
+res_timer:             !byte 0
+res_lo:                !byte 0
+res_hi:                !byte 0
+res_val:               !byte 0
+calc_lo:               !byte 0
+calc_hi:               !byte 0
+n_lo:                  !byte 0
+n_hi:                  !byte 0
+n_dig:                 !byte 0
+msg_shots:      !scr "shots", 0
+msg_hits:       !scr "hits", 0
+msg_ratio:      !scr "ratio", 0
 msg_press:      !scr "press fire", 0
 
 row_lo:  !byte 0,40,80,120,160,200,240,24

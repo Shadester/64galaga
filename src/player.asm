@@ -167,6 +167,10 @@ shoot_bullet:
     sta pbul_msb,x
     lda #PLAYER_Y-16
     sta pbul_y,x
+    inc shots
+    bne .counted
+    inc shots+1
+.counted:
     jsr sound_shoot
 .next:
     iny

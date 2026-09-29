@@ -46,6 +46,10 @@ start_game:
     sta player_x_msb
     sta invuln
     sta dual
+    sta shots
+    sta shots+1
+    sta hits
+    sta hits+1
     sta cap_state
     sta beam_len
     sta dying_quiet
@@ -91,6 +95,178 @@ st_intro:
     jsr clear_stage_row
     lda #GS_PLAY
     sta game_state
+.rts:
+    rts
+
+; --- Stage result: shots, hits and hit ratio ---
+!zone enter_result
+enter_result:
+    lda #GS_RESULT
+    sta game_state
+    lda #150
+    sta res_timer
+    +print msg_shots, SCREEN_RAM+9*40+14, 1
+    +setdst SCREEN_RAM+9*40+21
+    lda shots
+    ldx shots+1
+    jsr print_num
+    +print msg_hits, SCREEN_RAM+11*40+14, 1
+    +setdst SCREEN_RAM+11*40+21
+    lda hits
+    ldx hits+1
+    jsr print_num
+    +print msg_ratio, SCREEN_RAM+13*40+14, 1
+    jsr calc_ratio              ; A = hits * 100 / shots
+    sta res_val
+    +setdst SCREEN_RAM+13*40+21
+    lda res_val
+    ldx #0
+    jsr print_num
+    lda #$25                    ; '%'
+    ldy #0
+    sta (zp_dst),y
+    rts
+
+!zone st_result
+st_result:
+    jsr update_player           ; The ship stays under control
+    jsr update_bullets
+    dec res_timer
+    bne .rts
+    jsr clear_result
+    lda #0                      ; Next stage starts with fresh counters
+    sta shots
+    sta shots+1
+    sta hits
+    sta hits+1
+    jsr reset_formation
+    jmp start_stage
+.rts:
+    rts
+
+!zone clear_result
+clear_result:
+    ldx #199
+    lda #$20
+.loop:
+    sta SCREEN_RAM+9*40,x
+    dex
+    cpx #$ff
+    bne .loop
+    rts
+
+; A = hits * 100 / shots (0 when nothing was fired, at most 100)
+!zone calc_ratio
+calc_ratio:
+    lda #0
+    sta res_lo
+    sta res_hi
+    lda shots
+    ora shots+1
+    beq .none
+    lda #0                      ; num = hits * 100 (hits stays below 256 per stage)
+    sta calc_lo
+    sta calc_hi
+    ldx hits
+    beq .div
+.mul:
+    lda calc_lo
+    clc
+    adc #100
+    sta calc_lo
+    bcc .m1
+    inc calc_hi
+.m1:
+    dex
+    bne .mul
+.div:
+    lda calc_lo                 ; while num >= shots: num -= shots, q++
+    sec
+    sbc shots
+    tax
+    lda calc_hi
+    sbc shots+1
+    bcc .done
+    sta calc_hi
+    stx calc_lo
+    inc res_lo
+    lda res_lo
+    cmp #100
+    bcc .div
+.done:
+.none:
+    lda res_lo
+    rts
+
+; Print the number in A (low) / X (high, at most 999) as 3 digits at zp_dst,
+; blanking leading zeros. Advances zp_dst by 3.
+!zone print_num
+print_num:
+    sta n_lo
+    stx n_hi
+    lda n_hi
+    cmp #4
+    bcc .ok
+    lda #<999
+    sta n_lo
+    lda #>999
+    sta n_hi
+.ok:
+    ldy #0                      ; hundreds
+.h:
+    lda n_lo
+    sec
+    sbc #100
+    tax
+    lda n_hi
+    sbc #0
+    bcc .h_done
+    sta n_hi
+    stx n_lo
+    iny
+    bne .h
+.h_done:
+    sty n_dig
+    tya
+    beq .blank1
+    ora #$30
+    bne .put1
+.blank1:
+    lda #$20
+.put1:
+    ldy #0
+    sta (zp_dst),y
+    ldy #0                      ; tens
+.t:
+    lda n_lo
+    cmp #10
+    bcc .t_done
+    sbc #10
+    sta n_lo
+    iny
+    bne .t
+.t_done:
+    tya
+    ora n_dig                   ; blank only if hundreds and tens are both zero
+    beq .blank2
+    tya
+    ora #$30
+    bne .put2
+.blank2:
+    lda #$20
+.put2:
+    ldy #1
+    sta (zp_dst),y
+    lda n_lo
+    ora #$30
+    iny
+    sta (zp_dst),y
+    lda zp_dst
+    clc
+    adc #3
+    sta zp_dst
+    bcc .rts
+    inc zp_dst+1
 .rts:
     rts
 

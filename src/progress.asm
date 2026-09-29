@@ -123,5 +123,4 @@ next_level:
     bcs .capped
     inc diff
 .capped:
-    jsr reset_formation
-    jmp start_stage
+    jmp enter_result            ; Shots / hits screen, then the next stage

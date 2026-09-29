@@ -64,6 +64,15 @@ reset_formation:
     lda enemy_col_tbl,x
     sta spr_c,x
     jsr set_slot_pos
+!ifdef FEW {
+    cpx #29                     ; -DFEW=1: only 3 bees per stage (fast stage clears)
+    bcs .keep
+    lda #0
+    sta enemy_state,x
+    lda #$ff
+    sta enemy_y,x
+.keep:
+}
     dex
     bpl .loop
     rts

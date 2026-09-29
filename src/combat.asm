@@ -65,6 +65,10 @@ check_collisions:
     bcs .pbe_next
     lda #0                  ; Hit!
     sta pbul_active,y
+    inc hits
+    bne .counted
+    inc hits+1
+.counted:
     tya
     pha
     jsr hit_enemy

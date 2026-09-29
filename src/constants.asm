@@ -77,6 +77,7 @@ GS_PLAY         = 2
 GS_DYING        = 3
 GS_GAMEOVER     = 4
 GS_CAPTURED     = 5             ; Player is being pulled up by a tractor beam
+GS_RESULT       = 6             ; Shots / hits / ratio screen after a stage
 
 ; Raster IRQ Constants
 IRQ1_LINE       = $fc           ; Sorting interrupt at bottom of screen
