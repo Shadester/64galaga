@@ -873,7 +873,7 @@ update_sprite_data:
     sta spr_y+VS_CAPT
     lda enemy_x,x
     sta spr_x+VS_CAPT
-    ldy #2                      ; Red
+    ldy #1                      ; White
     lda enemy_x_msb,x
     jmp .c_set
 .c_resc:
@@ -1426,6 +1426,19 @@ update_dives:
     beq .start
     rts
 }
+    lda cap_state           ; Bosses are 4 of 32 slots: when a capture is possible
+    ora dual                ; look at them directly half of the time
+    bne .pick
+    jsr rand
+    and #1
+    bne .pick
+    jsr rand
+    and #3
+    tax
+    lda enemy_state,x
+    cmp #1
+    bne .pick
+    jmp .start
 .pick:
     jsr rand
     and #$1f
@@ -1449,11 +1462,6 @@ update_dives:
     lda game_state
     cmp #GS_PLAY
     bne .normal
-!ifndef CAPTURE {
-    jsr rand
-    and #1
-    bne .normal             ; Half of the boss dives are capture dives
-}
     jsr start_dive
     stx cap_boss
     lda #1
