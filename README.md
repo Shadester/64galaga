@@ -21,6 +21,7 @@ A Galaga clone for the Commodore 64, written in 6502 assembly ([ACME](https://so
 
 ## Build and run
 
+On macOS, `tools/setup-macos.sh` installs everything via Homebrew.
 Requires [ACME](https://sourceforge.net/projects/acme-crossass/) and the [VICE](https://vice-emu.sourceforge.io/) emulator (`x64sc`).
 
 ```sh
