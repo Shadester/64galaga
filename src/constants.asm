@@ -121,4 +121,4 @@ ART_TAIL        = 14            ; Lines after which the art (rows 0..13 at most)
 TITLE_COLORS    = $5800         ; Colour RAM data, copied to $d800
 TITLE_SCREEN    = $5c00         ; Screen matrix (VIC_MEMORY high nibble 7)
 TITLE_BITMAP    = $6000         ; Bitmap (VIC_MEMORY bit 3)
-TITLE_DIGITS_AT = TITLE_BITMAP+20*320+21*8   ; Cell of the first hi-score digit
+TITLE_DIGITS_AT = TITLE_BITMAP+21*320+21*8   ; Cell of the first hi-score digit

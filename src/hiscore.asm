@@ -11,6 +11,8 @@ KERNAL_SAVE     = $ffd8
 
 hs_name:        !text "HISCORE"
 hs_name_end:
+hs_reset:       !text "I0"
+hs_reset_end:
 hs_scratch:     !text "S0:HISCORE"
 hs_scratch_end:
 hs_buf:         !byte 0, 0, 0
@@ -29,6 +31,11 @@ hs_device:
 ; Start-up, while the KERNAL still runs its own interrupt
 !zone load_hiscore
 load_hiscore:
+    jsr hs_load
+    jmp hs_clear_error          ; A missing file leaves an error in the drive: its LED would blink
+
+!zone hs_load
+hs_load:
     lda #0
     sta $9d                     ; No SEARCHING / LOADING messages
     lda #hs_name_end-hs_name
@@ -67,6 +74,24 @@ load_hiscore:
     bpl .copy
 .rts:
     rts
+
+; Clear the drive's error state: a LOAD of a missing file (or a failed SAVE) leaves an error that
+; makes the LED of a real 1541 blink until the next command succeeds. "I0" (initialize) is quick
+; and answers "00, OK". (A reset, "UJ", would stall the bus for seconds.) Without a drive OPEN
+; just fails; without a disk the drive reports "74, DRIVE NOT READY" anyway.
+!zone hs_clear_error
+hs_clear_error:
+    lda #hs_reset_end-hs_reset
+    ldx #<hs_reset
+    ldy #>hs_reset
+    jsr KERNAL_SETNAM
+    jsr hs_device
+    lda #15
+    ldy #15
+    jsr KERNAL_SETLFS
+    jsr KERNAL_OPEN
+    lda #15
+    jmp KERNAL_CLOSE
 
 ; Write the hi-score. The game's raster interrupt and the sprites must be off
 ; while the serial bus is busy, and the KERNAL interrupt is needed for its timing.
@@ -118,4 +143,5 @@ save_hiscore:
     jsr KERNAL_SAVE             ; Carry set = failed, nothing to do about it
     lda #0
     sta hs_dirty
+    jsr hs_clear_error
     jmp init_raster             ; Our raster interrupt again (ends with cli)
