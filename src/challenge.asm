@@ -93,7 +93,12 @@ update_challenge:
 .loop:
     lda enemy_state,x
     cmp #6
+    beq .flying
+    cmp #4
     bne .next
+    jsr step_explosion          ; (update_enemies is not needed in a challenge stage)
+    jmp .next
+.flying:
     lda enemy_flag,x
     bne .fly
     lda enemy_timer,x

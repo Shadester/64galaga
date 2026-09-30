@@ -331,7 +331,6 @@ st_play:
     lda in_chal
     beq .std_stage
     jsr update_challenge        ; Bonus stage: scripted flights, no shooting back
-    jsr update_enemies
     jmp .coll
 .std_stage:
     jsr update_formation

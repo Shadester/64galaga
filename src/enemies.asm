@@ -88,6 +88,16 @@ update_enemies:
     jsr dive_step
     jmp .next
 .explode:
+    jsr step_explosion
+    jmp .next
+.next:
+    dex
+    bpl .loop
+    rts
+
+; One frame of alien X's explosion: animate, then remove it
+!zone step_explosion
+step_explosion:
     dec enemy_timer,x
     beq .gone
     lda enemy_timer,x
@@ -98,15 +108,12 @@ update_enemies:
     sec
     sbc temp
     sta spr_f,x                 ; Explosion frame
-    jmp .next
+    rts
 .gone:
     lda #0
     sta enemy_state,x
     lda #$ff                    ; Dead enemies are hidden (Y=$ff)
     sta enemy_y,x
-.next:
-    dex
-    bpl .loop
     rts
 
 ; Fly back in from the top of the screen to the formation slot
