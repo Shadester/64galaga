@@ -92,15 +92,15 @@ draw_bcd:
 
 !zone draw_labels
 draw_labels:
-    +print score_text, SCREEN_RAM, 3
+    +print lives_text, SCREEN_RAM, 3
     +print hi_text, SCREEN_RAM+27, 3
-    +print lives_text, SCREEN_RAM+40, 3
-    +print level_text, SCREEN_RAM+80, 3
+    +print level_text, SCREEN_RAM+40, 3
+    +print score_text, SCREEN_RAM+40+27, 3
     rts
 
 !zone draw_hud
 draw_hud:
-    +setdst SCREEN_RAM+7
+    +setdst SCREEN_RAM+40+33
     lda score+2
     jsr draw_bcd
     lda score+1
@@ -119,9 +119,9 @@ draw_hud:
     lda lives
     clc
     adc #48
-    sta SCREEN_RAM+40+7
+    sta SCREEN_RAM+7
 
-    +setdst SCREEN_RAM+80+7
+    +setdst SCREEN_RAM+40+7
     lda level
     jmp draw_bcd
 
