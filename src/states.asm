@@ -86,6 +86,32 @@ title_digit:
 .rts:
     rts
 
+; Each frame two random stars of the picture get a new brightness (or go out): the colour of a
+; star is the high nibble of its cell's byte in the screen matrix
+!zone twinkle_stars
+twinkle_stars:
+    lda #2
+    sta temp
+.loop:
+    jsr rand
+    and #63                     ; NUM_STARS in gen_title.py
+    tay
+    lda title_star_lo,y
+    sta zp_dst
+    lda title_star_hi,y
+    sta zp_dst+1
+    jsr rand
+    and #7
+    tay
+    lda .colors,y
+    ldy #0
+    sta (zp_dst),y
+    dec temp
+    bne .loop
+    rts
+.colors:
+    !byte $00, $b0, $c0, $f0, $10, $f0, $c0, $b0     ; Off, dark grey, grey, light grey, white ...
+
 ; Back to the game's text screen (bank 0, character set ROM) and colours
 !zone leave_title
 leave_title:
@@ -104,6 +130,7 @@ leave_title:
 
 !zone st_title
 st_title:
+    jsr twinkle_stars
     lda joystick_state
     and #$10
     bne .rts                    ; Fire not pressed
