@@ -2,7 +2,7 @@
 
 A Galaga clone for the Commodore 64, written in 6502 assembly ([ACME](https://sourceforge.net/projects/acme-crossass/)).
 
-![Gameplay: the autoplay build, stage intro, fly-in and a tractor beam](docs/gameplay.gif)
+![Gameplay: the title screen, then the autoplay build with stage intro, fly-in and a tractor beam](docs/gameplay.gif)
 
 **[▶ Play in the browser](https://vc64web.github.io/#openROMS=true#https://raw.githubusercontent.com/Shadester/64galaga/master/docs/galaga.prg)** (runs in the [vc64web](https://vc64web.github.io) emulator; set up a joystick or keyset in its settings, see Controls below. The hi-score is not saved there.)
 
@@ -69,7 +69,7 @@ Requires [ACME](https://sourceforge.net/projects/acme-crossass/), the [VICE](htt
 make          # builds build/galaga.prg (compressed) and build/galaga.d64
 make run      # builds and starts the disk image in VICE
 make test     # screenshot regression tests (headless VICE, no window); make test-update after an intended change
-python3 tools/make_gif.py   # re-records docs/gameplay.gif (headless VICE, about 4 minutes)
+python3 tools/make_gif.py   # re-records docs/gameplay.gif (headless VICE, about 5 minutes)
 ```
 
 The hi-score is saved to a `hiscore` file on the disk (`make run` uses the `.d64`, so it survives between runs until the next build makes a fresh disk; the `.prg` alone just starts at 0).
@@ -93,7 +93,7 @@ A joystick in port 2 works as well. In VICE, use a keyset mapped to joystick por
 |------|---------|
 | `tools/gen_paths.py` | Makes `src/paths.asm`: the flight paths of the fly-in and the challenge stages |
 | `tools/gen_title.py` | Makes `src/title.bin` and `src/title_font.asm`: the title picture. The GALAGA logo comes from `assets/title-source.png`. The aliens and the ship come from `src/art.asm` |
-| `tools/make_gif.py` | Records `docs/gameplay.gif` from the autoplay build |
+| `tools/make_gif.py` | Records `docs/gameplay.gif`: the title screen, then the autoplay build |
 | `tools/setup-macos.sh` | Installs the build tools with Homebrew |
 
 The generated files are in the repository. You only run the generators when you change a path or the title picture.
