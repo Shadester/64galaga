@@ -167,12 +167,28 @@ sort_sprites:
     lda #0
     sta pk_n
     sta sh_msb
-    ldx #0
+    sta sort_p
+    tax
 .loop:
-    ldy sort_order,x
+    ldy sort_p              ; X = sorted slot, sort_p = position in sort_order
+    lda sort_order,y
+    tay
+    inc sort_p
     lda spr_y,y
     cmp #$ff                ; Hidden sprites sort last: stop at the first one
     beq .done_copy
+    cpx #8
+    bcc .keep
+    sec                     ; Sprite X reuses the hardware sprite of X-8: if that one
+    sbc sort_spr_y-8,x      ; is still being drawn, loading this one would cut it up.
+    cmp #DROP_GAP           ; Draw one sprite too few instead
+    bcs .reload
+    lda spr_f,y
+    cmp #SPR_PLAYER
+    bne .drop               ; (the ship always stays)
+.reload:
+    lda spr_y,y
+.keep:
     sta sort_spr_y,x
     lda #$ff
     sta sort_d01c,x
@@ -188,7 +204,9 @@ sort_sprites:
     ldy pk_n
     sta pk_list,y
     inc pk_n
-    ldy sort_order,x
+    ldy sort_p
+    lda sort_order-1,y
+    tay
 .not_player:
     lda spr_x_msb,y         ; Running $d010: set or clear this sprite's bit
     beq .msb0
@@ -204,6 +222,11 @@ sort_sprites:
     sta sort_d010,x
     inx
     cpx #MAX_SPRITES
+    bcc .loop
+    bcs .done_copy
+.drop:
+    lda sort_p
+    cmp #MAX_SPRITES
     bcc .loop
 .done_copy:
     stx sorted_sprites

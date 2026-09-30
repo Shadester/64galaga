@@ -85,6 +85,7 @@ GS_READY        = 7             ; "READY" before the ship respawns
 ; Raster IRQ Constants
 IRQ1_LINE       = $fc           ; Sorting interrupt at bottom of screen
 IRQ2_LINE       = $2a           ; Display interrupt start (line 42)
+DROP_GAP        = 25            ; Sprites closer than this to the one 8 slots up: not drawn
 IRQ_LEAD        = 16            ; Lines before a sprite group's Y to start loading it
 
 ; Print a zero-terminated screen-code string: message, screen address, colour
