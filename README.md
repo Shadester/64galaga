@@ -2,7 +2,7 @@
 
 A Galaga clone for the Commodore 64, written in 6502 assembly ([ACME](https://sourceforge.net/projects/acme-crossass/)).
 
-![Gameplay screenshot](docs/screenshot.png)
+![Gameplay: the autoplay build, stage intro, fly-in and a tractor beam](docs/gameplay.gif)
 
 **[▶ Play in the browser](https://vc64web.github.io/#openROMS=true#https://raw.githubusercontent.com/Shadester/64galaga/master/docs/galaga.prg)** (runs in the [vc64web](https://vc64web.github.io) emulator; set up a joystick or keyset in its settings, see Controls below. The hi-score is not saved there.)
 
@@ -31,6 +31,7 @@ Requires [ACME](https://sourceforge.net/projects/acme-crossass/), the [VICE](htt
 make          # builds build/galaga.prg (compressed) and build/galaga.d64
 make run      # builds and starts the disk image in VICE
 make test     # screenshot regression tests (headless VICE); make test-update after an intended change
+python3 tools/make_gif.py   # re-records docs/gameplay.gif (headless VICE, about 4 minutes)
 ```
 
 The hi-score is saved to a `hiscore` file on the disk (`make run` uses the `.d64`, so it survives between runs until the next build makes a fresh disk; the `.prg` alone just starts at 0).
