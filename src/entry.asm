@@ -4,12 +4,12 @@
 ; counts down to its launch), 1 flying its path, 2 homing on its slot.
 ; The path stepper (chal_step) is shared with the challenge stages.
 
-; Launch delay (frames) and path (id | $80 = mirrored) per formation slot
+; Launch delay (2-frame units, 4 apart: 8 frames = a sprite height at 2.6px/frame) and path (id | $80 = mirrored) per formation slot
 entry_delay_tbl:
-    !byte 60,66,72,78,0,6,12,18
-    !byte 84,90,96,102,120,126,132,138
-    !byte 144,150,24,30,36,42,156,162
-    !byte 180,186,192,198,204,210,216,222
+    !byte 40,44,48,52,0,4,8,12
+    !byte 56,60,64,68,80,84,88,92
+    !byte 96,100,16,20,24,28,104,108
+    !byte 120,124,128,132,136,140,144,148
 entry_path_tbl:
     !byte $03,$03,$03,$03,$02,$82,$02,$82
     !byte $03,$03,$03,$03,$83,$83,$83,$83
@@ -74,6 +74,9 @@ update_entry:
 .wait:
     lda enemy_timer,x
     beq .launch
+    lda frame
+    lsr
+    bcs .next                   ; The timer counts every 2nd frame
     dec enemy_timer,x
     jmp .next
 .launch:
