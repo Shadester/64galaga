@@ -61,6 +61,9 @@ start_game:
     sta dual
 }
     lda #3
+!ifdef LIVES {
+    lda #LIVES                  ; -DLIVES=n: start with n lives (testing)
+}
     sta lives
     lda #1
     sta level
@@ -444,6 +447,8 @@ enter_gameover:
     bcc .no_hi
     beq .no_hi
 .new_hi:
+    lda #1
+    sta hs_dirty                ; Saved once the game over jingle is done
     lda score
     sta hiscore
     lda score+1
@@ -465,6 +470,10 @@ st_gameover:
     beq .wait
     dec go_timer
     bne .rts
+    lda hs_dirty
+    beq .no_save
+    jsr save_hiscore
+.no_save:
     lda #1
     sta fire_pressed        ; Held fire must be released first
     +print msg_press, SCREEN_RAM+14*40+15, 1

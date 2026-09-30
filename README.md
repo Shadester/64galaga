@@ -27,9 +27,11 @@ Requires [ACME](https://sourceforge.net/projects/acme-crossass/) and the [VICE](
 
 ```sh
 make          # builds build/galaga.prg and build/galaga.d64
-make run      # builds and starts it in VICE
+make run      # builds and starts the disk image in VICE
 make test     # screenshot regression tests (headless VICE); make test-update after an intended change
 ```
+
+The hi-score is saved to a `hiscore` file on the disk (`make run` uses the `.d64`, so it survives between runs until the next build makes a fresh disk; the `.prg` alone just starts at 0).
 
 The `.prg` and `.d64` also run on real hardware or other emulators (`LOAD"*",8,1` then `RUN`; the disk holds one file, `galaga`).
 
@@ -52,6 +54,7 @@ Pass to ACME (`acme -f cbm -DAUTOPLAY=1 -o out.prg src/main.asm`) for headless t
 | `AUTOPLAY` | Synthetic joystick input: sweeps left and right and fires |
 | `NOFIRE` | With `AUTOPLAY`: no shooting during play |
 | `PAUSEAT=n` | With `HALT`: press pause at frame n (used by `make test`) |
+| `LIVES=n` | Start with n lives (used by `make test`) |
 | `DIFF=n` | Start at difficulty n (1..8) |
 | `DUAL` | Start with a dual fighter |
 | `FEW` | Only three bees per stage (fast stage clears) |
@@ -78,6 +81,7 @@ Pass to ACME (`acme -f cbm -DAUTOPLAY=1 -o out.prg src/main.asm`) for headless t
 | `combat.asm` | Collision detection |
 | `capture.asm` | Tractor beam, capture, rescue |
 | `progress.asm` | Hits, scoring, player death, stage progression |
+| `hiscore.asm` | Hi-score file: load at start-up, save after a new record |
 | `sound.asm` | SID effects and jingles |
 | `multiplexer.asm` | Raster interrupt sprite multiplexer |
 | `data.asm` | Variables and tables |

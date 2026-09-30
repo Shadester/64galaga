@@ -39,7 +39,7 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
 # Run in emulator with WASD controls configured
-run: $(TARGET)
+run: $(DISK)
 	@echo "Starting VICE emulator with WASD controls..."
 	@echo ""
 	@echo "Controls:"
@@ -49,7 +49,7 @@ run: $(TARGET)
 	@echo "  D = Right"
 	@echo "  Space = Fire"
 	@echo ""
-	$(EMU) $(EMUFLAGS) -autostart $(TARGET)
+	$(EMU) $(EMUFLAGS) -autostart $(DISK)
 
 # Screenshot regression tests (see tests/run.sh)
 test:
