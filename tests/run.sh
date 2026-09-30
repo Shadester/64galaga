@@ -44,8 +44,8 @@ while IFS='|' read -r name flags frames disk; do
     # VICE's autostart occasionally misses the READY prompt: one retry
     for try in 1 2; do
         rm -f "$out/$name.png"
-        # +sound: VICE can stall on a Bluetooth default audio device
-        x64sc -default +sound -warp -autostartprgmode 1 ${drive[@]+"${drive[@]}"} -VICIIdsize -VICIIfilter 0 \
+        # +sound: VICE can stall on a Bluetooth default audio device; -console: no window (no focus grab)
+        x64sc -default +sound -warp -console -autostartprgmode 1 ${drive[@]+"${drive[@]}"} -VICIIdsize -VICIIfilter 0 \
             -limitcycles $((frames * 40000 + 20000000)) \
             -exitscreenshot "$PWD/$out/$name.png" -autostart "$out/$name.prg" >/dev/null 2>&1
         [ $update = 0 ] && python3 tests/cmp.py "$out/$name.png" "tests/ref/$name.png" && break
