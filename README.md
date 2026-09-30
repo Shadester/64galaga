@@ -23,6 +23,43 @@ A Galaga clone for the Commodore 64, written in 6502 assembly ([ACME](https://so
 - Scrolling starfield, jingles and sound effects (SID)
 - Raster interrupt sprite multiplexer: up to 44 virtual sprites on the 8 hardware sprites, with a hires player ship among multicolor sprites
 
+## How the game shows more than 8 sprites
+
+The C64 video chip (VIC-II) has only 8 hardware sprites. A stage has more than 40 moving objects: 32 aliens, the ship, 4 player shots, 3 enemy shots and some extra sprites. The game shows all of them at the same time. It uses a *sprite multiplexer*. The code is in `src/multiplexer.asm`.
+
+### The idea
+
+The VIC-II draws a sprite when the raster beam reaches the Y position of the sprite. The sprite is 21 lines high. When the beam has drawn the last line, the hardware sprite is free. The program can then give it a new position, a new picture and a new colour. The beam draws it again, lower on the screen. One hardware sprite can show many objects in one frame if the objects are at different heights.
+
+### What happens in each frame
+
+1. The game loop writes the *virtual sprites*: a table with X, Y, picture and colour for each of the 44 objects. Alien number 5 always uses virtual sprite 5.
+2. At raster line `$fc`, below the screen, the first raster interrupt (`irq1`) runs. A raster interrupt stops the game loop at an exact raster line. The interrupt sorts the virtual sprites by Y (`sort_sprites`). The sort starts from the order of the last frame. Most sprites move only a few lines, so the order is almost correct and the sort is fast.
+3. The sort gives the sorted sprites to the hardware sprites in turn: sorted sprite 0 to hardware sprite 0, sorted sprite 8 to hardware sprite 0 again, and so on. It also calculates a *load line* for each sprite. This is the raster line at which the sprite gets its data.
+4. A second raster interrupt (`irq2`) then runs down the screen. It writes X, Y, picture and colour of the next sprite just before the beam reaches it. Then the game loop continues.
+
+### The load line
+
+The interrupt starts 16 lines before the Y of a sprite (`IRQ_LEAD`). This gives the CPU time to write the registers. But the hardware sprite must not get new data while it still draws the old sprite. If it does, the lower part of the old alien takes the picture and colour of the new one. The screen then shows thin stripes.
+
+The art of an alien is 11 lines high or less. The art of the ship is 14 lines high or less. But the hardware sprite is busy for 21 lines. The game uses this. A hardware sprite can get its new data 14 lines after the Y of the old sprite (`ART_TAIL`), because all the art is finished then. The load line is the later of these two lines:
+
+- the Y of the sprite minus 16 lines
+- the Y of the previous sprite on the same hardware sprite plus 14 lines
+
+### Why 32 aliens fit
+
+The formation has rows that are 28 lines apart. A row has at most 7 aliens. A row needs 7 hardware sprites. When the beam reaches the next row, these 7 hardware sprites are free. The next row uses them again. Every other object takes the next hardware sprite in turn.
+
+### The limit
+
+The VIC-II cannot draw more than 8 sprites in one band of 21 lines. During the fly-in and the dives, aliens cross the rows. Then 9 or more sprites can be in one band. The game must leave one out. It alternates the choice each frame: one frame shows the older sprite, the next frame shows the newer sprite. The two aliens flicker. This looks better than one alien that is gone. The player ship is always shown.
+
+### Two more details
+
+- Each sprite has its own X high bit (`$d010`) and its own multicolor bit (`$d01c`). The ship is a single-color (hires) sprite. All other sprites are multicolor. The interrupt sets these bits for each sprite. It uses one piece of unrolled code for each hardware sprite, to save time.
+- A PAL frame has 19,656 CPU cycles. The sort and the two interrupts use about 8,000 of them. The game loop uses the rest. When the game loop is late, the screen shows the last frame again. The game then runs at 25 frames a second for a short time. This can happen in the fly-in of a stage and in the challenge stages.
+
 ## Build and run
 
 On macOS, `tools/setup-macos.sh` installs everything via Homebrew.
@@ -31,7 +68,7 @@ Requires [ACME](https://sourceforge.net/projects/acme-crossass/), the [VICE](htt
 ```sh
 make          # builds build/galaga.prg (compressed) and build/galaga.d64
 make run      # builds and starts the disk image in VICE
-make test     # screenshot regression tests (headless VICE); make test-update after an intended change
+make test     # screenshot regression tests (headless VICE, no window); make test-update after an intended change
 python3 tools/make_gif.py   # re-records docs/gameplay.gif (headless VICE, about 4 minutes)
 ```
 
@@ -49,6 +86,21 @@ The `.prg` and `.d64` also run on real hardware or other emulators (`LOAD"*",8,1
 | RUN/STOP (Esc in VICE) | Quit to the title screen (a new hi-score is kept) |
 
 A joystick in port 2 works as well. In VICE, use a keyset mapped to joystick port 2 (see `.vice/vicerc` for a WASD + Space example).
+
+## Tools
+
+| Tool | Purpose |
+|------|---------|
+| `tools/gen_paths.py` | Makes `src/paths.asm`: the flight paths of the fly-in and the challenge stages |
+| `tools/gen_title.py` | Makes `src/title.bin` and `src/title_font.asm`: the title picture. The GALAGA logo comes from `assets/title-source.png`. The aliens and the ship come from `src/art.asm` |
+| `tools/make_gif.py` | Records `docs/gameplay.gif` from the autoplay build |
+| `tools/setup-macos.sh` | Installs the build tools with Homebrew |
+
+The generated files are in the repository. You only run the generators when you change a path or the title picture.
+
+## Notes for contributors and AI assistants
+
+`CLAUDE.md` describes the code layout, the test method and the known problems. Read it before you change the multiplexer or the tests.
 
 ## Debug build flags
 
@@ -89,7 +141,7 @@ Pass to ACME (`acme -f cbm -DAUTOPLAY=1 -o out.prg src/main.asm`) for headless t
 | `progress.asm` | Hits, scoring, player death, stage progression |
 | `hiscore.asm` | Hi-score file: load at start-up, save after a new record |
 | `sound.asm` | SID effects and jingles |
-| `multiplexer.asm` | Raster interrupt sprite multiplexer |
+| `multiplexer.asm` | Raster interrupt sprite multiplexer (see the section above) |
 | `data.asm` | Variables and tables |
 | `challenge.asm` | Challenge stage logic and the shared flight path stepper (paths: see `tools/gen_paths.py`) |
 | `art.asm` | Sprite art, assembled at `$3000` |

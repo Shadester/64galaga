@@ -11,6 +11,7 @@
 ;         -DBOSSDIVE=1 boss 1 always dives (escort test), -DSTAGE=n start at stage n,
 ;         -DFORCEPERFECT=1 challenge stages count as perfect,
 ;         -DDIFF=n start at difficulty n, -DLIVES=n start with n lives, -DPAUSEAT=n press pause at frame n (needs HALT),
+;         -DQUITAT=n RUN/STOP at frame n (needs HALT),
 ;         -DHALT=n freeze after n frames, -DHALTOVER=1 freeze at game over,
 ;         -DDIEAT=n the ship is hit at frame n (needs HALT) (tests/run.sh)
 ; ===============================================
