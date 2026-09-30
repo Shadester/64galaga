@@ -4,4 +4,5 @@ build/
 # Emulator temporary files
 *.d64
 *.prg
+!docs/galaga.prg
 *.log

@@ -4,6 +4,8 @@ A Galaga clone for the Commodore 64, written in 6502 assembly ([ACME](https://so
 
 ![Gameplay screenshot](docs/screenshot.png)
 
+**[▶ Play in the browser](https://vc64web.github.io/#openROMS=true#https://raw.githubusercontent.com/Shadester/64galaga/master/docs/galaga.prg)** (runs in the [vc64web](https://vc64web.github.io) emulator; set up a joystick or keyset in its settings, see Controls below. The hi-score is not saved there.)
+
 ## Features
 
 - 32-alien formation in 5 rows: 4 bosses, 14 butterflies, 14 bees, with wing-flap animation

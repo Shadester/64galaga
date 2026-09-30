@@ -31,6 +31,7 @@ $(RAW): $(SOURCES) | $(BUILD_DIR)
 
 $(TARGET): $(RAW)
 	exomizer sfx sys -n -o $(TARGET) $(RAW) >/dev/null
+	cp $(TARGET) docs/galaga.prg   # committed: the README's browser link loads it
 	@echo "Build complete!"
 
 # Disk image (c1541 ships with VICE)
