@@ -39,6 +39,7 @@ The `.prg` and `.d64` also run on real hardware or other emulators (`LOAD"*",8,1
 |-----|--------|
 | A / D | Move left / right |
 | Space | Fire, start the game |
+| P | Pause / resume |
 
 A joystick in port 2 works as well. In VICE, use a keyset mapped to joystick port 2 (see `.vice/vicerc` for a WASD + Space example).
 
@@ -50,6 +51,7 @@ Pass to ACME (`acme -f cbm -DAUTOPLAY=1 -o out.prg src/main.asm`) for headless t
 |------|--------|
 | `AUTOPLAY` | Synthetic joystick input: sweeps left and right and fires |
 | `NOFIRE` | With `AUTOPLAY`: no shooting during play |
+| `PAUSEAT=n` | With `HALT`: press pause at frame n (used by `make test`) |
 | `DIFF=n` | Start at difficulty n (1..8) |
 | `DUAL` | Start with a dual fighter |
 | `FEW` | Only three bees per stage (fast stage clears) |

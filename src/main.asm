@@ -10,7 +10,7 @@
 ;         -DDUAL=1 dual fighter at start, -DCAPTURE=1 scripted capture, -DFEW=1 three bees per stage,
 ;         -DBOSSDIVE=1 boss 1 always dives (escort test), -DSTAGE=n start at stage n,
 ;         -DFORCEPERFECT=1 challenge stages count as perfect,
-;         -DDIFF=n start at difficulty n,
+;         -DDIFF=n start at difficulty n, -DPAUSEAT=n press pause at frame n (needs HALT),
 ;         -DHALT=n freeze after n frames, -DHALTOVER=1 freeze at game over,
 ;         -DDIEAT=n the ship is hit at frame n (needs HALT) (tests/run.sh)
 ; ===============================================
@@ -72,9 +72,13 @@ game_loop:
     jsr refresh_anim
 .same_anim:
     jsr read_joystick
+    jsr check_pause
+    lda paused
+    bne .idle                   ; Paused: only keep the screen (and the frame pacing) going
     jsr update_stars
     jsr snd_tick
     jsr run_state
+.idle:
     jsr update_sprite_data      ; Update sprites for IRQ multiplexer
     jsr wait_for_irq            ; CRITICAL: Wait for IRQ to finish! Paces the loop to 1 frame
     lda game_state

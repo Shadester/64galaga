@@ -81,6 +81,54 @@ read_joystick:
 .held:
     rts
 
+; P pauses and resumes (during play only). Reads keyboard row 5, column 1.
+!zone check_pause
+check_pause:
+!ifdef PAUSEAT {
+    lda halt_cnt+1              ; -DPAUSEAT=n: pretend P is pressed at frame n
+    cmp #>PAUSEAT
+    bne .real
+    lda halt_cnt
+    cmp #<PAUSEAT
+    bne .real
+    jmp .toggle
+.real:
+}
+    lda #%11011111
+    sta $dc00
+    lda $dc01
+    ldx #$ff
+    stx $dc00                   ; Back to the joystick
+    and #$02
+    bne .up                     ; Not pressed
+    lda pause_key
+    bne .rts                    ; Still held
+    lda #1
+    sta pause_key
+.toggle:
+    lda paused
+    bne .resume
+    lda game_state
+    cmp #GS_PLAY
+    bne .rts
+    lda #1
+    sta paused
+    lda #0
+    sta SID_FILTER_MODE         ; Silence
+    +print msg_pause, SCREEN_RAM+20*40+17, 1
+    rts
+.resume:
+    lda #0
+    sta paused
+    lda #$0f
+    sta SID_FILTER_MODE
+    jmp clear_stage_row
+.up:
+    lda #0
+    sta pause_key
+.rts:
+    rts
+
 ; ===============================================
 ; PLAYER UPDATE
 ; ===============================================

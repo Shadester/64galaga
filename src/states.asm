@@ -83,6 +83,7 @@ start_game:
     lda #0
     sta in_chal
     sta chal_mid
+    sta paused
     jsr begin_stage             ; Stage 1 (fly-in)
 !ifdef STAGE {
     lda #STAGE                  ; -DSTAGE=n: start at stage n (challenge stage testing)
