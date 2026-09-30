@@ -75,9 +75,13 @@ game_loop:
 .same_anim:
     jsr read_joystick
     jsr check_pause
+    jsr check_quit
     lda paused
     bne .idle                   ; Paused: only keep the screen (and the frame pacing) going
+    lda game_state              ; Stars write colour RAM: not under the title picture
+    beq .no_stars
     jsr update_stars
+.no_stars:
     jsr snd_tick
     jsr run_state
 .idle:
@@ -150,3 +154,10 @@ run_state:
 !src "src/paths.asm"
 !src "src/entry.asm"
 !src "src/hiscore.asm"
+!src "src/title_font.asm"
+
+!if * > TITLE_COLORS {
+    !error "Code and data have grown into the title picture at $5800"
+}
+* = TITLE_COLORS                ; Title picture: colours, screen matrix, bitmap
+!binary "src/title.bin"

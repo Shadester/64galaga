@@ -9,19 +9,98 @@ enter_title:
     lda #GS_TITLE
     sta game_state
     lda #1
-    sta fire_pressed            ; Fire must be released and pressed again
-    jsr clear_screen
-    +print msg_title, SCREEN_RAM+6*40+15, 1
-    +print msg_hi, SCREEN_RAM+9*40+11, 3
-    +setdst SCREEN_RAM+9*40+20
-    lda hiscore+2
-    jsr draw_bcd
-    lda hiscore+1
-    jsr draw_bcd
-    lda hiscore
-    jsr draw_bcd
-    +print msg_press, SCREEN_RAM+15*40+15, 1
+    sta fire_pressed            ; Fire must be released pressed again
+    ldx #0                      ; The picture's colours into colour RAM (4 pages: the last
+.colors:                        ; 24 bytes are not on screen)
+    lda TITLE_COLORS,x
+    sta COLOR_RAM,x
+    lda TITLE_COLORS+$100,x
+    sta COLOR_RAM+$100,x
+    lda TITLE_COLORS+$200,x
+    sta COLOR_RAM+$200,x
+    lda TITLE_COLORS+$300,x
+    sta COLOR_RAM+$300,x
+    inx
+    bne .colors
+    +setdst TITLE_DIGITS_AT     ; The hi-score digits, drawn with the glyphs of title_font.asm
+    ldx #2
+.digits:
+    txa
+    pha
+    lda hiscore,x
+    lsr
+    lsr
+    lsr
+    lsr
+    jsr title_digit
+    pla
+    tax
+    pha
+    lda hiscore,x
+    and #$0f
+    jsr title_digit
+    pla
+    tax
+    dex
+    bpl .digits
+    lda CIA2_PORT_A             ; VIC bank 1 ($4000-$7fff), bitmap at $6000, screen at $5c00
+    and #$fc
+    ora #$02
+    sta CIA2_PORT_A
+    lda #$78
+    sta VIC_MEMORY
+    lda #$3b                    ; Bitmap mode, multicolor
+    sta VIC_CTRL1
+    lda VIC_CTRL2
+    ora #$10
+    sta VIC_CTRL2
+    lda #0
+    sta BG_COLOR
+    sta BORDER_COLOR
     rts
+
+; Copy the glyph of digit A to the bitmap cell at zp_dst, then move on to the next cell
+!zone title_digit
+title_digit:
+    asl
+    asl
+    asl
+    clc
+    adc #<title_digits
+    sta zp_src
+    lda #>title_digits
+    adc #0
+    sta zp_src+1
+    ldy #7
+.copy:
+    lda (zp_src),y
+    sta (zp_dst),y
+    dey
+    bpl .copy
+    lda zp_dst
+    clc
+    adc #8
+    sta zp_dst
+    bcc .rts
+    inc zp_dst+1
+.rts:
+    rts
+
+; Back to the game's text screen (bank 0, character set ROM) and colours
+!zone leave_title
+leave_title:
+    lda CIA2_PORT_A
+    and #$fc
+    ora #$03
+    sta CIA2_PORT_A
+    lda #$14
+    sta VIC_MEMORY
+    lda #27
+    sta VIC_CTRL1
+    lda VIC_CTRL2
+    and #$ef
+    sta VIC_CTRL2
+    jmp setup_colors
 
 !zone st_title
 st_title:
@@ -37,6 +116,7 @@ st_title:
 ; --- New game ---
 !zone start_game
 start_game:
+    jsr leave_title
     jsr clear_screen
     jsr draw_labels
     lda #0
@@ -439,7 +519,18 @@ st_captured:
 ; --- Game over ---
 !zone enter_gameover
 enter_gameover:
-    ; New hi-score?
+    jsr update_hiscore
+    lda #GS_GAMEOVER
+    sta game_state
+    lda #90
+    sta go_timer
+    +print msg_over, SCREEN_RAM+11*40+15, 1
+    lda #jin_over-jin_data
+    jmp play_jingle
+
+; A score above the hi-score becomes the hi-score (saved once the game is over)
+!zone update_hiscore
+update_hiscore:
     lda score+2
     cmp hiscore+2
     bcc .no_hi
@@ -454,7 +545,7 @@ enter_gameover:
     beq .no_hi
 .new_hi:
     lda #1
-    sta hs_dirty                ; Saved once the game over jingle is done
+    sta hs_dirty
     lda score
     sta hiscore
     lda score+1
@@ -462,13 +553,7 @@ enter_gameover:
     lda score+2
     sta hiscore+2
 .no_hi:
-    lda #GS_GAMEOVER
-    sta game_state
-    lda #90
-    sta go_timer
-    +print msg_over, SCREEN_RAM+11*40+15, 1
-    lda #jin_over-jin_data
-    jmp play_jingle
+    rts
 
 !zone st_gameover
 st_gameover:

@@ -57,6 +57,18 @@ read_joystick:
     and #$f7
     sta joystick_state
 .auto_fire:
+!ifdef QUITAT {
+    lda game_state          ; -DQUITAT: after the quit, stay on the title screen
+    bne .q_go
+    lda halt_cnt+1
+    cmp #>QUITAT
+    bcc .q_go
+    bne .auto_done
+    lda halt_cnt
+    cmp #<QUITAT
+    bcs .auto_done
+.q_go:
+}
 !ifdef NOFIRE {
     lda game_state          ; -DNOFIRE: only fire to leave title / game over
     cmp #GS_PLAY
@@ -126,6 +138,46 @@ check_pause:
 .up:
     lda #0
     sta pause_key
+.rts:
+    rts
+
+; RUN/STOP (Esc in VICE) quits the game to the title screen, keeping a new hi-score.
+; Reads keyboard row 7, column 7. Not in the title or at game over.
+!zone check_quit
+check_quit:
+    lda game_state
+    beq .rts                    ; Title
+    cmp #GS_GAMEOVER
+    beq .rts
+!ifdef QUITAT {
+    lda halt_cnt+1              ; -DQUITAT=n (with HALT): pretend RUN/STOP at frame n
+    cmp #>QUITAT
+    bne .real
+    lda halt_cnt
+    cmp #<QUITAT
+    bne .real
+    jmp .quit
+.real:
+}
+    lda #%01111111
+    sta $dc00
+    lda $dc01
+    ldx #$ff
+    stx $dc00                   ; Back to the joystick
+    and #$80
+    bne .rts                    ; Not pressed
+.quit:
+    lda #0
+    sta paused
+    sta jin_on                  ; Silence: jingle, swoop, voices, volume back up
+    sta swoop_cnt
+    jsr init_sound
+    jsr update_hiscore
+    lda hs_dirty
+    beq .no_save
+    jsr save_hiscore
+.no_save:
+    jmp enter_title
 .rts:
     rts
 

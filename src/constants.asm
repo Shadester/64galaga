@@ -14,6 +14,10 @@ BORDER_COLOR    = $d020
 BG_COLOR        = $d021
 SCREEN_RAM      = $0400
 COLOR_RAM       = $d800
+VIC_CTRL1       = $d011
+VIC_CTRL2       = $d016
+VIC_MEMORY      = $d018
+CIA2_PORT_A     = $dd00        ; Bits 0-1: VIC bank (inverted)
 
 ; CIA Registers
 CIA1_PRA        = $dc00      ; Joystick port 2
@@ -112,3 +116,9 @@ ART_TAIL        = 14            ; Lines after which the art (rows 0..13 at most)
     lda #>.addr
     sta zp_dst+1
 }
+
+; Title picture (multicolor bitmap in VIC bank 1, see tools/gen_title.py)
+TITLE_COLORS    = $5800         ; Colour RAM data, copied to $d800
+TITLE_SCREEN    = $5c00         ; Screen matrix (VIC_MEMORY high nibble 7)
+TITLE_BITMAP    = $6000         ; Bitmap (VIC_MEMORY bit 3)
+TITLE_DIGITS_AT = TITLE_BITMAP+20*320+21*8   ; Cell of the first hi-score digit
