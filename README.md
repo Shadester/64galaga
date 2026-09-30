@@ -29,7 +29,7 @@ make          # builds build/galaga.prg and build/galaga.d64
 make run      # builds and starts it in VICE
 ```
 
-The `.prg` also runs on real hardware (`LOAD"*",8,1` then `RUN`).
+The `.prg` and `.d64` also run on real hardware or other emulators (`LOAD"*",8,1` then `RUN`; the disk holds one file, `galaga`).
 
 ## Controls
 
