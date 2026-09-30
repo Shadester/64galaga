@@ -7,19 +7,20 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 # name|ACME flags|game loops until the game freezes (-DHALT), so the screenshot is exact|disk
+# Frames past ~600 are after the fly-in: mid-fly-in screens depend on raster timing.
 # VICE runs frames*20000+10M cycles: a loop that overruns a frame (many divers) needs up to 2x.
 # disk: 'new' attaches a fresh blank disk, 'keep' the disk of the previous 'new' case
 # (hs-save writes the hi-score file, hs-load must show it on the title screen).
 CASES='
 title||100
 entry|-DAUTOPLAY=1 -DNOFIRE=1|230
-settled|-DAUTOPLAY=1 -DNOFIRE=1|700
-play|-DAUTOPLAY=1|400
+settled|-DAUTOPLAY=1 -DNOFIRE=1|800
+play|-DAUTOPLAY=1|900
 challenge|-DAUTOPLAY=1 -DSTAGE=3|500
-explode|-DAUTOPLAY=1 -DNOFIRE=1 -DDIEAT=400|425
-ready|-DAUTOPLAY=1 -DNOFIRE=1 -DDIEAT=400|520
+explode|-DAUTOPLAY=1 -DNOFIRE=1 -DDIEAT=650|675
+ready|-DAUTOPLAY=1 -DNOFIRE=1 -DDIEAT=650|770
 hard|-DAUTOPLAY=1 -DNOFIRE=1 -DDIFF=8|800
-pause|-DAUTOPLAY=1 -DNOFIRE=1 -DPAUSEAT=500|540
+pause|-DAUTOPLAY=1 -DNOFIRE=1 -DPAUSEAT=700|740
 capture|-DAUTOPLAY=1 -DCAPTURE=1|3000
 result|-DAUTOPLAY=1 -DFEW=1|700
 gameover|-DAUTOPLAY=1 -DNOFIRE=1 -DHALTOVER=1|20000
