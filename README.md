@@ -57,6 +57,7 @@ Pass to ACME (`acme -f cbm -DAUTOPLAY=1 -o out.prg src/main.asm`) for headless t
 | `FORCEPERFECT` | Challenge stages count as perfect |
 | `HALT=n` | Freeze after n frames, so a screenshot is exact (used by `make test`) |
 | `HALTOVER` | Freeze on the game over screen (used by `make test`) |
+| `DIEAT=n` | With `HALT`: the ship is hit at frame n (used by `make test`) |
 | `CAPTURE` | With `AUTOPLAY`: a boss always dives to capture, and the ship shoots it once it carries the captive |
 
 ## Source layout

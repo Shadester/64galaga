@@ -140,6 +140,9 @@ msg_shots:      !scr "shots", 0
 msg_hits:       !scr "hits", 0
 msg_ratio:      !scr "ratio", 0
 msg_press:      !scr "press fire", 0
+msg_ready:      !scr "ready", 0
+msg_capt:       !scr "fighter captured", 0
+ready_timer:    !byte 0
 
 row_lo:  !byte 0,40,80,120,160,200,240,24
     !byte 64,104,144,184,224,8,48,88

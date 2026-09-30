@@ -16,12 +16,14 @@ clear_screen:
     bne .loop
     rts
 
+; Blank the message rows: 16 (stage intro) and 20 (READY, FIGHTER CAPTURED)
 !zone clear_stage_row
 clear_stage_row:
     ldx #39
     lda #$20
 .loop:
     sta SCREEN_RAM+16*40,x
+    sta SCREEN_RAM+20*40,x
     dex
     bpl .loop
     rts

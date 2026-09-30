@@ -70,6 +70,7 @@ SPR_BEE         = $c3           ; +1 = second animation frame
 SPR_BFLY        = $c5
 SPR_BOSS        = $c7
 SPR_EXPL1       = $c9           ; three explosion frames
+SPR_PEXP        = $cc           ; four player explosion frames
 
 ; Game states
 GS_TITLE        = 0
@@ -79,6 +80,7 @@ GS_DYING        = 3
 GS_GAMEOVER     = 4
 GS_CAPTURED     = 5             ; Player is being pulled up by a tractor beam
 GS_RESULT       = 6             ; Shots / hits / ratio screen after a stage
+GS_READY        = 7             ; "READY" before the ship respawns
 
 ; Raster IRQ Constants
 IRQ1_LINE       = $fc           ; Sorting interrupt at bottom of screen

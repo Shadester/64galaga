@@ -143,6 +143,8 @@ update_sprite_data:
 .player:
     cmp #GS_DYING
     beq .p_dying
+    cmp #GS_READY
+    beq .p_hide                 ; Waiting to respawn
     lda invuln
     and #4
     bne .p_hide                 ; Blink while invulnerable
@@ -157,12 +159,11 @@ update_sprite_data:
     lsr
     lsr
     lsr
-    beq .p_hide                 ; Gone for the last 16 frames
-    sta temp
-    lda #SPR_EXPL1+3
+    sta temp                    ; 3..0: four explosion frames of 16 game frames
+    lda #SPR_PEXP+3
     sec
     sbc temp
-    ldx #8                      ; Orange
+    ldx #1                      ; White
 .p_add:
     sta spr_f+VS_PLAYER
     stx spr_c+VS_PLAYER

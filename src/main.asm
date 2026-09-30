@@ -10,7 +10,8 @@
 ;         -DDUAL=1 dual fighter at start, -DCAPTURE=1 scripted capture, -DFEW=1 three bees per stage,
 ;         -DBOSSDIVE=1 boss 1 always dives (escort test), -DSTAGE=n start at stage n,
 ;         -DFORCEPERFECT=1 challenge stages count as perfect,
-;         -DHALT=n freeze after n frames, -DHALTOVER=1 freeze at game over (tests/run.sh)
+;         -DHALT=n freeze after n frames, -DHALTOVER=1 freeze at game over,
+;         -DDIEAT=n the ship is hit at frame n (needs HALT) (tests/run.sh)
 ; ===============================================
 
 !cpu 6510
@@ -97,6 +98,10 @@ run_state:
     beq .over
     dex
     beq .capt
+    dex
+    beq .result
+    jmp st_ready
+.result:
     jmp st_result
 .capt:
     jmp st_captured

@@ -293,6 +293,16 @@ print_num:
 ; --- Playing ---
 !zone st_play
 st_play:
+!ifdef DIEAT {
+    lda halt_cnt+1              ; -DDIEAT=n (with HALT): the ship is hit at frame n
+    cmp #>DIEAT
+    bne .no_die
+    lda halt_cnt
+    cmp #<DIEAT
+    bne .no_die
+    jmp player_hit
+.no_die:
+}
     lda invuln
     beq .no_invuln
     dec invuln
@@ -335,19 +345,36 @@ st_dying:
 .done:
     lda lives
     beq .game_over
-    lda #160                    ; Respawn, briefly invulnerable
-    sta player_x
-    lda #0
-    sta player_x_msb
-    lda #120
-    sta invuln
-    lda #0
-    sta dying_quiet
-    lda #GS_PLAY
+    jsr clear_stage_row
+    +print msg_ready, SCREEN_RAM+20*40+17, 1
+    lda #90
+    sta ready_timer
+    lda #GS_READY
     sta game_state
     rts
 .game_over:
     jmp enter_gameover
+
+; --- READY: the aliens carry on, then the ship respawns ---
+!zone st_ready
+st_ready:
+    jsr update_formation
+    jsr update_entry
+    jsr update_enemies
+    dec ready_timer
+    bne .rts
+    jsr clear_stage_row
+    lda #160                    ; Respawn, briefly invulnerable
+    sta player_x
+    lda #0
+    sta player_x_msb
+    sta dying_quiet
+    lda #120
+    sta invuln
+    lda #GS_PLAY
+    sta game_state
+.rts:
+    rts
 
 ; --- Ship caught in a tractor beam ---
 !zone st_captured
@@ -383,8 +410,9 @@ st_captured:
     beq .last
     lda #GS_DYING
     sta game_state
-    lda #45
+    lda #100
     sta dying_timer
+    +print msg_capt, SCREEN_RAM+20*40+12, 2
 .rts:
     rts
 .last:
