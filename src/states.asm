@@ -133,6 +133,13 @@ enter_result:
     sta game_state
     lda #150
     sta res_timer
+    ldx #199                    ; print_num only writes characters: start from white,
+    lda #1                      ; not from whatever the stars left in colour RAM
+.white:
+    sta COLOR_RAM+9*40,x
+    dex
+    cpx #$ff
+    bne .white
     lda in_chal
     beq .std
     jmp chal_result
