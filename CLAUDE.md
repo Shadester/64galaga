@@ -10,7 +10,7 @@ make                      # build/galaga.prg (exomizer), build/galaga.d64, and d
 make run                  # VICE with the .d64 (WASD + Space, see .vice/vicerc)
 tests/run.sh [case ...]   # screenshot tests, headless VICE (-console: no window, no focus grab)
 tests/run.sh --update [case ...]   # regenerate tests/ref/*.png after an intended change
-python3 tools/make_gif.py # re-record docs/gameplay.gif (about 4 minutes)
+python3 tools/make_gif.py # re-record docs/gameplay.gif: title screen, then autoplay (about 5 minutes)
 ```
 
 - Run `tests/run.sh` **one instance at a time**: the cases share `build/test/` and `hs.d64`.
