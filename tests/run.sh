@@ -23,7 +23,7 @@ ready|-DAUTOPLAY=1 -DNOFIRE=1 -DDIEAT=650|770
 hard|-DAUTOPLAY=1 -DNOFIRE=1 -DDIFF=8|800
 pause|-DAUTOPLAY=1 -DNOFIRE=1 -DPAUSEAT=700|740
 capture|-DAUTOPLAY=1 -DCAPTURE=1|3000
-result|-DAUTOPLAY=1 -DFEW=1 -DDIFF=2|1100
+result|-DAUTOPLAY=1 -DFEW=1 -DDIFF=2|760
 gameover|-DAUTOPLAY=1 -DNOFIRE=1 -DHALTOVER=1|20000
 hs-save|-DAUTOPLAY=1 -DLIVES=1 -DDIEAT=600 -DHALTOVER=1|1000|new
 hs-load||100|keep
@@ -41,14 +41,15 @@ while IFS='|' read -r name flags frames disk; do
     drive=()
     if [ "$disk" = new ]; then rm -f "$out/hs.d64"; c1541 -format test,01 d64 "$out/hs.d64" >/dev/null 2>&1; fi
     [ -n "$disk" ] && drive=(-8 "$out/hs.d64")
-    # VICE's autostart occasionally misses the READY prompt: one retry
-    for try in 1 2; do
+    # VICE's autostart occasionally misses the READY prompt (the screenshot shows BASIC or nothing): retry
+    for try in 1 2 3; do
         rm -f "$out/$name.png"
         # +sound: VICE can stall on a Bluetooth default audio device; -console: no window (no focus grab)
         x64sc -default +sound -warp -console -autostartprgmode 1 ${drive[@]+"${drive[@]}"} -VICIIdsize -VICIIfilter 0 \
             -limitcycles $((frames * 40000 + 20000000)) \
             -exitscreenshot "$PWD/$out/$name.png" -autostart "$out/$name.prg" >/dev/null 2>&1
-        [ $update = 0 ] && python3 tests/cmp.py "$out/$name.png" "tests/ref/$name.png" && break
+        if [ $update = 0 ]; then python3 tests/cmp.py "$out/$name.png" "tests/ref/$name.png" && break
+        else python3 tests/cmp.py --game "$out/$name.png" && break; fi
     done
     if [ ! -f "$out/$name.png" ]; then echo "FAIL $name (no screenshot)"; fail=1
     elif [ $update = 1 ]; then cp "$out/$name.png" "tests/ref/$name.png"; echo "UPDATED $name"
