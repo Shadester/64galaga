@@ -117,81 +117,67 @@ irq1:
     jmp $ea81               ; Return from IRQ
 
 ; Sort sprites by Y coordinate
-; Insertion sort on the order table. It starts from last frame's order, so
-; most entries are already in place: sort_prev is the Y of the sorted prefix's
-; last entry, and only a smaller Y shifts the larger ones up to make room.
 !zone sort_sprites
 sort_sprites:
-    ldy sort_order
-    lda spr_y,y
-    sta sort_prev
+    ; Insertion sort on order table
     ldx #0
-.outer:
+!zone sort_main_loop
+sort_main_loop:
     ldy sort_order+1,x
     lda spr_y,y
-    cmp sort_prev
-    bcs .in_place               ; Not smaller: stays (equal Y keeps its order)
-    sta sort_ky
-    sty sort_key
+    ldy sort_order,x
+    cmp spr_y,y
+    bcs sort_skip_swap
+
+    ; Swap needed - store X for later reload
     stx sort_temp_x
-.shift:
+!zone sort_swap_loop
+sort_swap_loop:
+    lda sort_order+1,x
+    pha
     lda sort_order,x
     sta sort_order+1,x
+    pla
+    sta sort_order,x
+    cpx #0
+    beq sort_reload_x
     dex
-    bmi .first
+    ldy sort_order+1,x
+    lda spr_y,y
     ldy sort_order,x
-    lda sort_ky
     cmp spr_y,y
-    bcc .shift                  ; Still smaller than the next one down
-    lda sort_key
-    sta sort_order+1,x
-    jmp .placed
-.first:
-    lda sort_key
-    sta sort_order
-.placed:
+    bcc sort_swap_loop
+
+!zone sort_reload_x
+sort_reload_x:
     ldx sort_temp_x
-    jmp .next
-.in_place:
-    sta sort_prev
-.next:
+!zone sort_skip_swap
+sort_skip_swap:
     inx
     cpx #MAX_SPRITES-1
-    bcc .outer
+    bcc sort_main_loop
 
     ; Copy sorted data, and precompute per sorted sprite the running $d010
     ; value. $d01c is $ff except in the 8 entries from the player ship on
     ; (the only hires sprite: its hardware sprite keeps the bit clear until
     ; another sprite reuses it).
 !zone sort_copy
+    ldx #MAX_SPRITES+7      ; $d01c: all multicolor, except the hires windows below
+    lda #$ff
+.undo:
+    sta sort_d01c,x
+    dex
+    bpl .undo
     lda #0
     sta pk_n
     sta sh_msb
-    sta sort_p
-    tax
+    ldx #0
 .loop:
-    ldy sort_p              ; X = sorted slot, sort_p = position in sort_order
-    lda sort_order,y
-    tay
-    inc sort_p
+    ldy sort_order,x
     lda spr_y,y
     cmp #$ff                ; Hidden sprites sort last: stop at the first one
     beq .done_copy
-    cpx #8
-    bcc .keep
-    sec                     ; Sprite X reuses the hardware sprite of X-8: if that one
-    sbc sort_spr_y-8,x      ; is still being drawn, loading this one would cut it up.
-    cmp #DROP_GAP           ; Draw one sprite too few instead
-    bcs .reload
-    lda spr_f,y
-    cmp #SPR_PLAYER
-    bne .drop               ; (the ship always stays)
-.reload:
-    lda spr_y,y
-.keep:
     sta sort_spr_y,x
-    lda #$ff
-    sta sort_d01c,x
     lda spr_x,y
     sta sort_spr_x,x
     lda spr_c,y
@@ -204,9 +190,7 @@ sort_sprites:
     ldy pk_n
     sta pk_list,y
     inc pk_n
-    ldy sort_p
-    lda sort_order-1,y
-    tay
+    ldy sort_order,x
 .not_player:
     lda spr_x_msb,y         ; Running $d010: set or clear this sprite's bit
     beq .msb0
@@ -223,21 +207,10 @@ sort_sprites:
     inx
     cpx #MAX_SPRITES
     bcc .loop
-    bcs .done_copy
-.drop:
-    lda sort_p
-    cmp #MAX_SPRITES
-    bcc .loop
 .done_copy:
     stx sorted_sprites
     lda #$ff
     sta sort_spr_y,x        ; End marker
-    ldy #8                  ; The hires windows can reach 8 entries past the last
-.fill:
-    sta sort_d01c,x
-    inx
-    dey
-    bne .fill
 .done:
     ldy pk_n                ; Each hires ship clears its hardware sprite's $d01c bit
 .next_pk:                   ; from itself until that sprite is reused (8 entries)
@@ -286,18 +259,6 @@ irq2_sprite_loop:
     bcc .load
     jmp irq2_end_sprites
 .load:
-    cpy #8
-    bcc .free
-    lda sort_spr_y-8,y          ; The hardware sprite's previous user: don't touch its
-    clc                         ; registers before its 21 lines are drawn
-    adc #21
-    bcs .free
-    bit $d011
-    bmi .free                   ; Raster past line 255: the compare below would never pass
-.wait:
-    cmp $d012
-    bcs .wait
-.free:
     lda sort_spr_y,y
     cmp $d012                   ; Y line already passed (IRQ ran late)?
     bcs .on_time
