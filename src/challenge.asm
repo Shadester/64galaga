@@ -7,10 +7,6 @@ path_x0:        !byte <PATHA_X0, <PATHB_X0, <PATHC_X0, <PATHD_X0
 path_x0h:       !byte >PATHA_X0, >PATHB_X0, >PATHC_X0, >PATHD_X0
 path_y0:        !byte PATHA_Y0, PATHB_Y0, PATHC_Y0, PATHD_Y0
 path_len:       !byte PATHA_LEN, PATHB_LEN, PATHC_LEN, PATHD_LEN
-pdx_lo:         !byte <pathA_dx, <pathB_dx, <pathC_dx, <pathD_dx
-pdx_hi:         !byte >pathA_dx, >pathB_dx, >pathC_dx, >pathD_dx
-pdy_lo:         !byte <pathA_dy, <pathB_dy, <pathC_dy, <pathD_dy
-pdy_hi:         !byte >pathA_dy, >pathB_dy, >pathC_dy, >pathD_dy
 chal_path_tbl:  !byte 0, 1, $80, $81            ; path per wave
 
 wave_delay:     !byte 0, 55, 110, 165           ; frames before a wave starts
@@ -147,15 +143,14 @@ chal_step:
     lda enemy_path,x
     and #3
     sta path_id
-    tay
-    lda pdx_lo,y
-    sta zp_path
-    lda pdx_hi,y
+    asl                         ; The tables sit on their own pages: dx A, dy A, dx B, ...
+    adc #>pathA_dx              ; (carry is clear)
     sta zp_path+1
-    lda pdy_lo,y
-    sta zp_col                  ; (the colour pointer is free here)
-    lda pdy_hi,y
-    sta zp_col+1
+    adc #1
+    sta zp_col+1                ; (the colour pointer is free here)
+    lda #0
+    sta zp_path
+    sta zp_col
     ldy enemy_idx,x
     lda (zp_path),y
     sta step_dx

@@ -40,6 +40,10 @@ check_collisions:
 .pb_loop:
     lda pbul_active,y
     beq .pb_next
+    tya                     ; Each bullet is tested every 2nd frame: it moves 4px a frame
+    eor frame               ; and the window is 16px, so it cannot fly through an alien
+    and #1
+    bne .pb_next
     lda pbul_y,y            ; Dead enemies have Y=$ff and never match
     sec
     sbc #8

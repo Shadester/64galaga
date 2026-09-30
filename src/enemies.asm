@@ -73,15 +73,15 @@ update_enemies:
     beq .next
     cmp #2
     bcc .next               ; In formation: placed by update_formation
+    cmp #6
+    bcs .next               ; Challenge stage aliens move in update_challenge, entering
+                            ; aliens in update_entry
+    cmp #2
     beq .dive
     cmp #4
     beq .explode
     cmp #5
     beq .next               ; Beaming boss holds still
-    cmp #6
-    beq .next               ; Challenge stage aliens move in update_challenge
-    cmp #7
-    beq .next               ; Entering aliens move in update_entry
     jsr return_step
     jmp .next
 .dive:
