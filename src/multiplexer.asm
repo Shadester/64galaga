@@ -184,9 +184,32 @@ sort_sprites:
     sbc sort_spr_y-8,x      ; Lines after the previous user's Y
     cmp #SPR_LINES
     bcs .reuse
+    ; Both cannot be shown: the ship always wins, otherwise the newcomer is left out on
+    ; even frames and the old one on odd frames, so two aliens in a crowded band flicker
+    ; instead of one of them being gone
     cpy #VS_PLAYER
-    beq .far                ; The ship is always shown, even if it cuts up another sprite
-    jmp .loop               ; Left out
+    beq .take_over
+    lda frame
+    and #1
+    beq .left_out
+    lda sort_vi-8,x
+    cmp #VS_PLAYER
+    bne .take_over
+.left_out:
+    jmp .loop
+.take_over:
+    lda #VS_NONE            ; The old one becomes a hidden sprite (Y=$ff)
+    sta sort_vi-8,x
+    lda spr_y,y             ; The newcomer may load as soon as the old one's load line
+    sec                     ; (which already waited for the user before it) and its own
+    sbc #IRQ_LEAD           ; lead allow
+    bcs .max
+    lda #0
+.max:
+    cmp sort_line-8,x
+    bcs .set_line
+    lda sort_line-8,x
+    jmp .set_line
 .reuse:
     cmp #ART_TAIL+IRQ_LEAD
     bcs .far

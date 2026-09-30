@@ -58,6 +58,7 @@ VS_PBUL         = VS_PLAYER+1   ; 4 slots
 VS_EBUL         = VS_PBUL+4     ; 3 slots
 VS_DUAL         = VS_EBUL+3     ; second ship of the dual fighter
 VS_CAPT         = VS_DUAL+1     ; captured ship carried by a boss
+VS_NONE         = MAX_SPRITES   ; Extra slot with Y=$ff: a hidden sprite
 PLAYER_Y        = 230
 SCREEN_LEFT     = 24
 SCREEN_RIGHT    = 320           ; Max player X (9-bit), sprite right edge at 344

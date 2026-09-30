@@ -278,11 +278,12 @@ sort_ky:            !byte 0
 sort_key:           !byte 0
 
 ; Virtual sprite tables (unsorted)
-spr_x:              !fill MAX_SPRITES, 0
-spr_x_msb:          !fill MAX_SPRITES, 0    ; MSB for X coordinates
+spr_x:              !fill MAX_SPRITES+1, 0
+spr_x_msb:          !fill MAX_SPRITES+1, 0    ; MSB for X coordinates
 spr_y:              !fill MAX_SPRITES, 0
-spr_f:              !fill MAX_SPRITES, 0    ; Frame/pointer
-spr_c:              !fill MAX_SPRITES, 0    ; Color
+                    !byte $ff               ; VS_NONE: never shown, takes the place of a sprite left out
+spr_f:              !fill MAX_SPRITES+1, 0    ; Frame/pointer
+spr_c:              !fill MAX_SPRITES+1, 0    ; Color
 
 ; Enemies are virtual sprites 0..MAX_ENEMIES-1 (dead enemies have Y=$ff)
 enemy_x     = spr_x
