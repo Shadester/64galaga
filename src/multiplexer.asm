@@ -286,6 +286,18 @@ irq2_sprite_loop:
     bcc .load
     jmp irq2_end_sprites
 .load:
+    cpy #8
+    bcc .free
+    lda sort_spr_y-8,y          ; The hardware sprite's previous user: don't touch its
+    clc                         ; registers before its 21 lines are drawn
+    adc #21
+    bcs .free
+    bit $d011
+    bmi .free                   ; Raster past line 255: the compare below would never pass
+.wait:
+    cmp $d012
+    bcs .wait
+.free:
     lda sort_spr_y,y
     cmp $d012                   ; Y line already passed (IRQ ran late)?
     bcs .on_time
