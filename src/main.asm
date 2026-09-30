@@ -9,7 +9,8 @@
 ;         add -DNOFIRE=1 to stop shooting during play (tests player death)
 ;         -DDUAL=1 dual fighter at start, -DCAPTURE=1 scripted capture, -DFEW=1 three bees per stage,
 ;         -DBOSSDIVE=1 boss 1 always dives (escort test), -DSTAGE=n start at stage n,
-;         -DFORCEPERFECT=1 challenge stages count as perfect
+;         -DFORCEPERFECT=1 challenge stages count as perfect,
+;         -DHALT=n freeze after n frames, -DHALTOVER=1 freeze at game over (tests/run.sh)
 ; ===============================================
 
 !cpu 6510
@@ -41,6 +42,21 @@ init:
 
 !zone game_loop
 game_loop:
+!ifdef HALT {
+    inc halt_cnt                ; -DHALT=n: freeze after n frames (screenshot tests)
+    bne .h_lo
+    inc halt_cnt+1
+.h_lo:
+    lda halt_cnt
+    cmp #<HALT
+    bne .h_go
+    lda halt_cnt+1
+    cmp #>HALT
+    bne .h_go
+.h_stop:
+    jmp .h_stop                 ; The raster IRQ keeps showing the last frame
+.h_go:
+}
     inc frame
     lda frame
     lsr

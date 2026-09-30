@@ -27,6 +27,7 @@ Requires [ACME](https://sourceforge.net/projects/acme-crossass/) and the [VICE](
 ```sh
 make          # builds build/galaga.prg and build/galaga.d64
 make run      # builds and starts it in VICE
+make test     # screenshot regression tests (headless VICE); make test-update after an intended change
 ```
 
 The `.prg` and `.d64` also run on real hardware or other emulators (`LOAD"*",8,1` then `RUN`; the disk holds one file, `galaga`).
@@ -53,6 +54,8 @@ Pass to ACME (`acme -f cbm -DAUTOPLAY=1 -o out.prg src/main.asm`) for headless t
 | `BOSSDIVE` | Boss 1 always dives (escort test) |
 | `STAGE=n` | Start at stage n (e.g. 3 for a challenge stage) |
 | `FORCEPERFECT` | Challenge stages count as perfect |
+| `HALT=n` | Freeze after n frames, so a screenshot is exact (used by `make test`) |
+| `HALTOVER` | Freeze on the game over screen (used by `make test`) |
 | `CAPTURE` | With `AUTOPLAY`: a boss always dives to capture, and the ship shoots it once it carries the captive |
 
 ## Source layout

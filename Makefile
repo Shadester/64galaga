@@ -51,6 +51,13 @@ run: $(TARGET)
 	@echo ""
 	$(EMU) $(EMUFLAGS) -autostart $(TARGET)
 
+# Screenshot regression tests (see tests/run.sh)
+test:
+	@tests/run.sh
+
+test-update:
+	@tests/run.sh --update
+
 # Clean build artifacts
 clean:
 	@echo "Cleaning build directory..."
@@ -59,4 +66,4 @@ clean:
 # Rebuild from scratch
 rebuild: clean all
 
-.PHONY: all run clean rebuild
+.PHONY: all run test test-update clean rebuild
