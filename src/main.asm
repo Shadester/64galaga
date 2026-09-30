@@ -112,7 +112,7 @@ run_state:
     jmp st_dying
 
 ; ===============================================
-; MODULES (in memory order, sprite art last)
+; MODULES (in memory order, sprite art at $3000)
 ; ===============================================
 
 !src "src/states.asm"
@@ -127,4 +127,11 @@ run_state:
 !src "src/sound.asm"
 !src "src/multiplexer.asm"
 !src "src/data.asm"
+
+!if * > $3000 {
+    !error "Code and data have grown into the sprite area at $3000"
+}
+* = $3000                     ; Sprite art: 16 blocks, pointers $c0..$cf
 !src "src/art.asm"
+
+* = $3400                     ; Free memory up to $9fff for more code

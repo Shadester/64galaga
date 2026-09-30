@@ -5,16 +5,6 @@
 
 !zone init_sprites
 init_sprites:
-    ldx #0
-.copy:                          ; 12 sprites = 3 pages
-    lda sprite_src,x
-    sta $3000,x
-    lda sprite_src+$100,x
-    sta $3100,x
-    lda sprite_src+$200,x
-    sta $3200,x
-    inx
-    bne .copy
     lda #$ff
     sta SPRITE_MCOLOR_EN        ; All sprites in multicolor mode
     lda #7                      ; Yellow (shared color 1)

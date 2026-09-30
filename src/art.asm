@@ -1,10 +1,8 @@
-; Sprite art (copied to $3000 at start-up)
+; Sprite art (assembled at $3000, where the VIC reads it)
 ; ===============================================
-; SPRITE DATA (copied to $3000 at startup: pointer $c0 = $3000)
+; SPRITE DATA (pointer $c0 = $3000)
 ; ===============================================
 ; 12 sprites of 64 bytes, in pointer order $c0..$cb
-
-sprite_src:
 
 player_sprite:
     ; Hires player fighter (single colour, 1 bit per pixel), 16px wide
@@ -317,6 +315,3 @@ expl3_sprite:
     !byte %00000000, %00000000, %00000000   ; ............
     !byte %00000000                         ; Padding byte to make 64 bytes
 
-!if * > $3000 {
-    !error "Code and sprite data have grown into the sprite area at $3000"
-}
