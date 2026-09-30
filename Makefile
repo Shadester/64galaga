@@ -15,18 +15,24 @@ ASSETS_DIR = assets
 
 # Target
 TARGET = $(BUILD_DIR)/galaga.prg
+DISK = $(BUILD_DIR)/galaga.d64
 
 # Source files
 SOURCES = $(wildcard $(SRC_DIR)/*.asm)
 
 # Default target
-all: $(TARGET)
+all: $(TARGET) $(DISK)
 
 # Build the program
 $(TARGET): $(SOURCES) | $(BUILD_DIR)
 	@echo "Assembling $(TARGET)..."
 	$(ASM) $(ASMFLAGS) $(TARGET) $(SRC_DIR)/main.asm
 	@echo "Build complete!"
+
+# Disk image (c1541 ships with VICE)
+$(DISK): $(TARGET)
+	c1541 -format galaga,01 d64 $(DISK) -write $(TARGET) galaga >/dev/null
+	@echo "Disk image: $(DISK)"
 
 # Create build directory
 $(BUILD_DIR):

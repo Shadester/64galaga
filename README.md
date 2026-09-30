@@ -25,7 +25,7 @@ On macOS, `tools/setup-macos.sh` installs everything via Homebrew.
 Requires [ACME](https://sourceforge.net/projects/acme-crossass/) and the [VICE](https://vice-emu.sourceforge.io/) emulator (`x64sc`).
 
 ```sh
-make          # builds build/galaga.prg
+make          # builds build/galaga.prg and build/galaga.d64
 make run      # builds and starts it in VICE
 ```
 
