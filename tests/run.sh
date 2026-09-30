@@ -8,7 +8,8 @@ cd "$(dirname "$0")/.."
 
 # name|ACME flags|game loops until the game freezes (-DHALT), so the screenshot is exact|disk
 # Frames past ~600 are after the fly-in: mid-fly-in screens depend on raster timing.
-# VICE runs frames*20000+10M cycles: a loop that overruns a frame (many divers) needs up to 2x.
+# VICE runs frames*40000+20M cycles: room for loops that take 2 frames each. The game must reach its
+# freeze (-DHALT) before the cycles run out, or the screenshot shows an arbitrary moment of the run.
 # disk: 'new' attaches a fresh blank disk, 'keep' the disk of the previous 'new' case
 # (hs-save writes the hi-score file, hs-load must show it on the title screen).
 CASES='
@@ -45,7 +46,7 @@ while IFS='|' read -r name flags frames disk; do
         rm -f "$out/$name.png"
         # +sound: VICE can stall on a Bluetooth default audio device
         x64sc -default +sound -warp -autostartprgmode 1 ${drive[@]+"${drive[@]}"} -VICIIdsize -VICIIfilter 0 \
-            -limitcycles $((frames * 20000 + 10000000)) \
+            -limitcycles $((frames * 40000 + 20000000)) \
             -exitscreenshot "$PWD/$out/$name.png" -autostart "$out/$name.prg" >/dev/null 2>&1
         [ $update = 0 ] && python3 tests/cmp.py "$out/$name.png" "tests/ref/$name.png" && break
     done
