@@ -95,12 +95,12 @@ draw_labels:
     +print lives_text, SCREEN_RAM, 3
     +print hi_text, SCREEN_RAM+27, 3
     +print level_text, SCREEN_RAM+40, 3
-    +print score_text, SCREEN_RAM+40+27, 3
+    +print score_text, SCREEN_RAM+40+24, 3
     rts
 
 !zone draw_hud
 draw_hud:
-    +setdst SCREEN_RAM+40+33
+    +setdst SCREEN_RAM+40+30
     lda score+2
     jsr draw_bcd
     lda score+1
