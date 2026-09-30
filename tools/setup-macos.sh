@@ -7,14 +7,16 @@ if ! command -v brew >/dev/null; then
     exit 1
 fi
 
-# acme: assembler, vice: x64sc emulator, python3: tools/gen_paths.py (make is in Xcode CLT)
-for pkg in acme vice python3; do
+# acme: assembler, vice: x64sc emulator, exomizer: PRG compressor,
+# pillow: screenshot compare in tests/ and the path preview in tools/gen_paths.py
+# (make is in Xcode CLT)
+for pkg in acme vice exomizer python3 pillow; do
     brew list --formula "$pkg" >/dev/null 2>&1 || brew install "$pkg"
 done
 
 command -v make >/dev/null || xcode-select --install
 
 echo
-for tool in acme x64sc python3 make; do
+for tool in acme x64sc exomizer c1541 python3 make; do
     printf '%-8s %s\n' "$tool" "$(command -v "$tool" || echo MISSING)"
 done

@@ -14,6 +14,7 @@ BUILD_DIR = build
 ASSETS_DIR = assets
 
 # Target
+RAW = $(BUILD_DIR)/galaga-raw.prg
 TARGET = $(BUILD_DIR)/galaga.prg
 DISK = $(BUILD_DIR)/galaga.d64
 
@@ -23,10 +24,13 @@ SOURCES = $(wildcard $(SRC_DIR)/*.asm)
 # Default target
 all: $(TARGET) $(DISK)
 
-# Build the program
-$(TARGET): $(SOURCES) | $(BUILD_DIR)
-	@echo "Assembling $(TARGET)..."
-	$(ASM) $(ASMFLAGS) $(TARGET) $(SRC_DIR)/main.asm
+# Assemble, then compress with exomizer (a self-extracting PRG: SYS starts it)
+$(RAW): $(SOURCES) | $(BUILD_DIR)
+	@echo "Assembling $(RAW)..."
+	$(ASM) $(ASMFLAGS) $(RAW) $(SRC_DIR)/main.asm
+
+$(TARGET): $(RAW)
+	exomizer sfx sys -n -o $(TARGET) $(RAW) >/dev/null
 	@echo "Build complete!"
 
 # Disk image (c1541 ships with VICE)

@@ -23,10 +23,10 @@ A Galaga clone for the Commodore 64, written in 6502 assembly ([ACME](https://so
 ## Build and run
 
 On macOS, `tools/setup-macos.sh` installs everything via Homebrew.
-Requires [ACME](https://sourceforge.net/projects/acme-crossass/) and the [VICE](https://vice-emu.sourceforge.io/) emulator (`x64sc`).
+Requires [ACME](https://sourceforge.net/projects/acme-crossass/), the [VICE](https://vice-emu.sourceforge.io/) emulator (`x64sc`, `c1541`) and [Exomizer](https://bitbucket.org/magli143/exomizer/) (compresses the PRG). `make test` also uses Python with Pillow.
 
 ```sh
-make          # builds build/galaga.prg and build/galaga.d64
+make          # builds build/galaga.prg (compressed) and build/galaga.d64
 make run      # builds and starts the disk image in VICE
 make test     # screenshot regression tests (headless VICE); make test-update after an intended change
 ```
