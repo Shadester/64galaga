@@ -18,6 +18,14 @@ PATHS = {
     # S-curve in from the top right, exit bottom right
     'B': [(292, 30), (292, 30), (236, 72), (120, 92), (62, 132), (98, 174),
           (206, 188), (274, 214), (296, 246), (296, 246)],
+    # fly-in paths (normal stages): they end near the formation, the game
+    # then steers the alien into its slot
+    # C: in from the top right, swing down and round to the left, back up
+    'C': [(240, 30), (240, 30), (206, 84), (140, 136), (90, 122), (98, 84),
+          (150, 78), (196, 112), (196, 112)],
+    # D: in from the left edge, dive, loop back up through the middle
+    'D': [(24, 96), (24, 96), (86, 104), (150, 138), (192, 176), (158, 198),
+          (118, 168), (140, 124), (196, 104), (196, 104)],
 }
 
 
@@ -76,7 +84,7 @@ def main():
         im = Image.new('RGB', (368 * 2, 256 * 2), 'black')
         d = ImageDraw.Draw(im)
         d.rectangle([24 * 2, 50 * 2, 344 * 2, 250 * 2], outline='#444')
-        for (name, pos), col in zip(preview, ('#f66', '#6cf')):
+        for (name, pos), col in zip(preview, ('#f66', '#6cf', '#fc6', '#9f9')):
             d.line([(x * 2, y * 2) for x, y in pos], fill=col, width=2)
             mir = [((344 - x) * 2, y * 2) for x, y in pos]
             d.line(mir, fill=col, width=1)

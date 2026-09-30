@@ -27,6 +27,8 @@ hit_enemy:
     lda enemy_state,x
     cmp #2
     beq .dive_pts
+    cmp #7
+    beq .dive_pts               ; Entering aliens pay like divers
     lda pts_form_mid,y
     tax
     lda pts_form_lo,y

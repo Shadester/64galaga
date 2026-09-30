@@ -146,7 +146,10 @@ check_ship:
 .pe_loop:
     lda enemy_state,x
     cmp #2
+    beq .pe_check
+    cmp #7                  ; Entering aliens ram too (waiting ones are hidden: Y=$ff)
     bne .pe_next
+.pe_check:
     lda player_y
     sec
     sbc enemy_y,x

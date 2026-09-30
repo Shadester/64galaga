@@ -8,10 +8,12 @@ cd "$(dirname "$0")/.."
 # name|ACME flags|frames until the game freezes (-DHALT), so the screenshot is exact
 CASES='
 title||100
+entry|-DAUTOPLAY=1 -DNOFIRE=1|230
+settled|-DAUTOPLAY=1 -DNOFIRE=1|700
 play|-DAUTOPLAY=1|400
 challenge|-DAUTOPLAY=1 -DSTAGE=3|500
 capture|-DAUTOPLAY=1 -DCAPTURE=1|3000
-result|-DAUTOPLAY=1 -DFEW=1|800
+result|-DAUTOPLAY=1 -DFEW=1|700
 gameover|-DAUTOPLAY=1 -DNOFIRE=1 -DHALTOVER=1|20000
 '
 

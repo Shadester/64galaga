@@ -60,7 +60,8 @@ update_formation:
 ; ===============================================
 ; ENEMY UPDATE
 ; ===============================================
-; enemy_state: 0 dead, 1 in formation, 2 diving, 3 returning, 4 exploding
+; enemy_state: 0 dead, 1 in formation, 2 diving, 3 returning, 4 exploding,
+; 5 beaming boss, 6 challenge stage flight, 7 entering (fly-in)
 
 !zone update_enemies
 update_enemies:
@@ -77,6 +78,8 @@ update_enemies:
     beq .next               ; Beaming boss holds still
     cmp #6
     beq .next               ; Challenge stage aliens move in update_challenge
+    cmp #7
+    beq .next               ; Entering aliens move in update_entry
     jsr return_step
     jmp .next
 .dive:
@@ -251,6 +254,8 @@ start_dive:
 ; (up to max_div_tbl[diff] out of formation at once)
 !zone update_dives
 update_dives:
+    lda entering            ; No dives while the formation is still flying in
+    bne .rts
     lda dive_timer
     beq .try
     dec dive_timer

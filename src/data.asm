@@ -72,7 +72,8 @@ enemy_state:    !fill MAX_ENEMIES, 0
 enemy_timer:    !fill MAX_ENEMIES, 0    ; dive peel-off / explosion frames left
 enemy_hp:       !fill MAX_ENEMIES, 0
 enemy_dir:      !fill MAX_ENEMIES, 0    ; dive side: 0 left, 1 right
-enemy_idx:      !fill MAX_ENEMIES, 0    ; challenge path step
+enemy_idx:      !fill MAX_ENEMIES, 0    ; flight path step
+enemy_path:     !fill MAX_ENEMIES, 0    ; flight path (bit 7 = mirrored)
 enemy_ptr:      !fill MAX_ENEMIES, 0    ; sprite pointer, frame A
 enemy_esc:      !fill MAX_ENEMIES, 0    ; boss index + 1 for an escort of that boss
 enemy_flag:     !fill MAX_ENEMIES, 0    ; 1 = has fired this dive

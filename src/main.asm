@@ -135,3 +135,5 @@ run_state:
 !src "src/art.asm"
 
 * = $3400                     ; Free memory up to $9fff for more code
+!src "src/paths.asm"
+!src "src/entry.asm"

@@ -42,6 +42,7 @@ SID_V3_SR       = $d414
 SID_FILTER_MODE  = $d418     ; Filter mode/volume
 
 ; Zero page (free on a C64 once BASIC/KERNAL IRQ are out of the way)
+zp_path         = $f7        ; flight path table pointer (word)
 zp_col          = $f9        ; colour RAM pointer (word)
 zp_src          = $fb        ; string source (word)
 zp_dst          = $fd        ; screen destination (word)

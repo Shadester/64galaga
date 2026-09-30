@@ -1,13 +1,17 @@
 ; Challenge (bonus) stages: 32 aliens fly through set paths in four waves,
 ; never shoot, and pay points for every hit.
 
-!src "src/paths.asm"
-
-; Start-of-path data, indexed by path (0 = A, 1 = B)
-path_x0:        !byte <PATHA_X0, <PATHB_X0
-path_x0h:       !byte >PATHA_X0, >PATHB_X0
-path_y0:        !byte PATHA_Y0, PATHB_Y0
-path_len:       !byte PATHA_LEN, PATHB_LEN
+; Flight path data (src/paths.asm), indexed by path: 0 = A, 1 = B (challenge
+; stages), 2 = C, 3 = D (fly-in). enemy_path = path | $80 when mirrored.
+path_x0:        !byte <PATHA_X0, <PATHB_X0, <PATHC_X0, <PATHD_X0
+path_x0h:       !byte >PATHA_X0, >PATHB_X0, >PATHC_X0, >PATHD_X0
+path_y0:        !byte PATHA_Y0, PATHB_Y0, PATHC_Y0, PATHD_Y0
+path_len:       !byte PATHA_LEN, PATHB_LEN, PATHC_LEN, PATHD_LEN
+pdx_lo:         !byte <pathA_dx, <pathB_dx, <pathC_dx, <pathD_dx
+pdx_hi:         !byte >pathA_dx, >pathB_dx, >pathC_dx, >pathD_dx
+pdy_lo:         !byte <pathA_dy, <pathB_dy, <pathC_dy, <pathD_dy
+pdy_hi:         !byte >pathA_dy, >pathB_dy, >pathC_dy, >pathD_dy
+chal_path_tbl:  !byte 0, 1, $80, $81            ; path per wave
 
 wave_delay:     !byte 0, 55, 110, 165           ; frames before a wave starts
 pos_delay:      !byte 0, 6, 12, 18, 24, 30, 36, 42  ; ... and between its aliens
@@ -15,7 +19,7 @@ chal_ptr_tbl:   !byte SPR_BEE, SPR_BFLY, SPR_BEE, SPR_BOSS    ; sprite per wave
 chal_col_tbl:   !byte 14, 2, 14, 5
 
 ; Slot s belongs to wave s>>3. Waves 0/2 fly path A, waves 1/3 path B, and
-; waves 2/3 are mirrored left-right.
+; waves 2/3 are mirrored left-right (chal_path_tbl).
 
 ; Is this a challenge stage? Stages 3, 7, 11, ... are. Sets up the stage.
 !zone begin_stage
@@ -39,7 +43,8 @@ begin_stage:
 .normal:
     lda #0
     sta in_chal
-    jmp reset_formation
+    jsr reset_formation
+    jmp setup_entry             ; Aliens fly in
 
 ; Every alien waits (hidden) for its turn to fly in
 !zone reset_challenge
@@ -63,6 +68,8 @@ reset_challenge:
     clc
     adc temp
     sta enemy_timer,x           ; Launch delay
+    lda chal_path_tbl,y
+    sta enemy_path,x
     lda #6
     sta enemy_state,x
     lda #0
@@ -112,21 +119,17 @@ update_challenge:
 ; Put alien X at the start of its path
 !zone place_start
 place_start:
-    txa
-    lsr
-    lsr
-    lsr
-    and #1
-    tay                         ; Path
+    lda enemy_path,x
+    and #3
+    tay
     lda path_y0,y
     sta enemy_y,x
     lda path_x0,y
     sta enemy_x,x
     lda path_x0h,y
     sta enemy_x_msb,x
-    txa
-    and #16
-    beq .rts                    ; Not mirrored
+    lda enemy_path,x
+    bpl .rts                    ; Not mirrored
     lda #<344                   ; Mirror x -> 344 - x
     sec
     sbc enemy_x,x
@@ -137,28 +140,34 @@ place_start:
 .rts:
     rts
 
-; One step of alien X along its path; the alien leaves at the end of the path
+; One step of alien X along its path. At the end of the path a challenge
+; alien (state 6) leaves; an entering alien (state 7) starts homing.
 !zone chal_step
 chal_step:
+    lda enemy_path,x
+    and #3
+    tay
+    lda pdx_lo,y
+    sta zp_path
+    lda pdx_hi,y
+    sta zp_path+1
     ldy enemy_idx,x
-    txa
-    and #8
-    bne .pathb
-    lda pathA_dx,y
+    lda (zp_path),y
     sta step_dx
-    lda pathA_dy,y
-    jmp .got
-.pathb:
-    lda pathB_dx,y
-    sta step_dx
-    lda pathB_dy,y
-.got:
+    lda enemy_path,x
+    and #3
+    tay
+    lda pdy_lo,y
+    sta zp_path
+    lda pdy_hi,y
+    sta zp_path+1
+    ldy enemy_idx,x
+    lda (zp_path),y
     clc
     adc enemy_y,x
     sta enemy_y,x
-    txa
-    and #16
-    beq .dx
+    lda enemy_path,x
+    bpl .dx                     ; Not mirrored
     lda step_dx                 ; Mirrored: negate dx
     eor #$ff
     clc
@@ -181,21 +190,23 @@ chal_step:
     dec enemy_x_msb,x
 .moved:
     inc enemy_idx,x
+    lda enemy_path,x
+    and #3
+    tay
     lda enemy_idx,x
-    ldy #0
-    pha
-    txa
-    and #8
-    beq .pa
-    ldy #1
-.pa:
-    pla
     cmp path_len,y
     bcc .rts
+    lda enemy_state,x
+    cmp #7
+    beq .arrive
     lda #0                      ; End of the path: gone
     sta enemy_state,x
     lda #$ff
     sta enemy_y,x
+    rts
+.arrive:
+    lda #2                      ; Now home in on the formation slot
+    sta enemy_flag,x
 .rts:
     rts
 

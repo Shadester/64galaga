@@ -7,6 +7,7 @@ A Galaga clone for the Commodore 64, written in 6502 assembly ([ACME](https://so
 ## Features
 
 - 32-alien formation in 5 rows: 4 bosses, 14 butterflies, 14 bees, with wing-flap animation
+- **Fly-in:** at the start of each stage the aliens swoop in along curved paths in four waves and settle into the formation
 - Aliens dive out of formation, steer towards you and fire back
 - **Tractor beam capture:** a boss can capture your ship. Shoot that boss while it dives to free the ship and fly a **dual fighter** with double firepower. Shoot it while it is still in formation and the captive is lost
 - Bosses take two hits
@@ -76,5 +77,6 @@ Pass to ACME (`acme -f cbm -DAUTOPLAY=1 -o out.prg src/main.asm`) for headless t
 | `sound.asm` | SID effects and jingles |
 | `multiplexer.asm` | Raster interrupt sprite multiplexer |
 | `data.asm` | Variables and tables |
-| `challenge.asm` | Challenge stage logic (paths in generated `paths.asm`, see `tools/gen_paths.py`) |
-| `art.asm` | Sprite art, copied to `$3000` at start-up |
+| `challenge.asm` | Challenge stage logic and the shared flight path stepper (paths: see `tools/gen_paths.py`) |
+| `art.asm` | Sprite art, assembled at `$3000` |
+| `entry.asm` | Stage fly-in: waves, path following and homing on the formation slots (paths in generated `paths.asm`) |
