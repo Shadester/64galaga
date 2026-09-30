@@ -271,6 +271,9 @@ sorted_sprites:     !byte 0
 spr_irq_counter:    !byte 0
 temp_var:           !byte 0
 sort_temp_x:        !byte 0
+sort_prev:          !byte 0
+sort_ky:            !byte 0
+sort_key:           !byte 0
 
 ; Virtual sprite tables (unsorted)
 spr_x:              !fill MAX_SPRITES, 0
