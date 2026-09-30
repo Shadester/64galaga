@@ -150,9 +150,10 @@ dive_step:
     rts
 
 .attack:
+    ldy diff
     lda enemy_y,x
     clc
-    adc #2
+    adc dive_dy_tbl,y           ; Dive speed rises with the difficulty
     sta enemy_y,x
     cpx cap_boss
     bne .not_cap
@@ -172,13 +173,24 @@ dive_step:
     sta beam_timer
     rts
 .not_cap:
-    lda enemy_flag,x
-    bne .steer                  ; Already fired
+    lda enemy_flag,x            ; 0 not fired yet, 1 done (or never fires), 2 second shot due
+    beq .first
+    cmp #2
+    bne .steer
     lda enemy_y,x
-    cmp #100
+    cmp #150
     bcc .steer
     lda #1
     sta enemy_flag,x
+    jmp .fire
+.first:
+    lda enemy_y,x
+    cmp #100
+    bcc .steer
+    ldy diff
+    lda shots_tbl,y
+    sta enemy_flag,x
+.fire:
     jsr rand
     ldy diff
     and fire_mask_tbl,y

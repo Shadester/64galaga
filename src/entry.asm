@@ -21,7 +21,6 @@ tgt_x:          !byte 0
 tgt_xh:         !byte 0
 d_lo:           !byte 0
 moved:          !byte 0
-ytmp:           !byte 0
 
 ; Turn the aliens of a freshly reset formation into waiting entrants
 !zone setup_entry
@@ -87,8 +86,8 @@ update_entry:
 .rts:
     rts
 
-; Move alien X up to 2px per axis towards its formation slot (the slot keeps
-; swaying); once there it becomes a normal formation alien.
+; Move alien X 2px per axis towards its formation slot (the slot keeps swaying);
+; within 3px on both axes it snaps in and becomes a normal formation alien.
 !zone home_step
 home_step:
     lda enemy_x,x
@@ -115,12 +114,10 @@ home_step:
     bmi .left
     bne .r2                     ; 256 or more away
     lda d_lo
-    cmp #3
-    bcc .r_set                  ; 0..2: exact
+    cmp #4
+    bcc .y                      ; Within 3px: close enough
 .r2:
     lda #2
-.r_set:
-    beq .y
     sta moved
     clc
     adc enemy_x,x
@@ -132,15 +129,10 @@ home_step:
     cmp #$ff
     bne .l2
     lda d_lo
-    cmp #$fe
-    bcc .l2
-    eor #$ff                    ; -1 / -2
-    clc
-    adc #1
-    jmp .l_set
+    cmp #$fd
+    bcs .y                      ; Within 3px
 .l2:
     lda #2
-.l_set:
     sta moved
     lda enemy_x,x
     sec
@@ -152,32 +144,22 @@ home_step:
     lda base_y,x
     sec
     sbc enemy_y,x
-    beq .end
     bcc .up
-    cmp #3
-    bcc .d_ok
-    lda #2
-.d_ok:
-    sta ytmp
+    cmp #4
+    bcc .end                    ; Within 3px
+    lda enemy_y,x
     clc
-    adc enemy_y,x
+    adc #2
     jmp .y_set
 .up:
-    eor #$ff                    ; Distance = -A
-    clc
-    adc #1
-    cmp #3
-    bcc .u_ok
-    lda #2
-.u_ok:
-    sta ytmp
+    cmp #$fd
+    bcs .end                    ; Within 3px
     lda enemy_y,x
     sec
-    sbc ytmp
+    sbc #2
 .y_set:
     sta enemy_y,x
-    lda ytmp
-    ora moved
+    lda #2
     sta moved
 .end:
     lda moved

@@ -203,10 +203,12 @@ pts_form_mid:   !byte $01, $00, $00
 pts_dive_lo:    !byte $00, $60, $00     ; 400 / 160 / 100
 pts_dive_mid:   !byte $04, $01, $01
 
-; Difficulty tables, index 1..8
-dive_int_tbl:   !byte 0, 130, 115, 100, 85, 70, 58, 48, 40
-max_div_tbl:    !byte 0, 1, 1, 2, 2, 3, 3, 4, 4
+; Difficulty tables, index 1..8 (stage 9 on stays at 8)
+dive_int_tbl:   !byte 0, 130, 115, 100, 85, 70, 58, 48, 34   ; frames between dives
+max_div_tbl:    !byte 0, 1, 1, 2, 2, 3, 3, 4, 5             ; aliens out of formation at once
 fire_mask_tbl:  !byte 0, 1, 1, 0, 0, 0, 0, 0, 0     ; fire when rand & mask == 0
+dive_dy_tbl:    !byte 0, 2, 2, 2, 2, 3, 3, 3, 3             ; dive speed, pixels per frame
+shots_tbl:      !byte 0, 1, 1, 1, 2, 2, 2, 2, 2             ; shots per dive
 
 ; Last used art row per sprite pointer ($c0..$cb): a hardware sprite can be
 ; reused once the raster is past y + lastrow

@@ -10,6 +10,7 @@
 ;         -DDUAL=1 dual fighter at start, -DCAPTURE=1 scripted capture, -DFEW=1 three bees per stage,
 ;         -DBOSSDIVE=1 boss 1 always dives (escort test), -DSTAGE=n start at stage n,
 ;         -DFORCEPERFECT=1 challenge stages count as perfect,
+;         -DDIFF=n start at difficulty n,
 ;         -DHALT=n freeze after n frames, -DHALTOVER=1 freeze at game over,
 ;         -DDIEAT=n the ship is hit at frame n (needs HALT) (tests/run.sh)
 ; ===============================================

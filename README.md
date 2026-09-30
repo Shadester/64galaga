@@ -50,6 +50,7 @@ Pass to ACME (`acme -f cbm -DAUTOPLAY=1 -o out.prg src/main.asm`) for headless t
 |------|--------|
 | `AUTOPLAY` | Synthetic joystick input: sweeps left and right and fires |
 | `NOFIRE` | With `AUTOPLAY`: no shooting during play |
+| `DIFF=n` | Start at difficulty n (1..8) |
 | `DUAL` | Start with a dual fighter |
 | `FEW` | Only three bees per stage (fast stage clears) |
 | `BOSSDIVE` | Boss 1 always dives (escort test) |

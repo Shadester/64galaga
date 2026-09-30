@@ -5,7 +5,8 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-# name|ACME flags|frames until the game freezes (-DHALT), so the screenshot is exact
+# name|ACME flags|game loops until the game freezes (-DHALT), so the screenshot is exact.
+# VICE runs frames*20000+10M cycles: a loop that overruns a frame (many divers) needs up to 2x
 CASES='
 title||100
 entry|-DAUTOPLAY=1 -DNOFIRE=1|230
@@ -14,6 +15,7 @@ play|-DAUTOPLAY=1|400
 challenge|-DAUTOPLAY=1 -DSTAGE=3|500
 explode|-DAUTOPLAY=1 -DNOFIRE=1 -DDIEAT=400|425
 ready|-DAUTOPLAY=1 -DNOFIRE=1 -DDIEAT=400|520
+hard|-DAUTOPLAY=1 -DNOFIRE=1 -DDIFF=8|800
 capture|-DAUTOPLAY=1 -DCAPTURE=1|3000
 result|-DAUTOPLAY=1 -DFEW=1|700
 gameover|-DAUTOPLAY=1 -DNOFIRE=1 -DHALTOVER=1|20000
