@@ -117,57 +117,53 @@ irq1:
     jmp $ea81               ; Return from IRQ
 
 ; Sort sprites by Y coordinate
+; Insertion sort on the order table. It starts from last frame's order, so
+; most entries are already in place: sort_prev is the Y of the sorted prefix's
+; last entry, and only a smaller Y shifts the larger ones up to make room.
 !zone sort_sprites
 sort_sprites:
-    ; Insertion sort on order table
+    ldy sort_order
+    lda spr_y,y
+    sta sort_prev
     ldx #0
-!zone sort_main_loop
-sort_main_loop:
+.outer:
     ldy sort_order+1,x
     lda spr_y,y
-    ldy sort_order,x
-    cmp spr_y,y
-    bcs sort_skip_swap
-
-    ; Swap needed - store X for later reload
+    cmp sort_prev
+    bcs .in_place               ; Not smaller: stays (equal Y keeps its order)
+    sta sort_ky
+    sty sort_key
     stx sort_temp_x
-!zone sort_swap_loop
-sort_swap_loop:
-    lda sort_order+1,x
-    pha
+.shift:
     lda sort_order,x
     sta sort_order+1,x
-    pla
-    sta sort_order,x
-    cpx #0
-    beq sort_reload_x
     dex
-    ldy sort_order+1,x
-    lda spr_y,y
+    bmi .first
     ldy sort_order,x
+    lda sort_ky
     cmp spr_y,y
-    bcc sort_swap_loop
-
-!zone sort_reload_x
-sort_reload_x:
+    bcc .shift                  ; Still smaller than the next one down
+    lda sort_key
+    sta sort_order+1,x
+    jmp .placed
+.first:
+    lda sort_key
+    sta sort_order
+.placed:
     ldx sort_temp_x
-!zone sort_skip_swap
-sort_skip_swap:
+    jmp .next
+.in_place:
+    sta sort_prev
+.next:
     inx
     cpx #MAX_SPRITES-1
-    bcc sort_main_loop
+    bcc .outer
 
     ; Copy sorted data, and precompute per sorted sprite the running $d010
     ; value. $d01c is $ff except in the 8 entries from the player ship on
     ; (the only hires sprite: its hardware sprite keeps the bit clear until
     ; another sprite reuses it).
 !zone sort_copy
-    ldx #MAX_SPRITES+7      ; $d01c: all multicolor, except the hires windows below
-    lda #$ff
-.undo:
-    sta sort_d01c,x
-    dex
-    bpl .undo
     lda #0
     sta pk_n
     sta sh_msb
@@ -178,6 +174,8 @@ sort_skip_swap:
     cmp #$ff                ; Hidden sprites sort last: stop at the first one
     beq .done_copy
     sta sort_spr_y,x
+    lda #$ff
+    sta sort_d01c,x
     lda spr_x,y
     sta sort_spr_x,x
     lda spr_c,y
@@ -211,6 +209,12 @@ sort_skip_swap:
     stx sorted_sprites
     lda #$ff
     sta sort_spr_y,x        ; End marker
+    ldy #8                  ; The hires windows can reach 8 entries past the last
+.fill:
+    sta sort_d01c,x
+    inx
+    dey
+    bne .fill
 .done:
     ldy pk_n                ; Each hires ship clears its hardware sprite's $d01c bit
 .next_pk:                   ; from itself until that sprite is reused (8 entries)
