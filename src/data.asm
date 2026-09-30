@@ -120,6 +120,8 @@ in_chal:               !byte 0         ; 1 = current stage is a challenge stage
 chal_mid:              !byte 0         ; BCD hundreds per hit in challenge stages
 ch_hits:               !byte 0
 step_dx:               !byte 0
+path_id:               !byte 0
+pe_min:                !byte 0         ; Lowest enemy checked against the ship this frame
 add_hi:                !byte 0         ; extra ten-thousands for add_score
 shots:                 !byte 0, 0      ; Bullets fired / enemies hit this stage
 hits:                  !byte 0, 0
@@ -221,6 +223,7 @@ hw_tbl:         !byte 2, 3, 4, 5                          ; beam half-width per 
 beam_clr_tbl:   !byte 6, 14, 3, 14                     ; blue / light blue / cyan shimmer
 
 star_clr_tbl:   !byte 0, 0, 1, 15, 12, 11           ; by speed: fast = bright
+star_half_tbl:  !byte 0, 0, 1, 2, 2, 3               ; speed (frames per row) -> counter, in 2-frame units
 
 jin_data:
 jin_stage:
@@ -269,7 +272,6 @@ num_sprites:        !byte 0
 spr_update_flag:    !byte 0
 sorted_sprites:     !byte 0
 spr_irq_counter:    !byte 0
-temp_var:           !byte 0
 sort_temp_x:        !byte 0
 sort_prev:          !byte 0
 sort_ky:            !byte 0
@@ -290,27 +292,12 @@ enemy_y     = spr_y
 ; Sort order table
 sort_order:         !fill MAX_SPRITES, 0
 
-; Sorted sprite tables
-sort_spr_x:         !fill MAX_SPRITES, 0
-sort_spr_y:         !fill MAX_SPRITES+1, 0  ; +1 for $ff end marker
-sort_spr_f:         !fill MAX_SPRITES, 0
-sort_spr_c:         !fill MAX_SPRITES, 0
-sort_d010:          !fill MAX_SPRITES, 0    ; $d010 value after loading this sprite
-sort_d01c:          !fill MAX_SPRITES+8, $ff ; $d01c value after loading this sprite
-pk_n:               !byte 0
-pk_list:            !fill 4, 0              ; sorted indices of hires ships
-sh_msb:             !byte 0
-sh_mc:              !byte 0
-sh_mask:            !byte 0
-sh_val:             !byte 0
-
-; Hardware sprite bit for sorted index 0..47
-bit_tbl:            !byte 1,2,4,8,16,32,64,128
-                    !byte 1,2,4,8,16,32,64,128
-                    !byte 1,2,4,8,16,32,64,128
-                    !byte 1,2,4,8,16,32,64,128
-                    !byte 1,2,4,8,16,32,64,128
-                    !byte 1,2,4,8,16,32,64,128
+; Sprites to show, in Y order (built by sort_sprites, read by the display interrupts)
+sort_vi:            !fill MAX_SPRITES+1, 0  ; Virtual sprite
+sort_spr_y:         !fill MAX_SPRITES+1, 0  ; Its Y (the previous user of a hardware sprite)
+sort_line:          !fill MAX_SPRITES+1, 0  ; Raster line from which it may be loaded ($ff: end)
+sort_p:             !byte 0
+irq_tmp:            !byte 0                 ; Scratch of the display interrupt
 
 ; Sprite enable table for $d015
 d015_table:         !byte %00000000
@@ -322,31 +309,6 @@ d015_table:         !byte %00000000
                     !byte %00111111
                     !byte %01111111
                     !byte %11111111
-
-; MSB bit masks for $d010 (one bit per sprite)
-d015_msb_tbl:       !byte %00000001  ; Sprite 0
-                    !byte %00000010  ; Sprite 1
-                    !byte %00000100  ; Sprite 2
-                    !byte %00001000  ; Sprite 3
-                    !byte %00010000  ; Sprite 4
-                    !byte %00100000  ; Sprite 5
-                    !byte %01000000  ; Sprite 6
-                    !byte %10000000  ; Sprite 7
-
-; Physical sprite mapping tables
-phys_spr_tbl_1:     !byte 0,1,2,3,4,5,6,7
-                    !byte 0,1,2,3,4,5,6,7
-                    !byte 0,1,2,3,4,5,6,7
-                    !byte 0,1,2,3,4,5,6,7
-                    !byte 0,1,2,3,4,5,6,7
-                    !byte 0,1,2,3,4,5,6,7
-
-phys_spr_tbl_2:     !byte 0,2,4,6,8,10,12,14
-                    !byte 0,2,4,6,8,10,12,14
-                    !byte 0,2,4,6,8,10,12,14
-                    !byte 0,2,4,6,8,10,12,14
-                    !byte 0,2,4,6,8,10,12,14
-                    !byte 0,2,4,6,8,10,12,14
 
 !ifdef HALT {
 halt_cnt:              !word 0

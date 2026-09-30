@@ -146,23 +146,20 @@ place_start:
 chal_step:
     lda enemy_path,x
     and #3
+    sta path_id
     tay
     lda pdx_lo,y
     sta zp_path
     lda pdx_hi,y
     sta zp_path+1
+    lda pdy_lo,y
+    sta zp_col                  ; (the colour pointer is free here)
+    lda pdy_hi,y
+    sta zp_col+1
     ldy enemy_idx,x
     lda (zp_path),y
     sta step_dx
-    lda enemy_path,x
-    and #3
-    tay
-    lda pdy_lo,y
-    sta zp_path
-    lda pdy_hi,y
-    sta zp_path+1
-    ldy enemy_idx,x
-    lda (zp_path),y
+    lda (zp_col),y
     clc
     adc enemy_y,x
     sta enemy_y,x
@@ -190,9 +187,7 @@ chal_step:
     dec enemy_x_msb,x
 .moved:
     inc enemy_idx,x
-    lda enemy_path,x
-    and #3
-    tay
+    ldy path_id
     lda enemy_idx,x
     cmp path_len,y
     bcc .rts

@@ -142,7 +142,17 @@ check_ship:
     sta ov_w
     lda ship_xh
     sta ov_ah
+    lda frame                   ; Half of the enemies per frame (16px is a few frames of flight)
+    and #1
+    beq .pe_first
+    lda #MAX_ENEMIES/2
+    sta pe_min
     ldx #MAX_ENEMIES-1
+    bne .pe_loop
+.pe_first:
+    lda #0
+    sta pe_min
+    ldx #MAX_ENEMIES/2-1
 .pe_loop:
     lda enemy_state,x
     cmp #2
@@ -173,8 +183,11 @@ check_ship:
     sec
     rts
 .pe_next:
+    cpx pe_min
+    beq .pe_done
     dex
     bpl .pe_loop
+.pe_done:
 
     ; --- Enemy bullets vs ship ---
     lda #7

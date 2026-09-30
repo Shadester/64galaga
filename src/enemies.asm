@@ -7,6 +7,8 @@
 
 !zone update_formation
 update_formation:
+    lda entering                ; The formation holds still while it is flying in
+    bne .done
     inc enemy_counter
     lda #10
     sec

@@ -98,16 +98,16 @@ irq1:
     sta $0314
     lda #>irq2
     sta $0315
-    lda $d011               ; Sorting can outlast the bottom border: if the raster
-    bmi .arm                ; already passed IRQ2_LINE, start displaying right away
+    lda $d011               ; Sorting can outlast the bottom border: if the raster is
+    bmi .arm                ; already past the first sprite's line, start right away
     lda $d012
-    cmp #IRQ2_LINE-4
-    bcc .arm
     cmp #IRQ1_LINE
     bcs .arm
+    cmp sort_line
+    bcc .arm
     jmp irq2_direct
 .arm:
-    lda #IRQ2_LINE          ; Start display interrupt
+    lda sort_line           ; Start the display interrupt at the first sprite
     sta $d012
     jmp $ea81               ; Return from IRQ
 
@@ -159,82 +159,61 @@ sort_sprites:
     cpx #MAX_SPRITES-1
     bcc .outer
 
-    ; Copy sorted data, and precompute per sorted sprite the running $d010
-    ; value. $d01c is $ff except in the 8 entries from the player ship on
-    ; (the only hires sprite: its hardware sprite keeps the bit clear until
-    ; another sprite reuses it).
+    ; Build the list of sprites to show: virtual index, Y and the raster line from which
+    ; each may be loaded. Sprite i reuses the hardware sprite of i-8, which is drawing
+    ; for SPR_LINES lines from its Y: loading earlier than ART_TAIL lines after that Y
+    ; would re-skin the rest of it, and a sprite starting before the old one ends
+    ; cannot be shown at all (more than 8 in a band): it is left out this frame.
 !zone sort_copy
     lda #0
-    sta pk_n
-    sta sh_msb
-    ldx #0
+    sta sort_p              ; Position in sort_order
+    tax                     ; X = slot in the list of sprites to show
 .loop:
-    ldy sort_order,x
+    ldy sort_p
+    cpy #MAX_SPRITES
+    bcs .end
+    lda sort_order,y
+    inc sort_p
+    tay                     ; Y = virtual sprite
     lda spr_y,y
     cmp #$ff                ; Hidden sprites sort last: stop at the first one
-    beq .done_copy
+    beq .end
+    cpx #8
+    bcc .far                ; The first 8 have a hardware sprite to themselves
+    sec
+    sbc sort_spr_y-8,x      ; Lines after the previous user's Y
+    cmp #SPR_LINES
+    bcs .reuse
+    cpy #VS_PLAYER
+    beq .far                ; The ship is always shown, even if it cuts up another sprite
+    jmp .loop               ; Left out
+.reuse:
+    cmp #ART_TAIL+IRQ_LEAD
+    bcs .far
+    lda sort_spr_y-8,x      ; Wait until the previous user's art is drawn
+    clc
+    adc #ART_TAIL
+    jmp .set_line
+.far:
+    lda spr_y,y             ; Normal case: IRQ_LEAD lines early (not before line 0)
+    sec
+    sbc #IRQ_LEAD
+    bcs .set_line
+    lda #0
+.set_line:
+    sta sort_line,x
+    lda spr_y,y
     sta sort_spr_y,x
-    lda #$ff
-    sta sort_d01c,x
-    lda spr_x,y
-    sta sort_spr_x,x
-    lda spr_c,y
-    sta sort_spr_c,x
-    lda spr_f,y
-    sta sort_spr_f,x
-    cmp #SPR_PLAYER
-    bne .not_player
-    txa                     ; Remember where the hires ships sit in the sorted list
-    ldy pk_n
-    sta pk_list,y
-    inc pk_n
-    ldy sort_order,x
-.not_player:
-    lda spr_x_msb,y         ; Running $d010: set or clear this sprite's bit
-    beq .msb0
-    lda sh_msb
-    ora bit_tbl,x
-    jmp .msb_st
-.msb0:
-    lda bit_tbl,x
-    eor #$ff
-    and sh_msb
-.msb_st:
-    sta sh_msb
-    sta sort_d010,x
+    tya
+    sta sort_vi,x
     inx
     cpx #MAX_SPRITES
-    bcc .loop
-.done_copy:
+    bcs .end
+    jmp .loop
+.end:
     stx sorted_sprites
     lda #$ff
-    sta sort_spr_y,x        ; End marker
-    ldy #8                  ; The hires windows can reach 8 entries past the last
-.fill:
-    sta sort_d01c,x
-    inx
-    dey
-    bne .fill
-.done:
-    ldy pk_n                ; Each hires ship clears its hardware sprite's $d01c bit
-.next_pk:                   ; from itself until that sprite is reused (8 entries)
-    dey
-    bmi .end
-    ldx pk_list,y
-    lda bit_tbl,x
-    eor #$ff
-    sta sh_mask
-    lda #8
-    sta sh_val
-.window:
-    lda sort_d01c,x
-    and sh_mask
-    sta sort_d01c,x
-    inx
-    dec sh_val
-    bne .window
-    beq .next_pk
-.end:
+    sta sort_line,x         ; End marker
     rts
 
 ; IRQ2: Display interrupt (runs multiple times per frame)
@@ -246,68 +225,97 @@ irq2:
 !zone irq2_direct
 irq2_direct:
     ldy spr_irq_counter     ; Get sprite index
-    lda sort_spr_y,y        ; Get Y of first sprite to display
-    clc
-    adc #$10                ; 16 lines down is endpoint
-    bcc irq2_not_over
-    lda #$ff                ; Cap at $ff
-!zone irq2_not_over
-irq2_not_over:
-    sta temp_var
 
-    ; Display sprites until we reach endpoint
-!zone irq2_sprite_loop
-irq2_sprite_loop:
-    lda sort_spr_y,y
-    cmp temp_var
-    bcc .load
-    jmp irq2_end_sprites
-.load:
-    lda sort_spr_y,y
-    cmp $d012                   ; Y line already passed (IRQ ran late)?
-    bcs .on_time
-    lda sort_spr_y,y
-    cmp #56
-    lda #$ff                    ; Late and mostly in the top border: hide it
-    bcc .on_time
-    lda $d012                   ; Late: draw a few lines low instead of skipping the sprite
-    clc
-    adc #2
-.on_time:
-    ldx phys_spr_tbl_2,y        ; Physical sprite * 2
-    sta $d001,x                 ; Y
-    lda sort_spr_x,y
-    sta $d000,x                 ; X low
-    lda sort_d010,y             ; X high bits and multicolor bits are
-    sta $d010                   ; precomputed per sprite by sort_sprites
-    lda sort_d01c,y
+    ; Continue with the sprite in the code block of its hardware sprite (i mod 8)
+!zone irq2_dispatch
+irq2_dispatch:
+    tya
+    and #7
+    tax
+    lda blk_hi,x
+    pha
+    lda blk_lo,x
+    pha
+    rts
+
+; Load the sprite at sorted index Y onto hardware sprite .k, then go on with the next
+; one (hardware sprite .k+1) if its line has come. X = virtual sprite.
+!macro sprite_block .k {
+    lda sort_line,y
+    cmp $d012
+    bcc .go                 ; Line passed already (IRQ ran late)
+    beq .go
+    jmp irq2_wait           ; Still ahead, or the end marker
+.go:
+    ldx sort_vi,y
+    lda spr_y,x
+    sta $d001+2*.k
+    lda spr_x,x
+    sta $d000+2*.k
+    lda spr_x_msb,x
+    beq .msb0
+    lda $d010
+    ora #1<<.k
+    bne .msb_st
+.msb0:
+    lda $d010
+    and #$ff-(1<<.k)
+.msb_st:
+    sta $d010
+    lda spr_f,x
+    sta SPRITE_PTR+.k
+    cmp #SPR_PLAYER         ; The ship is hires, all others multicolor
+    beq .hires
+    lda SPRITE_MCOLOR_EN
+    ora #1<<.k
+    bne .mc_st
+.hires:
+    lda SPRITE_MCOLOR_EN
+    and #$ff-(1<<.k)
+.mc_st:
     sta SPRITE_MCOLOR_EN
-    ldx phys_spr_tbl_1,y        ; Physical sprite * 1
-    lda sort_spr_f,y
-    sta SPRITE_PTR,x
-    lda sort_spr_c,y
-    sta SPRITE_COLORS,x
+    lda spr_c,x
+    sta SPRITE_COLORS+.k
     iny
-    jmp irq2_sprite_loop        ; Ends via the sorted list's $ff marker
+}
 
-!zone irq2_end_sprites
-irq2_end_sprites:
-    cmp #$ff                ; Was it the end marker?
+!zone irq2_blocks
+blk0:
+    +sprite_block 0
+blk1:
+    +sprite_block 1
+blk2:
+    +sprite_block 2
+blk3:
+    +sprite_block 3
+blk4:
+    +sprite_block 4
+blk5:
+    +sprite_block 5
+blk6:
+    +sprite_block 6
+blk7:
+    +sprite_block 7
+    jmp blk0
+
+blk_lo: !byte <(blk0-1), <(blk1-1), <(blk2-1), <(blk3-1), <(blk4-1), <(blk5-1), <(blk6-1), <(blk7-1)
+blk_hi: !byte >(blk0-1), >(blk1-1), >(blk2-1), >(blk3-1), >(blk4-1), >(blk5-1), >(blk6-1), >(blk7-1)
+
+; Next sprite is not due yet: wake up at its line. A = its line ($ff: no more sprites)
+!zone irq2_wait
+irq2_wait:
+    cmp #$ff
     beq irq2_last_sprite
-
-    ; More sprites to come, set up next interrupt
+    bit $d011
+    bmi irq2_last_sprite    ; Raster wrapped past line 255: too late for the rest
     sty spr_irq_counter
-    sec
-    sbc #IRQ_LEAD           ; Start early: the loop waits for sprites to free up
-    bcc .go_direct          ; Underflow: too close to the top
     ldx $d012
     inx
     inx                     ; Margin: raster may move before the write
-    stx sort_temp_x
-    cmp sort_temp_x
+    stx irq_tmp
+    cmp irq_tmp
     bcs .set_line
-.go_direct:
-    jmp irq2_direct         ; Already late? Go direct
+    jmp irq2_dispatch       ; Less than 2 lines: spin until it is due
 .set_line:
     sta $d012
     jmp $ea81

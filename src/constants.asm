@@ -85,7 +85,10 @@ GS_READY        = 7             ; "READY" before the ship respawns
 ; Raster IRQ Constants
 IRQ1_LINE       = $fc           ; Sorting interrupt at bottom of screen
 IRQ2_LINE       = $2a           ; Display interrupt start (line 42)
-IRQ_LEAD        = 16            ; Lines before a sprite group's Y to start loading it
+IRQ_LEAD        = 16            ; Lines before a sprite's Y to start loading it
+SPR_LINES       = 21            ; Lines a hardware sprite is busy after its Y
+ART_TAIL        = 14            ; Lines after which the art (rows 0..13 at most) has been drawn:
+                                ; a reused hardware sprite may be reloaded from here on
 
 ; Print a zero-terminated screen-code string: message, screen address, colour
 !macro print .msg, .addr, .col {

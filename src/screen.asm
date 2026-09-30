@@ -182,11 +182,16 @@ star_addr:
 
 !zone update_stars
 update_stars:
-    ldx #NUM_STARS-1
+    lda frame                   ; Half of the stars per frame (even / odd ones), so the cost
+    and #1                      ; is spread out: a star steps once per 2 frames of its counter
+    clc
+    adc #NUM_STARS-2
+    tax
 .loop:
     dec star_cnt,x
     bne .next
-    lda star_spd,x
+    ldy star_spd,x
+    lda star_half_tbl,y
     sta star_cnt,x
     jsr star_addr
     ldy #0
@@ -215,6 +220,7 @@ update_stars:
     ldy #0
     sta (zp_col),y
 .next:
+    dex
     dex
     bpl .loop
     rts
