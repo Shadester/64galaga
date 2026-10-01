@@ -8,8 +8,7 @@ The rules are the rules of the PSP game (`../psp/game.c`, which follows the C64 
 
 ## Status
 
-- It runs and plays in the desktop version of the engine (macOS). The screenshot tests pass.
-- **Not tried on a real Thumby Color yet.** The speed (the Python logic takes about 30 microseconds a tick on a Mac) and the sound (tones and RTTTL jingles, not heard yet) need a check on the device.
+It runs on a Thumby Color and in the desktop version of the engine (macOS). The screenshot tests run in the desktop engine, and they pass.
 
 ## Features
 
