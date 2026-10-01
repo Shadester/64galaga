@@ -9,6 +9,8 @@ a glow and particle renderer and a synthesised sound track.
 
 ### Requirements
 
+`tools/setup-macos.sh` installs all of these on macOS (Homebrew needed).
+
 - [PSPSDK](https://pspdev.github.io/) with its `bin` directory on `PATH`
 - `make`
 - PPSSPP, if you want to test in an emulator
