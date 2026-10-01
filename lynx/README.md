@@ -2,6 +2,8 @@
 
 A port of the C64 Galaga clone in [`../c64`](../c64) to the Atari Lynx. It is written in 6502 assembly ([ca65](https://cc65.github.io/), from the cc65 suite).
 
+[**▶ Play it in your browser**](https://shadester.github.io/galagas/lynx/) (EmulatorJS; it needs no boot ROM)
+
 ![Gameplay: the title screen, then the autoplay build with stage intro, fly-in and a tractor beam](docs/gameplay.gif)
 
 The rules are the rules of the C64 game: the same code, with the same numbers. The game runs in C64 sprite coordinates (x 24..343, y 50..249) at 50 ticks a second. The Lynx screen is 160 x 102 pixels, so the picture is the C64 picture at half size. The C64 source is the reference for how the game must behave.
@@ -37,7 +39,7 @@ tests/run.py       # screenshot tests, headless Gearlynx; --update after an inte
 python3 tools/make_gif.py   # record docs/gameplay.gif
 ```
 
-The `.lnx` file also runs in other Lynx emulators and on a Lynx with a flash cartridge. The hi-score is in the 93C46 EEPROM. Gearlynx writes it to `galaga.sav` when it exits.
+The web page is `../docs/lynx/index.html`, and the ROM there (`../docs/lynx/galaga.lnx`) is a copy of `build/galaga.lnx`: copy it again after a change. The `.lnx` file also runs in other Lynx emulators and on a Lynx with a flash cartridge. The hi-score is in the 93C46 EEPROM. Gearlynx writes it to `galaga.sav` when it exits.
 
 ## Controls
 

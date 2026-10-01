@@ -8,7 +8,9 @@
 </p>
 
 <p align="center">
-  <a href="https://vc64web.github.io/#openROMS=true#https://raw.githubusercontent.com/Shadester/galagas/master/c64/docs/galaga.prg"><b>▶ Play the C64 version in your browser</b></a>
+  <a href="https://vc64web.github.io/#openROMS=true#https://raw.githubusercontent.com/Shadester/galagas/master/c64/docs/galaga.prg"><b>▶ Play the C64 version in your browser</b></a><br>
+  <a href="https://shadester.github.io/galagas/pico8/"><b>▶ PICO-8</b></a> ·
+  <a href="https://shadester.github.io/galagas/lynx/"><b>▶ Atari Lynx</b></a>
 </p>
 
 <table>

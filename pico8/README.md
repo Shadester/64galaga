@@ -2,6 +2,8 @@
 
 A port of the Galaga clone to [PICO-8](https://www.lexaloffle.com/pico-8.php): a fantasy console with a 128 x 128 screen, 16 colours and 8192 tokens of Lua.
 
+[**▶ Play it in your browser**](https://shadester.github.io/galagas/pico8/)
+
 ![Gameplay: the autoplay build with a tractor beam and a captured fighter](docs/gameplay.gif)
 
 The rules are the rules of the PSP game (`../psp/game.c`, which follows the C64 game): `game.lua` is a line-by-line port of the Thumby Color version (`../thumby/Galaga/game.py`). A test runs the Lua code in PICO-8 next to the C original and compares the whole game state after every tick.
@@ -40,6 +42,7 @@ python3 tests/test_lockstep.py [ticks] [scenario ...]   # needs pico8 and cc; PI
 ```
 
 To make the `.p8.png`: `pico8 -export galaga.p8.png galaga.p8` (it fails if the cart has more than 8192 tokens).
+To make the web page: `pico8 -export ../docs/pico8/index.html galaga.p8`, then change the `<title>` in it to "Galaga for PICO-8". GitHub Pages serves `docs/`.
 
 ## Source layout
 
