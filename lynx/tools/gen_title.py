@@ -2,7 +2,7 @@
 """Generate src/title.s: the title picture (160 x 89 pixels, 4 bpp, one Suzy literal sprite) and its palette.
 
 The picture is assets/title-source.png (the C64 title picture), cropped to its content, scaled down and
-reduced to 16 colours. Pens 0, 1 and 2 are black, white and red (the font pens): the nearest colours of the
+reduced to 16 colours (fitted without the dim stars). Pens 0, 1 and 2 are black, white and red (the font pens): the nearest colours of the
 picture become exactly those.
 Usage: python3 tools/gen_title.py [preview.png]
 """
@@ -12,8 +12,13 @@ from PIL import Image, ImageEnhance
 W, H = 160, 89
 src = Image.open('assets/title-source.png').convert('RGB').crop((0, 10, 1448, 815))
 src = ImageEnhance.Color(src.resize((W, H), Image.LANCZOS)).enhance(2.0)   # keeps the green and blue aliens apart
-q = src.quantize(16, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
-pal = [tuple(q.getpalette()[i * 3:i * 3 + 3]) for i in range(16)]
+# The palette is fitted to the picture without its dim star specks (they would take palette entries from the small
+# aliens and the ship); every pixel, the specks too, then gets its nearest palette colour.
+bright = Image.new('RGB', src.size)
+bright.putdata([p if max(p) >= 120 else (0, 0, 0) for p in (src.get_flattened_data() if hasattr(src, 'get_flattened_data') else src.getdata())])
+fit = bright.quantize(16, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
+q = src.quantize(palette=fit, dither=Image.Dither.NONE)
+pal = [tuple(fit.getpalette()[i * 3:i * 3 + 3]) for i in range(16)]
 
 
 def nearest(c):
