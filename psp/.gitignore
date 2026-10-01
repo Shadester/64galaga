@@ -4,3 +4,4 @@ EBOOT.PBP
 PARAM.SFO
 .claude/
 test_game.bin
+*.dSYM/
