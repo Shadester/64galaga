@@ -76,9 +76,9 @@ last_sid = [-1] * V.N_SLOTS
 
 TEXT_COLORS = (Color(1, 1, 1), Color(1, 0.25, 0.1), Color(0.4, 0.9, 1), Color(0.5, 0.6, 1))
 # HUD as on the PSP and Lynx: red labels over white numbers in three columns (SCORE, HI-SCORE, STAGE), the lives at the right
-label_nodes = [Text2DNode(font=font, text=t, position=Vector2(x, -64 + 3), color=TEXT_COLORS[V.RED], layer=6, opacity=0.0)
+label_nodes = [Text2DNode(font=font, text=t, position=Vector2(x, -64 + 5), color=TEXT_COLORS[V.RED], layer=6, opacity=0.0)
                for t, x in (('SCORE', 1 + 15 - 64), ('HI-SCORE', 45 + 24 - 64), ('STAGE', 98 + 15 - 64))]
-hud_nodes = [Text2DNode(font=font, text='', position=Vector2(x, -64 + 12), color=TEXT_COLORS[V.WHITE], layer=6, opacity=0.0)
+hud_nodes = [Text2DNode(font=font, text='', position=Vector2(x, -64 + 14), color=TEXT_COLORS[V.WHITE], layer=6, opacity=0.0)
              for x in (1 + 18 - 64, 45 + 18 - 64, 98 + 6 - 64, 121 + 3 - 64)]      # score, hi-score, stage, lives
 msg_nodes = [Text2DNode(font=font, text='', position=Vector2(0, 0), color=TEXT_COLORS[0], layer=6, opacity=0.0)
              for _ in range(V.MAX_MSG)]
