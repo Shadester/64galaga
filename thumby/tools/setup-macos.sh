@@ -12,9 +12,9 @@ fi
 for pkg in sdl2 libffi pkgconf; do
     brew list --formula "$pkg" >/dev/null 2>&1 || brew install "$pkg"
 done
-# pillow: tools/gen_assets.py, tests; mpremote: tools/install.sh
+# pillow: tools/gen_assets.py, tests; mpremote: tools/install.sh (copies the game to a real Thumby Color)
 python3 -c "import PIL" 2>/dev/null || brew install pillow
-command -v mpremote >/dev/null || echo "note: 'pip install mpremote' is needed for tools/install.sh (copy to a real Thumby Color)"
+command -v mpremote >/dev/null || brew install mpremote
 
 mkdir -p build
 [ -d build/mp-thumby ] || git clone --branch engine --depth 1 https://github.com/TinyCircuits/micropython.git build/mp-thumby

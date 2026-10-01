@@ -44,7 +44,7 @@ python3 tools/make_gif.py   # record docs/gameplay.gif
 
 ### On the Thumby Color
 
-Connect the device with USB and run `tools/install.sh` (it needs `mpremote`: `pip install mpremote`). The game goes to `/Games/Galaga`. You can also copy the `Galaga` folder with the [Code Editor](https://color.thumby.us/code/) or Thonny. Then choose Galaga in the launcher.
+Connect the device with USB and run `tools/install.sh` (it installs `mpremote` with Homebrew if it is missing). The game goes to `/Games/Galaga`. You can also copy the `Galaga` folder with the [Code Editor](https://color.thumby.us/code/) or Thonny. Then choose Galaga in the launcher.
 
 ## Source layout
 
