@@ -5,6 +5,9 @@
         .import pal_game, pal_title, title_pic, render_init, frame_begin, add_sprite, add_sprite_id, frame_end, flip, rand
         .importzp dr_d, dr_x, dr_y, rnd
         .import font_w, font_r
+        .import _lynx_eeread_93c46, _lynx_eewrite_93c46
+        .export popax
+        .exportzp ptr1
         .export main, frame, game_state, msg_n, anim, paused, player_x, lives, cap_state, beam_len
 
         .zeropage
@@ -13,6 +16,7 @@ zp_dst:         .res 2                  ; destination (print_num / draw_bcd buff
 zp_path:        .res 2                  ; flight path table pointers (chal_step)
 zp_col:         .res 2
 fnt:            .res 2                  ; font of draw_text
+ptr1:           .res 2                  ; scratch of cc65's eeprom.o
 
         .code
 ; Message macros: the C64 text positions (SCREEN_RAM + row * 40 + column) become pixel positions.
