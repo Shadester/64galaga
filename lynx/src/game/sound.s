@@ -50,6 +50,8 @@ snd_start:
 
 ; Quick high beep
 sound_shoot:
+        phx                     ; the callers keep X and Y (shoot_bullet loops on Y)
+        phy
         ldx #V_SHOOT
         lda #33                 ; 1.2 kHz
         ldy #SQUARE
@@ -60,6 +62,8 @@ sound_shoot:
 
 ; Lower descending tone
 sound_player_hit:
+        phx                     ; the callers keep X and Y (shoot_bullet loops on Y)
+        phy
         ldx #V_SHOOT
         lda #112                ; 370 Hz
         ldy #SQUARE
@@ -70,10 +74,14 @@ snd_fade0:
         sta snd_vol
         sta AUD_VOL + V_SHOOT
         stx snd_dec
+        ply
+        plx
         rts
 
 ; Noise burst
 sound_explosion:
+        phx                     ; the callers keep X and Y (shoot_bullet loops on Y)
+        phy
         ldx #V_EXPL
         lda #12
         ldy #NOISE
@@ -84,6 +92,8 @@ sound_explosion:
 
 ; The ship explodes: long low noise rumble
 sound_player_die:
+        phx                     ; the callers keep X and Y (shoot_bullet loops on Y)
+        phy
         ldx #V_EXPL
         lda #40
         ldy #NOISE
@@ -94,6 +104,8 @@ snd_fade1:
         sta snd_vol+1
         sta AUD_VOL + V_EXPL
         stx snd_dec+1
+        ply
+        plx
         rts
 
 ; Pause: silence everything. Unpausing needs nothing: the next effect starts its voice again.

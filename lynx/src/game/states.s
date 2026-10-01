@@ -154,7 +154,7 @@ enter_result:
     ldx hits+1
     jsr print_num
     print num_b, SCREEN_RAM+11*40+21, 1
-    print msg_ratio, SCREEN_RAM+14*40+14, 1
+    print msg_ratio, SCREEN_RAM+13*40+14, 1
     jsr calc_ratio              ; A = hits * 100 / shots
     sta res_val
     setnum num_c
