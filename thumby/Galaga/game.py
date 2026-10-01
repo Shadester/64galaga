@@ -110,6 +110,9 @@ class Game:
         self.snd = self.saveReq = 0
         # debug starts, as the -D flags of the other ports
         self.start_stage_no = 1
+        self.start_diff = 0
+        self.start_lives = 3
+        self.few = False
         self.force_capture = False
 
     # ---- helpers ----
@@ -157,6 +160,9 @@ class Game:
             else:
                 a.path, a.mir = entry_path(i)
                 a.dly = 2 * ENTRY_DELAY[i]
+        if self.few:                       # debug: only three bees
+            for i in range(29):
+                self.al[i].st = A_DEAD
 
     def start_stage(self):
         self.setup_stage()
@@ -167,11 +173,13 @@ class Game:
     def start_game(self):
         self.rng.seed(self.frame * 2654435761 + 1)
         self.score = 0
-        self.lives = 3
+        self.lives = self.start_lives
         self.stage = self.start_stage_no
         self.diff = 1
         if self.stage != 1:
             self.diff = min(8, 1 + (self.stage - 1 - self.stage // 4))
+        if self.start_diff:
+            self.diff = self.start_diff
         self.nextBonus = 20000
         self.dual = 0
         self.cap = C_NONE
