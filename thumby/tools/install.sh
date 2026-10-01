@@ -6,7 +6,7 @@ cd "$(dirname "$0")/../Galaga" || exit 1
 command -v mpremote >/dev/null || brew install mpremote || { echo "mpremote not found: brew install mpremote" >&2; exit 1; }
 mpremote fs mkdir :/Games/Galaga 2>/dev/null
 mpremote fs mkdir :/Games/Galaga/jingles 2>/dev/null
-for f in manifest.ini main.py game.py view.py sfx.py paths_data.py sprite_ids.py sprites.bmp beams.bmp title.bmp icon.bmp; do
+for f in manifest.ini main.py game.py view.py sfx.py paths_data.py sprite_ids.py sprites.bmp beams.bmp title.bmp icon.bmp font.bmp; do
     mpremote fs cp "$f" ":/Games/Galaga/$f" || exit 1
 done
 for f in jingles/*.rtttl; do

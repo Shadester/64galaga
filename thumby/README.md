@@ -54,7 +54,7 @@ Connect the device with USB and run `tools/install.sh` (it installs `mpremote` w
 | `Galaga/view.py` | What is on the screen: sprite slots, beam strips, stars, texts |
 | `Galaga/main.py` | The engine part: nodes, input, main loop at 50 ticks a second, debug arguments |
 | `Galaga/sfx.py` | Sound: tones and the jingles (`jingles/*.rtttl`) |
-| `Galaga/paths_data.py`, `sprite_ids.py`, `*.bmp` | Generated: flight paths, sprite sheet, beam, title, icon |
+| `Galaga/paths_data.py`, `sprite_ids.py`, `*.bmp` | Generated: flight paths, sprite sheet, beam, title, icon, font |
 | `tools/gen_paths.py` | Makes `paths_data.py` by running the path builder of `psp/game.c` |
 | `tools/gen_assets.py` | Makes the pictures from `../c64/src/art.asm` and `assets/title-source.png` |
 | `tools/rawframes.py`, `make_gif.py` | Frame dumps of the engine as images; the GIF |

@@ -27,7 +27,7 @@ python3 tests/run.py [--update] [case ...]   # screenshots; look at new refs bef
 - **Coordinates:** the centre of the screen is (0, 0), y grows downward. A node's position is its centre.
 - **Sprite sheets:** `Sprite2DNode` animates by default: pass `playing=False` or `frame_current_x` is changed under you
   (the sprites then show the wrong cells). Pen 0 (black) is the transparent colour. Hide a node with `opacity = 0.0`.
-- **Textures** are 8-bit BMPs from Pillow (`P` mode). `FontResource` needs a special bitmap: the game uses the built-in font.
+- **Textures** are 8-bit BMPs from Pillow (`P` mode). `FontResource` needs a special bitmap (glyphs for ASCII 32..125 side by side, the bottom row marks the widths): `font.bmp` from `gen_assets.py`. The built-in font has digits that sit too high.
 - **RTTTL** sounds are loaded from a file (`RTTTLSoundResource("jingles/stage.rtttl")`), not from a string.
 - **Saves:** `engine_save._init_saves_dir()` must be called before `set_location` when the game is not started by the
   launcher (the desktop run). `main.py` does that. The tests use `nosave`.
