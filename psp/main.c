@@ -29,6 +29,9 @@ PSP_HEAP_SIZE_KB(-1024);
 #ifndef SHOT_EVERY
 #define SHOT_EVERY 60
 #endif
+#ifndef SHOT_MAX
+#define SHOT_MAX 60
+#endif
 #define SAVE_DIR "ms0:/PSP/SAVEDATA/PSPGALAGA"
 #define SCORE_FILE SAVE_DIR "/HISCORE.DAT"
 
@@ -579,7 +582,7 @@ int main(void) {
         if (!g.paused) starTime += 50.0f / 60.0f;
         render();
 #ifdef AUTOPLAY
-        if (++frameNo >= SHOT_FROM && (frameNo - SHOT_FROM) % SHOT_EVERY == 0 && (frameNo - SHOT_FROM) / SHOT_EVERY < 60) dumpFrame((frameNo - SHOT_FROM) / SHOT_EVERY);
+        if (++frameNo >= SHOT_FROM && (frameNo - SHOT_FROM) % SHOT_EVERY == 0 && (frameNo - SHOT_FROM) / SHOT_EVERY < SHOT_MAX) dumpFrame((frameNo - SHOT_FROM) / SHOT_EVERY);
 #else
         (void)frameNo;
 #endif
