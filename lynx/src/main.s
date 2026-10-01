@@ -1,91 +1,62 @@
-; Spike: palette, 50 Hz display, one Suzy sprite.
+; Atari Lynx Galaga
         .include "lynx.inc"
+        .import render_init, frame_begin, add_sprite, frame_end, flip
+        .import hud_draw, init_stars, stars_draw
+        .import score, hiscore, stage
+        .importzp spr_d, spr_x, spr_y
+        .export frame
 
-SCREEN  = $a000
-
-        .segment "STARTUP"
-start:
-        sei
+        .segment "STARTUP"      ; the boot loader jumps here ($0200)
+start:  sei
         cld
         ldx #$ff
         txs
-
-        ldx #15                 ; palette: pen n = grey-ish ramp with some colour
-@pal:   lda greens,x
-        sta $fda0,x
-        lda bluered,x
-        sta $fdb0,x
-        dex
-        bpl @pal
-
-        lda #$bd                ; 50 Hz: 190 us per line, 105 lines
-        sta TIM0BKUP
-        lda #$18
-        sta TIM0CTLA
-        lda #$68
-        sta TIM2BKUP
-        lda #$1f
-        sta TIM2CTLA
-        lda #$31
-        sta PBKUP
-
-        lda #<SCREEN            ; clear the frame buffer (8160 bytes)
-        sta $00
-        lda #>SCREEN
-        sta $01
-        ldy #0
-        ldx #32
-        lda #$00
-@clr:   sta ($00),y
-        iny
-        bne @clr
-        inc $01
-        dex
-        bne @clr
-
-        lda #<SCREEN
-        sta DISPADRL
-        sta VIDBASL
-        lda #>SCREEN
-        sta DISPADRH
-        sta VIDBASH
-        lda #$09                ; DMA on, colour
-        sta DISPCTL
-
-        lda #1
-        sta SUZYBUSEN
-        lda #$f3
-        sta SPRINIT
-        lda #<scb
-        sta SCBNEXTL
-        lda #>scb
-        sta SCBNEXTH
-        lda #1
-        sta SPRGO
-@wait:  stz CPUSLEEP            ; sleep until Mikey wakes the CPU (cc65 idiom)
-        lda SPRSYS
-        lsr
-        bcs @wait
-@hang:  bra @hang
+        jmp main
 
         .segment "LOWCODE"      ; empty: defdir.s sizes them
         .segment "ONCE"
 
-        .segment "RODATA"
-greens: .byte $0,$1,$2,$3,$4,$5,$6,$7,$8,$9,$a,$b,$c,$d,$e,$f
-bluered:.byte $00,$11,$22,$33,$44,$55,$66,$77,$88,$99,$aa,$bb,$cc,$dd,$ee,$ff
+        .code
+main:   jsr render_init
+        jsr init_stars
+        lda #$80                ; demo values
+        sta score
+        lda #$34
+        sta score+1
+        lda #$00
+        sta score+2
+        lda #$30
+        sta hiscore
+        lda #$96
+        sta hiscore+1
+        stz hiscore+2
+        lda #$01
+        sta stage
+        stz frame
+@loop:  jsr frame_begin
+        jsr stars_draw
+        jsr hud_draw
+        lda frame               ; test sprite sweeping across the screen
+        sta spr_x
+        stz spr_x+1
+        lda #46
+        sta spr_y
+        stz spr_y+1
+        lda #<testspr
+        sta spr_d
+        lda #>testspr
+        sta spr_d+1
+        jsr add_sprite
+        jsr frame_end
+        jsr flip
+        inc frame
+        bra @loop
 
-scb:    .byte $c4               ; 4 bpp, normal sprite
-        .byte $90               ; literal, reload size, reload palette
-        .byte 0                 ; collision
-        .word 0                 ; next SCB: none
-        .word art
-        .word 74                ; x
-        .word 46                ; y
-        .word $0100, $0100      ; 1:1 size
-        .byte $01,$23,$45,$67,$89,$ab,$cd,$ef
+        .bss
+frame:  .res 1
 
-art:    .repeat 10, i
+        .rodata
+testspr:.repeat 10
         .byte 7, $12,$34,$56,$78,$9a,$bf
         .endrepeat
         .byte 0
