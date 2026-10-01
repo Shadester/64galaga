@@ -4,14 +4,14 @@
         .include "constants.inc"
         .export render_init, frame_begin, add_sprite, add_sprite_id, frame_end, flip, rand
         .import sprite_lo, sprite_hi, sprite_dx, sprite_dy
-        .exportzp spr_d, spr_x, spr_y, rnd
+        .exportzp dr_d, dr_x, dr_y, rnd
         .export scbs
 
         .zeropage
 wp:     .res 2                  ; next free SCB
-spr_d:  .res 2                  ; add_sprite arguments (keep this order): data, x, y (signed screen pixels)
-spr_x:  .res 2
-spr_y:  .res 2
+dr_d:  .res 2                  ; add_sprite arguments (keep this order): data, x, y (signed screen pixels)
+dr_x:  .res 2
+dr_y:  .res 2
 back:   .res 1                  ; high byte of the buffer that is being drawn
 rnd:    .res 1
 
@@ -77,7 +77,7 @@ frame_begin:
         sta wp+1
         rts
 
-; Append a sprite: spr_d (literal 4 bpp data), spr_x, spr_y. Pen map is kept from the background SCB.
+; Append a sprite: dr_d (literal 4 bpp data), dr_x, dr_y. Pen map is kept from the background SCB.
 add_sprite:
         ldy #0
         lda #$c4                ; 4 bpp, normal sprite (pen 0 transparent)
@@ -99,7 +99,7 @@ add_sprite:
         sta (wp),y
         ldx #0
 @arg:   iny
-        lda spr_d,x             ; data, x, y
+        lda dr_d,x             ; data, x, y
         sta (wp),y
         inx
         cpx #6
@@ -124,26 +124,26 @@ add_sprite:
         inc wp+1
 @ok:    rts
 
-; Append sprite A (an SP_ id from art.inc) at spr_x/spr_y = the C64 box position / 2. Adds the sprite's crop
-; offset to spr_x/spr_y (callers set them again for the next sprite).
+; Append sprite A (an SP_ id from art.inc) at dr_x/dr_y = the C64 box position / 2. Adds the sprite's crop
+; offset to dr_x/dr_y (callers set them again for the next sprite).
 add_sprite_id:
         tax
         lda sprite_lo,x
-        sta spr_d
+        sta dr_d
         lda sprite_hi,x
-        sta spr_d+1
+        sta dr_d+1
         lda sprite_dx,x
         clc
-        adc spr_x
-        sta spr_x
+        adc dr_x
+        sta dr_x
         bcc @x
-        inc spr_x+1
+        inc dr_x+1
 @x:     lda sprite_dy,x
         clc
-        adc spr_y
-        sta spr_y
+        adc dr_y
+        sta dr_y
         bcc @y
-        inc spr_y+1
+        inc dr_y+1
 @y:     jmp add_sprite
 
 ; End the chain and let Suzy draw it into the back buffer (CPU sleeps until done).

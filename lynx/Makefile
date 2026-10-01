@@ -8,7 +8,7 @@ BIOS ?= lynxboot.img
 
 all: $(TARGET)
 
-build/%.o: src/%.s $(wildcard src/*.inc) | build
+build/%.o: src/%.s $(wildcard src/*.inc src/game/*.s) | build
 	$(CA65) $(CAFLAGS) -o $@ $<
 
 $(TARGET): $(OBJ) lynx.cfg

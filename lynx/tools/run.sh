@@ -6,4 +6,4 @@ BIOS=$(cd "$(dirname "${LYNX_BIOS:-lynxboot.img}")" && pwd)/$(basename "${LYNX_B
 [ -f "$BIOS" ] || { echo "Boot ROM not found: $BIOS (see README)" >&2; exit 1; }
 INI="$HOME/Library/Application Support/Geardome/Gearlynx/config.ini"
 [ -f "$INI" ] && sed -i '' "s|^BiosPath =.*|BiosPath = $BIOS|" "$INI"   # Gearlynx has no BIOS flag
-exec /Applications/Gearlynx.app/Contents/MacOS/gearlynx "$PWD/build/galaga.lnx"
+exec /Applications/Gearlynx.app/Contents/MacOS/gearlynx -w "$PWD/build/galaga.lnx"   # -w: window with the menu (Video: scaling)
