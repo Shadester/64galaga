@@ -44,7 +44,7 @@
       <h3><a href="thumby/">Thumby Color</a></h3>
       <i>MicroPython (Tiny Game Engine)</i><br><br>
       A port of the PSP rules to a 128 x 128 handheld, written in MicroPython. The rules run side by side with
-      the C original in a test. Plays in the desktop engine; not tried on the device yet.
+      the C original in a test.
     </td>
   </tr>
 </table>

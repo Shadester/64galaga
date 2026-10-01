@@ -63,7 +63,7 @@ class Scene:
         self.hud = not self.title
         sid[SLOT_LIFE] = -1 if self.title else S.LIFE
         sx[SLOT_LIFE] = 116
-        sy[SLOT_LIFE] = 11
+        sy[SLOT_LIFE] = 12
         if self.title or state == G.S_GAMEOVER:       # the C64 hides every sprite at game over
             for i in range(N_SLOTS - 1):
                 sid[i] = -1
