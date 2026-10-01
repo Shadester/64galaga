@@ -59,12 +59,12 @@ The high score is saved to `PSP/SAVEDATA/PSPGALAGA/HISCORE.DAT` on the memory st
 | `tools/run_shots.sh` | Debug: builds an unattended (`AUTOPLAY`) build, runs it in PPSSPP and saves BMP frames |
 
 Debug build flags (`make EXTRA_CFLAGS=...`): `AUTOPLAY`, `START_STAGE=n`, `FORCECAPTURE`,
-`SHOT_FROM=n`, `SHOT_EVERY=n`, `SHOT_MAX=n`.
+`SHOT_FROM=n`, `SHOT_EVERY=n`, `SHOT_MAX=n`, `TITLE_HOLD=n` (an `AUTOPLAY` build shows the title screen for n frames, 150 by default, before it presses fire).
 
 To re-record `docs/gameplay.gif` (needs `ffmpeg`):
 
 ```sh
-tools/run_shots.sh "-DSHOT_FROM=1 -DSHOT_EVERY=4 -DSHOT_MAX=240" 70
-ffmpeg -framerate 15 -i ~/.config/ppsspp/PSP/shots/f%04d.bmp -frames:v 150 \
+tools/run_shots.sh "-DSHOT_FROM=1 -DSHOT_EVERY=4 -DSHOT_MAX=240" 75
+ffmpeg -y -framerate 15 -i ~/.config/ppsspp/PSP/shots/f%04d.bmp -frames:v 190 \
   -vf "scale=400:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64[p];[b][p]paletteuse=dither=bayer:bayer_scale=5" docs/gameplay.gif
 ```

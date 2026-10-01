@@ -23,6 +23,9 @@ PSP_HEAP_SIZE_KB(-1024);
 #define BUF_W 512
 #define RGBA(r, g, b, a) ((unsigned)(r) | ((unsigned)(g) << 8) | ((unsigned)(b) << 16) | ((unsigned)(a) << 24))
 #define RGB(r, g, b) RGBA(r, g, b, 255)
+#ifndef TITLE_HOLD
+#define TITLE_HOLD 150   /* AUTOPLAY: frames the title screen stays before autoplay presses fire */
+#endif
 #ifndef SHOT_FROM
 #define SHOT_FROM 60
 #endif
@@ -567,7 +570,7 @@ int main(void) {
         in.quit = (pressed & PSP_CTRL_START) != 0;
         if (in.quit && g.state == S_TITLE) break;
 #ifdef AUTOPLAY
-        game_autoplay(&g, &in);
+        if (g.state != S_TITLE || frameNo >= TITLE_HOLD) game_autoplay(&g, &in);
 #endif
         /* Fixed 50 Hz logic tick; the display runs at 60 Hz and interpolates. */
         acc += TICK_HZ;
