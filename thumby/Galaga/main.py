@@ -74,27 +74,15 @@ sprites = [Sprite2DNode(texture=tex, frame_count_x=S.COLS, frame_count_y=(S.COUN
 last_sid = [-1] * V.N_SLOTS
 
 TEXT_COLORS = (Color(1, 1, 1), Color(1, 0.25, 0.1), Color(0.4, 0.9, 1), Color(0.5, 0.6, 1))
-hud_nodes = [Text2DNode(text='', position=Vector2(0, 0), color=TEXT_COLORS[c], layer=6, opacity=0.0)
-             for c in (V.WHITE, V.WHITE, V.BLUE, V.BLUE)]
+# HUD as on the PSP and Lynx: red labels over white numbers in three columns (SCORE, HI-SCORE, STAGE), the lives at the right
+label_nodes = [Text2DNode(text=t, position=Vector2(x, -64 + 4), color=TEXT_COLORS[V.RED], layer=6, opacity=0.0)
+               for t, x in (('SCORE', 1 + 15 - 64), ('HI-SCORE', 45 + 24 - 64), ('STAGE', 98 + 15 - 64))]
+hud_nodes = [Text2DNode(text='', position=Vector2(x, -64 + 11), color=TEXT_COLORS[V.WHITE], layer=6, opacity=0.0)
+             for x in (1 + 18 - 64, 45 + 18 - 64, 98 + 6 - 64, 121 + 3 - 64)]      # score, hi-score, stage, lives
 msg_nodes = [Text2DNode(text='', position=Vector2(0, 0), color=TEXT_COLORS[0], layer=6, opacity=0.0)
              for _ in range(V.MAX_MSG)]
 last_msg = [''] * V.MAX_MSG
 last_hud = ['', '', '', '']
-
-
-def place_hud():
-    # left aligned lines: the position is the centre of the text, about 6 pixels a character
-    hud_nodes[0].position.x = -62 + 36
-    hud_nodes[0].position.y = -64 + 4
-    hud_nodes[1].position.x = 62 - 21
-    hud_nodes[1].position.y = -64 + 4
-    hud_nodes[2].position.x = -62 + 21
-    hud_nodes[2].position.y = -64 + 11
-    hud_nodes[3].position.x = 62 - 24
-    hud_nodes[3].position.y = -64 + 11
-
-
-place_hud()
 
 
 def render():
@@ -138,15 +126,19 @@ def render():
             b.opacity = 0.0
     # texts
     if scene.hud:
-        hud = (scene.score, scene.lives, scene.hi, scene.level)
+        hud = (scene.score, scene.hi, scene.level, scene.lives)
         for i in range(4):
             if hud[i] != last_hud[i]:
                 last_hud[i] = hud[i]
                 hud_nodes[i].text = hud[i]
             hud_nodes[i].opacity = 1.0
+        for n in label_nodes:
+            n.opacity = 1.0
     else:
         for i in range(4):
             hud_nodes[i].opacity = 0.0
+        for n in label_nodes:
+            n.opacity = 0.0
     for i in range(V.MAX_MSG):
         n = msg_nodes[i]
         t = scene.msg[i]

@@ -8,8 +8,8 @@ import sprite_ids as S
 
 W = H = 128
 HUD_H = 14
-N_SLOTS = 42                       # 32 aliens, ship, dual ship, captive, 4 player bullets, 3 enemy bullets
-SLOT_SHIP, SLOT_DUAL, SLOT_CAPT, SLOT_PBUL, SLOT_EBUL = 32, 33, 34, 35, 39
+N_SLOTS = 43                       # 32 aliens, ship, dual ship, captive, 4 player bullets, 3 enemy bullets, the lives icon
+SLOT_SHIP, SLOT_DUAL, SLOT_CAPT, SLOT_PBUL, SLOT_EBUL, SLOT_LIFE = 32, 33, 34, 35, 39, 42
 NUM_STARS = 12
 MAX_MSG = 3
 WHITE, RED, CYAN, BLUE = 0, 1, 2, 3          # text colours (main.py maps them)
@@ -33,7 +33,7 @@ class Scene:
         self.star_v = [1 + i % 3 for i in range(NUM_STARS)]
         self.title = True                 # the title picture instead of the playfield
         self.hud = False
-        self.score = self.hi = self.lives = self.level = ''
+        self.score = self.hi = self.lives = self.level = ''      # the HUD numbers (the labels are fixed)
         self.msg = [''] * MAX_MSG         # centred lines; colour and y per line
         self.msg_col = [WHITE] * MAX_MSG
         self.msg_y = [0] * MAX_MSG
@@ -61,8 +61,11 @@ class Scene:
         state = g.state
         self.title = state == G.S_TITLE
         self.hud = not self.title
+        sid[SLOT_LIFE] = -1 if self.title else S.LIFE
+        sx[SLOT_LIFE] = 116
+        sy[SLOT_LIFE] = 11
         if self.title or state == G.S_GAMEOVER:       # the C64 hides every sprite at game over
-            for i in range(N_SLOTS):
+            for i in range(N_SLOTS - 1):
                 sid[i] = -1
             self.beam_n = 0
             if self.title:
@@ -169,10 +172,10 @@ class Scene:
         key = (g.score, g.hi, g.lives, g.stage)
         if key != self.hud_key:
             self.hud_key = key
-            self.score = 'SCORE %06d' % g.score
-            self.hi = 'HI %06d' % g.hi
-            self.lives = 'LIVES %d' % g.lives
-            self.level = 'STAGE %02d' % g.stage
+            self.score = '%06d' % g.score
+            self.hi = '%06d' % g.hi
+            self.lives = '%d' % g.lives
+            self.level = '%02d' % g.stage
         st = g.state
         extra = g.challenge and g.chalHits == G.NAL
         key = (st, g.paused, g.stage, g.shots, g.hits, g.chalHits, g.dyingQuiet, st == G.S_GAMEOVER and g.stateTimer == 0)

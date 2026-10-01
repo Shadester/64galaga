@@ -72,6 +72,7 @@ SHIP = ['....w....',
         'wrbbbbbrw',
         '.rr.b.rr.']
 CAPTIVE = [r.translate(str.maketrans('wbrc', 'fryw')) for r in SHIP]       # red and pink
+LIFE = ['..w..', '..w..', '.bwb.', 'bwwwb', 'rb.br']                      # the lives icon of the HUD
 PBUL = ['c', 'c', 'l', 'l', 'c']
 EBUL = ['yy', 'rr', 'rr', 'rr', 'rr', 'yy']
 
@@ -86,6 +87,7 @@ for n in (1, 2, 3):
     SPRITES.append((f'expl{n}', squeeze(recolour(c[f'expl{n}'], 'o'))))
 for n in (1, 2, 3, 4):
     SPRITES.append((f'pexp{n}', squeeze(halve(recolour(c[f'pexp{n}'], 'o')))))
+SPRITES.append(('life', LIFE))
 NAMES = [n for n, _ in SPRITES]
 
 
