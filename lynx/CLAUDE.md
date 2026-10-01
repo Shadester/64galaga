@@ -16,7 +16,7 @@ python3 tools/make_gif.py # re-record docs/gameplay.gif
 - The boot ROM must be in `lynxboot.img` (git-ignored, copyrighted). `LYNX_BIOS` overrides the path.
 - Every test case builds with `-D HALT=n`: the game freezes after n frames, so the screenshot is exact. Gearlynx is
   deterministic, the compare allows 8 different pixels. `BOOT` in `tests/run.py` is the number of emulated frames
-  before the game starts (about 150: 400 is a safe margin).
+  to add for the boot ROM (it takes about 60: 400 is a safe margin).
 - `tools/dbg.py ROM FRAMES label[:size] ...` prints memory by label. Only exported labels are in `build/galaga.lbl`:
   add a name to the `.export` line of `src/game.s` when you need one.
 - `make clean` after you change `CAFLAGS`: the Makefile does not see them.
