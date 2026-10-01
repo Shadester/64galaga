@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <b>One arcade shooter, three machines.</b><br>
-  Galaga clones for the Commodore 64, the PlayStation Portable, the Atari Lynx and the Thumby Color, written from the same game design.
+  <b>One arcade shooter, five machines.</b><br>
+  Galaga clones for the Commodore 64, the PlayStation Portable, the Atari Lynx, the Thumby Color and PICO-8, written from the same game design.
 </p>
 
 <p align="center">
@@ -47,9 +47,18 @@
       the C original in a test.
     </td>
   </tr>
+  <tr>
+    <td width="360"><a href="pico8/"><img src="pico8/docs/gameplay.gif" width="256" alt="PICO-8"></a></td>
+    <td>
+      <h3><a href="pico8/">PICO-8</a></h3>
+      <i>Lua (PICO-8 0.2.6b)</i><br><br>
+      A port of the Thumby Color rules to the 128 x 128 fantasy console. The rules run side by side with
+      the C original in a test.
+    </td>
+  </tr>
 </table>
 
-All three have the same game: 32 aliens that fly in and dive, bosses that take two hits and capture your ship, a dual fighter when you rescue it, challenge stages with a perfect-clear bonus, and difficulty that rises every stage.
+All of them have the same game: 32 aliens that fly in and dive, bosses that take two hits and capture your ship, a dual fighter when you rescue it, challenge stages with a perfect-clear bonus, and difficulty that rises every stage.
 
-The C64 source is the reference for how the game must behave. The PSP, Lynx and Thumby Color games follow its rules.
+The C64 source is the reference for how the game must behave. The PSP, Lynx, Thumby Color and PICO-8 games follow its rules.
 Each directory has its own README with build instructions.
