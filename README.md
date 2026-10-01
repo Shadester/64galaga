@@ -4,7 +4,7 @@
 
 <p align="center">
   <b>One arcade shooter, three machines.</b><br>
-  Galaga clones for the Commodore 64, the PlayStation Portable and the Atari Lynx, written from the same game design.
+  Galaga clones for the Commodore 64, the PlayStation Portable, the Atari Lynx and the Thumby Color, written from the same game design.
 </p>
 
 <p align="center">
@@ -38,9 +38,18 @@
       The Suzy sprite engine replaces the multiplexer. The hi-score is saved in the cartridge EEPROM.
     </td>
   </tr>
+  <tr>
+    <td width="360"><a href="thumby/"><img src="thumby/docs/gameplay.gif" width="340" alt="Thumby Color"></a></td>
+    <td>
+      <h3><a href="thumby/">Thumby Color</a></h3>
+      <i>MicroPython (Tiny Game Engine)</i><br><br>
+      A port of the PSP rules to a 128 x 128 handheld, written in MicroPython. The rules run side by side with
+      the C original in a test. Plays in the desktop engine; not tried on the device yet.
+    </td>
+  </tr>
 </table>
 
 All three have the same game: 32 aliens that fly in and dive, bosses that take two hits and capture your ship, a dual fighter when you rescue it, challenge stages with a perfect-clear bonus, and difficulty that rises every stage.
 
-The C64 source is the reference for how the game must behave. The PSP and Lynx games follow its rules.
+The C64 source is the reference for how the game must behave. The PSP, Lynx and Thumby Color games follow its rules.
 Each directory has its own README with build instructions.

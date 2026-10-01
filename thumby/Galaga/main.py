@@ -1,7 +1,7 @@
 # Galaga for the Thumby Color: the engine part. The rules are in game.py, what is on the screen in view.py.
 #
 # Desktop keys (tools/run.sh): A / D move, . or , fire, Return pause, Left Shift quit to the title.
-# Thumby Color: LEFT / RIGHT move, A or B fire, MENU pause, LB quit to the title.
+# Thumby Color: LEFT / RIGHT move, A or B fire, MENU pause (on the title screen: leave the game), LB quit to the title.
 # Arguments (the desktop run): autoplay | stage=N | lives=N | diff=N | few | forcecapture | nofire | dieat=N | pauseat=N |
 # quitat=N | nosave | record=FILE:EVERY:COUNT (frames of the screen as RGB565, see tools/rawframes.py)
 import engine_main
@@ -252,6 +252,9 @@ while True:
         pending = ticks % rec_every == 0
         continue
     if engine_io.MENU.is_just_pressed:
+        if scene.title:                   # MENU on the title screen leaves the game (back to the launcher)
+            sound.mute()
+            break
         pulses[0] = 1
     if engine_io.LB.is_just_pressed:
         pulses[1] = 1
