@@ -11,26 +11,34 @@
   <a href="https://vc64web.github.io/#openROMS=true#https://raw.githubusercontent.com/Shadester/galagas/master/c64/docs/galaga.prg"><b>▶ Play the C64 version in your browser</b></a>
 </p>
 
-<table align="center">
+<table>
   <tr>
-    <td align="center"><a href="c64/"><img src="c64/docs/gameplay.gif" width="320" alt="Commodore 64"></a></td>
-    <td align="center"><a href="psp/"><img src="psp/docs/gameplay.gif" width="320" alt="PlayStation Portable"></a></td>
-    <td align="center"><a href="lynx/"><img src="lynx/docs/gameplay.gif" width="320" alt="Atari Lynx"></a></td>
+    <td width="360"><a href="c64/"><img src="c64/docs/gameplay.gif" width="340" alt="Commodore 64"></a></td>
+    <td>
+      <h3><a href="c64/">Commodore 64</a></h3>
+      <i>6502 assembly (ACME)</i><br><br>
+      The original. A raster interrupt sprite multiplexer shows 44 sprites on 8 hardware sprites.
+      Tractor beam capture, escorts, challenge stages, a title picture and SID sound.
+    </td>
   </tr>
   <tr>
-    <td align="center"><b><a href="c64/">Commodore 64</a></b><br>6502 assembly (ACME)</td>
-    <td align="center"><b><a href="psp/">PlayStation Portable</a></b><br>C (PSPSDK)</td>
-    <td align="center"><b><a href="lynx/">Atari Lynx</a></b><br>65C02 assembly (ca65)</td>
+    <td width="360"><a href="psp/"><img src="psp/docs/gameplay.gif" width="340" alt="PlayStation Portable"></a></td>
+    <td>
+      <h3><a href="psp/">PlayStation Portable</a></h3>
+      <i>C (PSPSDK)</i><br><br>
+      A port of the C64 rules in C, with pixel-art sprites, a glow and particle renderer and synthesised sound.
+    </td>
+  </tr>
+  <tr>
+    <td width="360"><a href="lynx/"><img src="lynx/docs/gameplay.gif" width="340" alt="Atari Lynx"></a></td>
+    <td>
+      <h3><a href="lynx/">Atari Lynx</a></h3>
+      <i>65C02 assembly (ca65)</i><br><br>
+      A port of the C64 code to the Lynx: the same rules and numbers at half the size.
+      The Suzy sprite engine replaces the multiplexer. The hi-score is saved in the cartridge EEPROM.
+    </td>
   </tr>
 </table>
-
-## The three games
-
-| | Platform | What is special |
-|---|---|---|
-| [**`c64/`**](c64/) | Commodore 64 | The original. A raster interrupt sprite multiplexer shows 44 sprites on 8 hardware sprites. Tractor beam capture, escorts, challenge stages, a title picture and SID sound. |
-| [**`psp/`**](psp/) | PlayStation Portable | A port of the C64 rules in C, with pixel-art sprites, a glow and particle renderer and synthesised sound. |
-| [**`lynx/`**](lynx/) | Atari Lynx | A port of the C64 code to the Lynx: the same rules and numbers at half the size. The Suzy sprite engine replaces the multiplexer. The hi-score is saved in the cartridge EEPROM. |
 
 All three have the same game: 32 aliens that fly in and dive, bosses that take two hits and capture your ship, a dual fighter when you rescue it, challenge stages with a perfect-clear bonus, and difficulty that rises every stage.
 
