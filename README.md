@@ -39,7 +39,7 @@
     </td>
   </tr>
   <tr>
-    <td width="360"><a href="thumby/"><img src="thumby/docs/gameplay.gif" width="340" alt="Thumby Color"></a></td>
+    <td width="360"><a href="thumby/"><img src="thumby/docs/gameplay.gif" width="256" alt="Thumby Color"></a></td>
     <td>
       <h3><a href="thumby/">Thumby Color</a></h3>
       <i>MicroPython (Tiny Game Engine)</i><br><br>
