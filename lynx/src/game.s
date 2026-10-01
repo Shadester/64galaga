@@ -5,7 +5,7 @@
         .import render_init, frame_begin, add_sprite, add_sprite_id, frame_end, flip, rand
         .importzp dr_d, dr_x, dr_y, rnd
         .import font_w, font_r
-        .export main, frame, game_state, msg_n, anim, paused, player_x, lives
+        .export main, frame, game_state, msg_n, anim, paused, player_x, lives, cap_state, beam_len
 
         .zeropage
 zp_src:         .res 2                  ; string source
@@ -70,6 +70,8 @@ game_loop:
         lda halt_cnt+1
         cmp #>HALT
         bne @h_go
+        lda #1
+        sta paused                  ; the stars hold still
 @h_stop:
         jsr show_frame              ; keep showing the last frame
         bra @h_stop
@@ -104,6 +106,7 @@ show_frame:
         lda game_state
         beq @no_stars               ; Title: no stars, no sprites (the screen is the title)
         jsr draw_stars
+        jsr draw_beam
         jsr draw_sprites
         jsr draw_hud
 @no_stars:

@@ -2,20 +2,21 @@
 CA65 = ca65 --cpu 65SC02 -I src
 LD65 = ld65
 SRC = $(wildcard src/*.s)
-OBJ = $(SRC:src/%.s=build/%.o)
-TARGET = build/galaga.lnx
+BUILD ?= build
+OBJ = $(SRC:src/%.s=$(BUILD)/%.o)
+TARGET = $(BUILD)/galaga.lnx
 BIOS ?= lynxboot.img
 
 all: $(TARGET)
 
-build/%.o: src/%.s $(wildcard src/*.inc src/game/*.s) | build
+$(BUILD)/%.o: src/%.s $(wildcard src/*.inc src/game/*.s) | $(BUILD)
 	$(CA65) $(CAFLAGS) -o $@ $<
 
 $(TARGET): $(OBJ) lynx.cfg
-	$(LD65) -C lynx.cfg -m build/galaga.map -Ln build/galaga.lbl -o $@ $(OBJ) lynx.lib
+	$(LD65) -C lynx.cfg -m $(BUILD)/galaga.map -Ln $(BUILD)/galaga.lbl -o $@ $(OBJ) lynx.lib
 
-build:
-	mkdir -p build
+$(BUILD):
+	mkdir -p $(BUILD)
 
 run: $(TARGET)
 	tools/run.sh

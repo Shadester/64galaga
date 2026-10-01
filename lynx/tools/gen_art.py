@@ -24,7 +24,7 @@ G = {
     'Q': '111101101111001', 'R': '110101110101101', 'S': '011100010001110', 'T': '111010010010010',
     'U': '101101101101111', 'V': '101101101101010', 'W': '101101111111101', 'X': '101101010101101',
     'Y': '101101010010010', 'Z': '111001010100111', '-': '000000111000000', '!': '010010010000010',
-    ':': '000010000010000',
+    ':': '000010000010000', '%': '101001010100101', '.': '000000000000010',
 }
 
 
@@ -113,6 +113,20 @@ for n in (1, 2, 3, 4):
     SPRITES.append((f'pexp{n}', halve(recolour(c[f'pexp{n}'], 'o')), 0))
 
 
+# Tractor beam: 4 rows (the C64 draws a row of $66 characters per row, 2..5 cells either side of the boss), each
+# 4x4 pixel cell a checkerboard in a shimmering colour; 4 colour phases. id = SP_BEAM + row * 4 + phase.
+for r, hw in enumerate((2, 3, 4, 5)):
+    for phase in range(4):
+        rows = []
+        for y in range(4):
+            line = ''
+            for k in range(2 * hw + 1):
+                cc = 'blcl'[(k + r + phase) & 3]
+                line += ''.join(cc if (x + y) % 2 == 0 else '.' for x in range(4))
+            rows.append(line)
+        SPRITES.append((f'beam_{r}_{phase}', rows, 0))
+
+
 def sprite_data(rows):
     """Crop to the bounding box: (data lines, width, height, dx, dy). Offsets: dx in pixels, dy in rows / 2."""
     ys = [i for i, r in enumerate(rows) if r.strip('.')]
@@ -138,6 +152,7 @@ for i, (name, rows, extra) in enumerate(SPRITES):
     inc.append(f'SP_{name.upper():<10} = {i}')
     dx_tab.append(dx + extra)
     dy_tab.append(dy // 2)
+inc.append('SP_BEAM       = SP_BEAM_0_0')
 inc.append(f'SP_COUNT      = {len(SPRITES)}')
 names = [n for n, _, _ in SPRITES]
 asm.append('sprite_lo: .byte ' + ', '.join(f'<spr_{n}' for n in names))
@@ -155,8 +170,8 @@ if len(sys.argv) > 2 and sys.argv[1] == '--preview':
     pal = {'w': (255, 255, 255), 'r': (238, 34, 0), 'b': (68, 102, 255), 'c': (0, 204, 221), 'y': (255, 255, 0),
            'g': (0, 204, 68), 'p': (204, 68, 221), 'o': (255, 136, 0), 'l': (153, 187, 255), 'f': (255, 170, 204)}
     S = 8
-    sheet = Image.new('RGB', (len(SPRITES) * 16 * S, 22 * S), (0, 0, 0))
-    for i, (name, rows, extra) in enumerate(SPRITES):
+    sheet = Image.new('RGB', (19 * 16 * S, 22 * S), (0, 0, 0))
+    for i, (name, rows, extra) in enumerate(SPRITES[:19]):
         for y, r in enumerate(rows):
             for x, ch in enumerate(r):
                 if ch != '.':

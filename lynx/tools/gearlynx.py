@@ -56,7 +56,9 @@ class Gearlynx:
         self.tool('load_media', file_path=os.path.abspath(rom))
 
     def frames(self, n):
-        self.tool('debug_step_frame', frames=n, mode='sync')
+        while n > 0:                                    # the tool steps at most 1000 frames at a time
+            self.tool('debug_step_frame', frames=min(n, 1000), mode='sync')
+            n -= 1000
 
     def screenshot(self, out):
         for c in self.tool('get_screenshot'):
