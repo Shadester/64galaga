@@ -2,8 +2,8 @@
 ; back buffer, and the buffers swap in the vertical blank. Replaces the C64 raster multiplexer.
         .include "lynx.inc"
         .include "constants.inc"
-        .export render_init, frame_begin, add_sprite, add_sprite_id, frame_end, flip, rand
-        .import sprite_lo, sprite_hi, sprite_dx, sprite_dy
+        .export pal_game, pal_title, render_init, frame_begin, add_sprite, add_sprite_id, frame_end, flip, rand
+        .import sprite_lo, sprite_hi, sprite_dx, sprite_dy, title_pal_g, title_pal_br
         .exportzp dr_d, dr_x, dr_y, rnd
         .export scbs
 
@@ -21,13 +21,7 @@ scbs:   .res BG_SIZE + SCB_SIZE * MAX_SCB
         .code
 ; Palette, 50 Hz timing, display DMA, Suzy.
 render_init:
-        ldx #15
-@pal:   lda palg,x
-        sta $fda0,x
-        lda palbr,x
-        sta $fdb0,x
-        dex
-        bpl @pal
+        jsr pal_game
         lda #$bd                ; 50 Hz: 190 us per line, 105 lines
         sta TIM0BKUP
         lda #$18
@@ -54,6 +48,26 @@ render_init:
         sta SPRSYS
         lda #$a5
         sta rnd
+        rts
+
+pal_game:
+        ldx #15
+@pal:   lda palg,x
+        sta $fda0,x
+        lda palbr,x
+        sta $fdb0,x
+        dex
+        bpl @pal
+        rts
+
+pal_title:
+        ldx #15
+@pal:   lda title_pal_g,x
+        sta $fda0,x
+        lda title_pal_br,x
+        sta $fdb0,x
+        dex
+        bpl @pal
         rts
 
 ; 8-bit Galois LFSR (the C64 game's), result in A

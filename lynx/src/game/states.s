@@ -10,8 +10,8 @@ enter_title:
     lda #1
     sta fire_pressed            ; Fire must be released pressed again
     jsr clear_screen
-    print msg_title, SCREEN_RAM+8*40+13, 2
-    print msg_hiscore, SCREEN_RAM+12*40+12, 2
+    jsr pal_title
+    print_xy msg_hiscore, 40, 91, 2
     setnum num_hi               ; The hi-score digits
     lda hiscore+2
     jsr draw_bcd
@@ -19,11 +19,10 @@ enter_title:
     jsr draw_bcd
     lda hiscore
     jsr draw_bcd
-    print num_hi, SCREEN_RAM+14*40+14, 1
-    print msg_press, SCREEN_RAM+18*40+15, 1
+    print_xy num_hi, 76, 91, 1
+    print_xy msg_press, 60, 97, 1
     rts
 
-msg_title:      .asciiz "GALAGA"
 msg_over:       .asciiz "GAME OVER"
 msg_stage:      .asciiz "STAGE   "
 msg_hiscore:         .asciiz "HI-SCORE"
@@ -43,6 +42,7 @@ st_title:
 
 start_game:
     jsr clear_screen
+    jsr pal_game
     lda #0
     sta score
     sta score+1

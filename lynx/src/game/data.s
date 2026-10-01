@@ -182,42 +182,49 @@ shots_tbl:      .byte 0, 1, 1, 1, 2, 2, 2, 2, 2             ; shots per dive
 
 hw_tbl:         .byte 2, 3, 4, 5                          ; beam half-width per row
 
+; Jingle notes: SID frequency word (low, high) as on the C64, duration in frames. jnote turns the SID word into the
+; Mikey timer reload: the square wave (FEED $80) has 24 timer steps a cycle, the timer runs at 1 MHz.
+; Hz = word * 5872 / 100000, reload = 1,000,000 / (24 * Hz) - 1. Each note is reload, control, duration; 0 ends the tune.
+.macro jnote lo, hi, dur
+    .byte (41667 / (((hi * 256 + lo) * 5872) / 100000)) - 1, $18, dur
+.endmacro
+
 jin_data:
 jin_stage:
-    .byte $13,$1a,7   ; G4
-    .byte $ce,$22,7   ; C5
-    .byte $da,$2b,7   ; E5
-    .byte $26,$34,7   ; G5
-    .byte $9c,$45,30   ; C6
+    jnote $13,$1a,7   ; G4
+    jnote $ce,$22,7   ; C5
+    jnote $da,$2b,7   ; E5
+    jnote $26,$34,7   ; G5
+    jnote $9c,$45,30   ; C6
     .byte 0,0,0             ; end
 jin_over:
-    .byte $ce,$22,12   ; C5
-    .byte $45,$1d,12   ; A4
-    .byte $3b,$17,12   ; F4
-    .byte $67,$11,40   ; C4
+    jnote $ce,$22,12   ; C5
+    jnote $45,$1d,12   ; A4
+    jnote $3b,$17,12   ; F4
+    jnote $67,$11,40   ; C4
     .byte 0,0,0             ; end
 jin_capt:
-    .byte $ce,$22,6   ; C5
-    .byte $45,$1d,6   ; A4
-    .byte $3b,$17,6   ; F4
-    .byte $89,$13,6   ; D4
-    .byte $67,$11,20   ; C4
+    jnote $ce,$22,6   ; C5
+    jnote $45,$1d,6   ; A4
+    jnote $3b,$17,6   ; F4
+    jnote $89,$13,6   ; D4
+    jnote $67,$11,20   ; C4
     .byte 0,0,0             ; end
 jin_resc:
-    .byte $ce,$22,5   ; C5
-    .byte $da,$2b,5   ; E5
-    .byte $26,$34,5   ; G5
-    .byte $9c,$45,5   ; C6
-    .byte $26,$34,5   ; G5
-    .byte $9c,$45,20   ; C6
+    jnote $ce,$22,5   ; C5
+    jnote $da,$2b,5   ; E5
+    jnote $26,$34,5   ; G5
+    jnote $9c,$45,5   ; C6
+    jnote $26,$34,5   ; G5
+    jnote $9c,$45,20   ; C6
     .byte 0,0,0             ; end
 jin_bonus:
-    .byte $26,$34,4   ; G5
-    .byte $9c,$45,4   ; C6
-    .byte $26,$34,4   ; G5
-    .byte $9c,$45,4   ; C6
-    .byte $26,$34,4   ; G5
-    .byte $9c,$45,16   ; C6
+    jnote $26,$34,4   ; G5
+    jnote $9c,$45,4   ; C6
+    jnote $26,$34,4   ; G5
+    jnote $9c,$45,4   ; C6
+    jnote $26,$34,4   ; G5
+    jnote $9c,$45,16   ; C6
     .byte 0,0,0             ; end
 
 ; Virtual sprites: slot i < 32 is enemy i (dead enemies have Y=$ff), then the ship, bullets, extras.

@@ -2,7 +2,7 @@
 ; Rendering is in render.s; the sprite art and the font are generated (tools/gen_art.py).
         .include "lynx.inc"
         .include "constants.inc"
-        .import render_init, frame_begin, add_sprite, add_sprite_id, frame_end, flip, rand
+        .import pal_game, pal_title, title_pic, render_init, frame_begin, add_sprite, add_sprite_id, frame_end, flip, rand
         .importzp dr_d, dr_x, dr_y, rnd
         .import font_w, font_r
         .export main, frame, game_state, msg_n, anim, paused, player_x, lives, cap_state, beam_len
@@ -24,6 +24,20 @@ fnt:            .res 2                  ; font of draw_text
         lda #(((addr) .mod 40) * 4)
         sta zp_dst
         lda #(((addr) / 40) * 4)
+        sta zp_dst+1
+        lda #col
+        sta txt_col
+        jsr msg_add
+.endmacro
+
+.macro print_xy msg, xx, yy, col
+        lda #<msg
+        sta zp_src
+        lda #>msg
+        sta zp_src+1
+        lda #xx
+        sta zp_dst
+        lda #yy
         sta zp_dst+1
         lda #col
         sta txt_col
@@ -104,8 +118,18 @@ game_loop:
 show_frame:
         jsr frame_begin
         lda game_state
-        beq @no_stars               ; Title: no stars, no sprites (the screen is the title)
-        jsr draw_stars
+        bne @game
+        lda #<title_pic             ; Title: the picture (no stars, no sprites)
+        sta dr_d
+        lda #>title_pic
+        sta dr_d+1
+        stz dr_x
+        stz dr_x+1
+        stz dr_y
+        stz dr_y+1
+        jsr add_sprite
+        bra @no_stars
+@game:  jsr draw_stars
         jsr draw_beam
         jsr draw_sprites
         jsr draw_hud
