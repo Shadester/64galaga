@@ -159,7 +159,8 @@ static void update_player(Game *g, const Input *in, int firePress) {
     for (n = 0; n < (g->dual ? 2 : 1); ++n)
         for (i = n * 2; i < n * 2 + 2; ++i) if (!g->ps[i].act) {
             g->ps[i].act = 1; g->ps[i].x = g->px + 3 + 16 * n; g->ps[i].y = 214;
-            ++g->shots; g->snd |= SND_SHOOT; break;
+            if (g->state != S_RESULT) ++g->shots;   /* the result screen shows the stage's shots: later ones do not count */
+            g->snd |= SND_SHOOT; break;
         }
 }
 static void update_pshots(Game *g) {

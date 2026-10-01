@@ -106,6 +106,14 @@ int main(void) {
         game_tick(&g, &in);
     }
     assert(g.state == S_RESULT && g.lives == 3);
+    {   /* shots fired on the result screen do not change its ratio */
+        int shots = g.shots, hits = g.hits;
+        for (steps = 0; steps < 60 && g.state == S_RESULT; ++steps) {
+            Input in = {0, 0, (steps & 3) < 2, 0, 0};
+            game_tick(&g, &in);
+        }
+        assert(g.shots == shots && g.hits == hits);
+    }
 
     /* full unattended run: no crash, invariants hold */
     game_init(&g, 0);
