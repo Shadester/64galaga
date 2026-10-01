@@ -2,7 +2,8 @@
 ; back buffer, and the buffers swap in the vertical blank. Replaces the C64 raster multiplexer.
         .include "lynx.inc"
         .include "constants.inc"
-        .export render_init, frame_begin, add_sprite, frame_end, flip, rand
+        .export render_init, frame_begin, add_sprite, add_sprite_id, frame_end, flip, rand
+        .import sprite_lo, sprite_hi, sprite_dx, sprite_dy
         .exportzp spr_d, spr_x, spr_y, rnd
         .export scbs
 
@@ -123,6 +124,28 @@ add_sprite:
         inc wp+1
 @ok:    rts
 
+; Append sprite A (an SP_ id from art.inc) at spr_x/spr_y = the C64 box position / 2. Adds the sprite's crop
+; offset to spr_x/spr_y (callers set them again for the next sprite).
+add_sprite_id:
+        tax
+        lda sprite_lo,x
+        sta spr_d
+        lda sprite_hi,x
+        sta spr_d+1
+        lda sprite_dx,x
+        clc
+        adc spr_x
+        sta spr_x
+        bcc @x
+        inc spr_x+1
+@x:     lda sprite_dy,x
+        clc
+        adc spr_y
+        sta spr_y
+        bcc @y
+        inc spr_y+1
+@y:     jmp add_sprite
+
 ; End the chain and let Suzy draw it into the back buffer (CPU sleeps until done).
 frame_end:
         lda wp                  ; last SCB: next = 0
@@ -169,8 +192,8 @@ flip:
         .rodata
 ; pen: 0 black, 1 white, 2 red, 3 blue, 4 cyan, 5 yellow, 6 green, 7 purple, 8 orange, 9 light grey,
 ;      a dark grey, b light blue, c..e star greys, f pink
-palg:   .byte $0,$f,$2,$4,$c,$f,$d,$3,$9,$a,$5,$9,$4,$7,$a,$7
-palbr:  .byte $00,$ff,$0e,$f4,$0a,$0f,$04,$d5,$0f,$aa,$55,$fa,$44,$77,$aa,$dc
+palg:   .byte $0,$f,$2,$6,$c,$f,$d,$4,$9,$a,$5,$9,$4,$7,$a,$8
+palbr:  .byte $00,$ff,$0e,$f4,$f0,$0f,$40,$ea,$0f,$aa,$55,$fa,$44,$77,$aa,$cf
 
 bgscb:  .byte $c0               ; 4 bpp, background (pen 0 is drawn)
         .byte $90               ; literal, reload size, load pen map

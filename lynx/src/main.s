@@ -1,6 +1,7 @@
 ; Atari Lynx Galaga
         .include "lynx.inc"
-        .import render_init, frame_begin, add_sprite, frame_end, flip
+        .include "art.inc"
+        .import render_init, frame_begin, add_sprite, add_sprite_id, frame_end, flip
         .import hud_draw, init_stars, stars_draw
         .import score, hiscore, stage
         .importzp spr_d, spr_x, spr_y
@@ -36,17 +37,37 @@ main:   jsr render_init
 @loop:  jsr frame_begin
         jsr stars_draw
         jsr hud_draw
-        lda frame               ; test sprite sweeping across the screen
-        sta spr_x
+        ldx #0                  ; art test: every sprite, 10 to a row
+@art:   txa
+        asl
+        asl
+        asl
+        asl
+        sta spr_x               ; 16 px apart
         stz spr_x+1
-        lda #46
-        sta spr_y
+        lda #30
+        cpx #10
+        bcc @r
+        lda #60
+        pha
+        txa
+        sec
+        sbc #10
+        asl
+        asl
+        asl
+        asl
+        sta spr_x
+        pla
+@r:     sta spr_y
         stz spr_y+1
-        lda #<testspr
-        sta spr_d
-        lda #>testspr
-        sta spr_d+1
-        jsr add_sprite
+        phx
+        txa
+        jsr add_sprite_id
+        plx
+        inx
+        cpx #SP_COUNT
+        bne @art
         jsr frame_end
         jsr flip
         inc frame
@@ -54,9 +75,3 @@ main:   jsr render_init
 
         .bss
 frame:  .res 1
-
-        .rodata
-testspr:.repeat 10
-        .byte 7, $12,$34,$56,$78,$9a,$bf
-        .endrepeat
-        .byte 0
