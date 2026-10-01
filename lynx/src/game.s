@@ -8,7 +8,7 @@
         .import _lynx_eeread_93c46, _lynx_eewrite_93c46
         .export popax
         .exportzp ptr1
-        .export main, frame, game_state, msg_n, anim, paused, player_x, lives, cap_state, beam_len
+        .export main, frame, game_state, msg_n, anim, paused, player_x, lives, cap_state, beam_len, go_timer
 
         .zeropage
 zp_src:         .res 2                  ; string source

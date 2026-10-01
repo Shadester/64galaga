@@ -480,7 +480,11 @@ st_gameover:
     sta fire_pressed        ; Held fire must be released first
     print msg_press, SCREEN_RAM+14*40+15, 1
 .ifdef HALTOVER
-    jmp *                       ; -DHALTOVER=1: freeze on the game over screen (tests/run.sh)
+    lda #1                      ; -DHALTOVER=1: freeze on the game over screen (tests/run.py)
+    sta paused
+@freeze:
+    jsr show_frame
+    bra @freeze
 .endif
 @rts:
     rts

@@ -7,6 +7,7 @@ deterministic, so the compare allows only a few different pixels). Usage:
     tests/run.py [--update] [case ...]
 """
 import os
+import shutil
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -34,13 +35,14 @@ pause|AUTOPLAY=1 NOFIRE=1 PAUSEAT=700|740
 capture|AUTOPLAY=1 CAPTURE=1|3000
 result|AUTOPLAY=1 FEW=1 DIFF=2|760
 quit|AUTOPLAY=1 QUITAT=700|800
-gameover|AUTOPLAY=1 NOFIRE=1 HALTOVER=1|20000
+gameover|AUTOPLAY=1 NOFIRE=1 LIVES=1 DIEAT=600 HALTOVER=1|1200
 '''
 
 
 def run_case(case):
     name, flags, frames = case
     out = os.path.join(ROOT, 'build', 'test', name)
+    shutil.rmtree(out, ignore_errors=True)               # the Makefile does not see changed flags
     defs = ' '.join(f'-D {f}' for f in flags.split()) + f' -D HALT={frames}'
     subprocess.run(['make', '-C', ROOT, f'BUILD=build/test/{name}', f'CAFLAGS={defs}'], check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
