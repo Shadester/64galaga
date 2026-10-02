@@ -44,7 +44,7 @@ typedef struct {
     int snd, saveReq;
     Alien al[NAL];
 #ifdef RULES_ARCADE   /* the dive scheduler runs on the arcade's 60 Hz clock: 6 arcade frames for every 5 ticks */
-    int clk, af, tmr2, sortie[3], wingm, bombFlags;
+    int clk, af, tmr2, hold, sortie[3], wingm, bombFlags;   /* tmr2: counts down from 120 once in 32 frames (time since the stage began); hold: no bombs after a boss was shot while it dived */
 #endif
     Bullet ps[4], eb[EBN];
 } Game;
