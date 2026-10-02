@@ -60,11 +60,13 @@ The alien art stays the art of the C64 game (`c64/src/art.asm`).
 
 ## Open points
 
-1. **Tick rate.** The arcade runs at 60 Hz, we run at 50 Hz. Options: scale all timers by 5/6, or keep the arcade numbers as ticks
-   (the game plays 17 % slower). Proposed: scale the timers once, in the generator.
-2. **Which arcade difficulty ("rank")**: the model has 4 (default 3). Proposed: rank 3 (the normal setting).
+1. **Tick rate (decided).** All ports run the rules at 50 ticks a second (C64 and Amiga are PAL; Thumby, PICO-8 and Lynx also use 50). The
+   arcade runs at 60 Hz. The generator resamples paths to 50 ticks and converts launch times by 5/6. Timers of the dive scheduler
+   count arcade frames: step 3 runs them on a 60 Hz clock inside the 50 Hz tick, so they stay equal to the model.
+2. **Difficulty rank (decided).** The arcade has 4 settings from easy to hard. We use rank 3, the normal one.
 3. **Quality of the model.** It is built from a disassembly, not from play. Before step 3, play-check the first stages against video.
-4. **Layout of 40 on 320 x 200.** 10 columns of 26 px = 260 px; the rows are 28 px apart; 5 rows = 140 px. The sway needs +-42 px.
-   It fits, but the formation is close to the HUD. To check on a plot.
+4. **Layout of 40 on 320 x 200 (decided in `tools/gen_arcade.py`).** X is scaled by 320 / 224. Y is bent (`warp_y`) so the five rows are
+   28 px apart; paths follow the same bend, so they still end at the slots. The columns are 23 px apart (sprites 24 px): tight. The
+   sway of +-46 px reaches x 345 on the right: step 3 must limit it.
 5. **The data licence.** The tables come from the arcade ROM. You decided to allow this for paths and wave data. The generator and
    the attribution stay in the repo; the ROM and the disassembly do not.
