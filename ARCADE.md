@@ -67,6 +67,6 @@ The alien art stays the art of the C64 game (`c64/src/art.asm`).
 3. **Quality of the model.** It is built from a disassembly, not from play. Before step 3, play-check the first stages against video.
 4. **Layout of 40 on 320 x 200 (decided in `tools/gen_arcade.py`).** X is scaled by 320 / 224. Y is bent (`warp_y`) so the five rows are
    28 px apart; paths follow the same bend, so they still end at the slots. The columns are 23 px apart (sprites 24 px): tight. The
-   sway of +-46 px reaches x 345 on the right: step 3 must limit it.
+   existing sway of +-42 px fits (x 27 .. 341 of 24 .. 343).
 5. **The data licence.** The tables come from the arcade ROM. You decided to allow this for paths and wave data. The generator and
    the attribution stay in the repo; the ROM and the disassembly do not.

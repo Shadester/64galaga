@@ -4,7 +4,11 @@
 #ifndef GAME_H
 #define GAME_H
 
+#ifdef RULES_ARCADE   /* the arcade rules: 40 enemies, see ../ARCADE.md */
+#define NAL 40
+#else
 #define NAL 32
+#endif
 #define TICK_HZ 50
 
 enum { S_TITLE, S_INTRO, S_PLAY, S_DYING, S_GAMEOVER, S_CAPTURED, S_RESULT, S_READY };

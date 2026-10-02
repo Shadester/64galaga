@@ -8,9 +8,15 @@
 #define MIRROR_X 344
 enum { P_A, P_B, P_C, P_D };
 typedef struct { int sx, sy, n; signed char dx[PMAX], dy[PMAX]; } Path;
-#ifdef GAME_PATHS_TABLE   /* no floating point (Amiga): the same paths as a table, made by amiga/tools/gen_paths.py */
+#ifdef RULES_ARCADE   /* paths, slots and wave lists of the arcade, made by tools/gen_arcade.py */
+#include "arcade_data.h"
+#define PATH_LEN(i) (arc_path[i].n)
+static void paths_init(void) {}
+#elif defined(GAME_PATHS_TABLE)   /* no floating point (Amiga): the same paths as a table, made by amiga/tools/gen_paths.py */
 #include GAME_PATHS_TABLE   /* defines paths[] and an empty paths_init() */
+#define PATH_LEN(i) (paths[i].n)
 #else
+#define PATH_LEN(i) (paths[i].n)
 static Path paths[4];
 static int paths_ready;
 
@@ -65,7 +71,10 @@ static void paths_init(void) {
 #endif
 
 static const int bossX[4] = {145, 171, 197, 223};
-#ifdef GAME_PATHS_TABLE   /* a 68000 divides slowly, and every alien asks for its slot in every tick: a table (made by amiga/tools/gen_paths.py) */
+#ifdef RULES_ARCADE
+int slot_x(int i) { return arc_slot[i][0]; }
+int slot_y(int i) { return arc_slot[i][1]; }
+#elif defined(GAME_PATHS_TABLE)   /* a 68000 divides slowly, and every alien asks for its slot in every tick: a table (made by amiga/tools/gen_paths.py) */
 int slot_x(int i) { return slot_xy[i][0]; }
 int slot_y(int i) { return slot_xy[i][1]; }
 #else
@@ -73,6 +82,7 @@ int slot_x(int i) { return i < 4 ? bossX[i] : 106 + 26 * ((i - 4) % 7); }
 int slot_y(int i) { return i < 4 ? 72 : 100 + 28 * ((i - 4) / 7); }
 #endif
 
+#ifndef RULES_ARCADE
 /* Fly-in: launch delay (frames) and path per slot. Bit 4 of the path code = mirrored. */
 static const unsigned char entryDelay[NAL] = {
     40,44,48,52, 0,4,8,12, 56,60,64,68, 80,84,88,92,
@@ -85,12 +95,16 @@ static void entry_path(int i, int *path, int *mir) {
     else if (w == 3) { *path = P_D; *mir = 1; }
     else { *path = P_C; *mir = !((i - 24) & 1); }
 }
+#endif
 
 /* Difficulty tables, index diff-1. */
 static const int diveInterval[8] = {130, 115, 100, 85, 70, 58, 48, 34};
 static const int diveMax[8] = {1, 1, 2, 2, 3, 3, 4, 5};
 static const int diveShots[8] = {1, 1, 1, 2, 2, 2, 2, 2};
 
+#ifdef RULES_ARCADE   /* the arcade repeats stages 23..26 (its tables stop there) */
+static int arc_stage_no(int stage) { if (stage > ARC_NSTAGE) stage = ARC_NSTAGE - 3 + ((stage - (ARC_NSTAGE - 3)) & 3); return stage - 1; }
+#endif
 static int prand(void) { return rand() >> 4; }
 
 static void add_score(Game *g, int n) {
@@ -107,7 +121,12 @@ static void add_score(Game *g, int n) {
 static void setup_stage(Game *g) {
     int i;
     paths_init();
+#ifdef RULES_ARCADE
+    int row = arc_stage[arc_stage_no(g->stage)][0];
+    g->challenge = arc_row[row].challenge;
+#else
     g->challenge = (g->stage & 3) == 3;
+#endif
     g->chalVal = 100 * ((g->stage + 1) / 4); if (g->chalVal > 900) g->chalVal = 900;
     g->chalHits = g->chalTimer = g->shots = g->hits = 0;
     g->formDx = 0; g->formDir = 3; g->formTimer = 0; g->diveTimer = diveInterval[g->diff - 1];
@@ -116,13 +135,25 @@ static void setup_stage(Game *g) {
     for (i = 0; i < NAL; ++i) {
         Alien *a = &g->al[i];
         memset(a, 0, sizeof *a);
+#ifdef RULES_ARCADE
+        a->type = i < 4 ? T_BOSS : i < 20 ? T_BUTTERFLY : T_BEE;
+#else
         a->type = g->challenge ? (i >> 3 == 1 ? T_BUTTERFLY : i >> 3 == 3 ? T_BOSS : T_BEE)
                                : (i < 4 ? T_BOSS : i < 18 ? T_BUTTERFLY : T_BEE);
+#endif
         a->hp = !g->challenge && a->type == T_BOSS ? 2 : 1;
         a->st = A_ENTER; a->y = 255;
+#ifndef RULES_ARCADE
         if (g->challenge) { a->path = (i >> 3) & 1 ? P_B : P_A; a->mir = (i >> 3) >= 2; }
         else { entry_path(i, &a->path, &a->mir); a->dly = 2 * entryDelay[i]; }
+#endif
     }
+#ifdef RULES_ARCADE   /* the launch list of the stage's row: when each slot starts, and on which path (slot -1: an extra enemy, not used yet) */
+    for (i = 0; i < arc_row[row].n; ++i) {
+        const short *l = arc_row[row].l[i];
+        if (l[1] >= 0) { g->al[l[1]].dly = l[0]; g->al[l[1]].path = l[2]; }
+    }
+#endif
 }
 static void start_stage(Game *g) {
     setup_stage(g);
@@ -202,6 +233,16 @@ static void alien_hit(Game *g, int i) {
     add_score(g, pts);
 }
 
+#ifdef RULES_ARCADE   /* mirrored paths are separate paths: no mirror here */
+static void path_step(Alien *a) {
+    const signed char *d = arc_path[a->path].d + 2 * a->pstep;
+    a->x += d[0]; a->y += d[1];
+    ++a->pstep;
+}
+static void path_launch(Alien *a) {
+    a->ent = 1; a->pstep = 0; a->x = arc_path[a->path].sx; a->y = arc_path[a->path].sy;
+}
+#else
 static void path_step(Alien *a) {
     const Path *p = &paths[a->path];
     a->x += a->mir ? -p->dx[a->pstep] : p->dx[a->pstep];
@@ -212,6 +253,7 @@ static void path_launch(Alien *a) {
     const Path *p = &paths[a->path];
     a->ent = 1; a->pstep = 0; a->x = a->mir ? MIRROR_X - p->sx : p->sx; a->y = p->sy;
 }
+#endif
 static void update_formation(Game *g) {
     int i, n = 0;
     for (i = 0; i < NAL; ++i) n += g->al[i].st == A_ENTER;
@@ -229,7 +271,7 @@ static void update_entry(Game *g) {
         Alien *a = &g->al[i];
         if (a->st != A_ENTER) continue;
         if (a->ent == 0) { if (--a->dly <= 0) path_launch(a); }
-        else if (a->ent == 1) { if (a->pstep >= paths[a->path].n) a->ent = 2; else path_step(a); }
+        else if (a->ent == 1) { if (a->pstep >= PATH_LEN(a->path)) a->ent = 2; else path_step(a); }
         else {
             int tx = slot_x(i) + g->formDx, ty = slot_y(i);
             a->x += a->x < tx ? 2 : a->x > tx ? -2 : 0;
@@ -244,8 +286,12 @@ static void update_challenge(Game *g) {
     for (i = 0; i < NAL; ++i) {
         Alien *a = &g->al[i];
         if (a->st != A_ENTER) continue;
+#ifdef RULES_ARCADE
+        if (a->ent == 0) { if (g->chalTimer >= a->dly) path_launch(a); }
+#else
         if (a->ent == 0) { if (g->chalTimer >= (i >> 3) * 55 + (i & 7) * 6) path_launch(a); }
-        else if (a->pstep >= paths[a->path].n) a->st = A_DEAD;
+#endif
+        else if (a->pstep >= PATH_LEN(a->path)) a->st = A_DEAD;
         else path_step(a);
     }
 }
@@ -307,15 +353,27 @@ static void select_dive(Game *g) {
     if (!g->cap && !g->dual && g->al[1].st == A_FORM) { start_dive(g, 1, 1, 20); return; }
 #endif
     if (!g->cap && !g->dual && (prand() & 1)) { i = prand() & 3; if (g->al[i].st == A_FORM) pick = i; }
-    for (tries = 0; pick < 0 && tries < 8; ++tries) { i = prand() & 31; if (g->al[i].st == A_FORM) pick = i; }
+    for (tries = 0; pick < 0 && tries < 8; ++tries) {
+#ifdef RULES_ARCADE
+        i = prand() % NAL;
+#else
+        i = prand() & 31;
+#endif
+        if (g->al[i].st == A_FORM) pick = i;
+    }
     if (pick < 0) return;
     if (g->al[pick].type == T_BOSS && !g->cap && !g->dual) { start_dive(g, pick, 1, 20); return; }
     start_dive(g, pick, 0, 20);
     if (g->al[pick].type == T_BOSS && (g->cap || g->dual)) {
         int k;
         for (k = 0; k < 2; ++k) {
-            Alien *e = &g->al[5 + pick + k];
-            if (e->st == A_FORM) { start_dive(g, 5 + pick + k, 0, k ? 32 : 26); e->esc = pick + 1; }
+#ifdef RULES_ARCADE
+            int ei = 4 + 2 * pick + k;
+#else
+            int ei = 5 + pick + k;
+#endif
+            Alien *e = &g->al[ei];
+            if (e->st == A_FORM) { start_dive(g, ei, 0, k ? 32 : 26); e->esc = pick + 1; }
         }
     }
 }
