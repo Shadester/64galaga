@@ -130,6 +130,9 @@ static void setup_stage(Game *g) {
     g->chalVal = 100 * ((g->stage + 1) / 4); if (g->chalVal > 900) g->chalVal = 900;
     g->chalHits = g->chalTimer = g->shots = g->hits = 0;
     g->formDx = 0; g->formDir = 3; g->formTimer = 0; g->diveTimer = diveInterval[g->diff - 1];
+#ifdef RULES_ARCADE
+    g->clk = g->af = g->wingm = g->bombFlags = 0; g->tmr2 = 120; g->sortie[0] = 22; g->sortie[1] = g->sortie[2] = 2;
+#endif
     g->cap = C_NONE; g->beamLen = 0;
     memset(g->ps, 0, sizeof g->ps); memset(g->eb, 0, sizeof g->eb);
     for (i = 0; i < NAL; ++i) {
@@ -298,9 +301,15 @@ static void update_challenge(Game *g) {
 
 static void spawn_ebullet(Game *g, const Alien *a) {
     int i, d = g->px - a->x;
-    for (i = 0; i < 3; ++i) if (!g->eb[i].act) {
+    for (i = 0; i < EBN; ++i) if (!g->eb[i].act) {
         g->eb[i].act = 1; g->eb[i].x = a->x; g->eb[i].y = a->y + 8;
+#ifdef RULES_ARCADE   /* aimed at the ship's place now: the bomb needs (py - y) / 2.5 ticks to fall, so it moves dx / ticks a tick, in 16ths */
+        g->eb[i].ax = 0;
+        g->eb[i].dx = 16 * d / ((g->py - g->eb[i].y) * 2 / 5 + 1);
+        return;
+#else
         g->eb[i].dx = abs(d) < 16 ? 0 : d > 0 ? 1 : -1; return;
+#endif
     }
 }
 static void start_dive(Game *g, int i, int capture, int peel) {
@@ -309,8 +318,17 @@ static void start_dive(Game *g, int i, int capture, int peel) {
     a->dir = capture ? (a->x < g->px ? 1 : -1) : (a->x >= 184 ? 1 : -1);
     g->snd |= SND_SWOOP;
     if (capture) { g->cap = C_DIVING; g->capBoss = i; }
+#ifdef RULES_ARCADE   /* a dive follows the arcade path of its kind from its slot: a boss and an escort label 2, a butterfly 1, a bee 0 */
+    a->pstep = 0; a->bflags = g->bombFlags; a->btmr = 20;
+    a->dpath = capture ? -1 : arc_dive[a->esc || a->type == T_BOSS ? 2 : a->type == T_BUTTERFLY ? 1 : 0][arc_slot_row[i]][arc_slot_side[i]];
+#endif
 }
+#ifdef RULES_ARCADE
+static void dive_step(Game *g, int i);
+static void dive_step_old(Game *g, int i) {
+#else
 static void dive_step(Game *g, int i) {
+#endif
     Alien *a = &g->al[i];
     int dy = g->diff >= 5 ? 3 : 2;
     if (a->timer > 0) { --a->timer; a->x += 2 * a->dir; a->y += 1; return; }
@@ -327,6 +345,25 @@ static void dive_step(Game *g, int i) {
         a->st = A_BEAM; g->cap = C_BEAM; g->beamLen = g->beamAcc = 0; g->beamTimer = 180;
     } else if (a->y >= 244) { a->st = A_RETURN; a->y = 0; a->capdive = 0; }
 }
+#ifdef RULES_ARCADE
+static void dive_step(Game *g, int i) {
+    Alien *a = &g->al[i];
+    if (a->capdive) { dive_step_old(g, i); return; }
+    if (a->timer > 0) { --a->timer; a->x = slot_x(i) + g->formDx; a->y = slot_y(i); return; }   /* an escort waits for its boss */
+    if (a->dpath >= 0 && a->pstep < arc_dive_path[a->dpath].n) {
+        const signed char *d = arc_dive_path[a->dpath].d + 2 * a->pstep;
+        a->x += d[0]; a->y += d[1];
+    } else {   /* the end of the arcade path of a butterfly (it aims at the ship) */
+        a->y += 3;
+        if (g->frame & 1) a->x += a->x < g->px ? 1 : a->x > g->px ? -1 : 0;
+    }
+    ++a->pstep;
+    if (a->y >= 244) {   /* gone below the screen: back from the top when the arcade dive would end (the way back takes slot_y / 2 ticks) */
+        int total = a->dpath >= 0 ? arc_dive_path[a->dpath].total : 220;
+        a->st = A_RETURN; a->y = 0; a->timer = total - a->pstep - slot_y(i) / 2; if (a->timer < 0) a->timer = 0;
+    }
+}
+#endif
 static void update_aliens(Game *g) {
     int i;
     for (i = 0; i < NAL; ++i) {
@@ -337,11 +374,74 @@ static void update_aliens(Game *g) {
         case A_DIVE: dive_step(g, i); break;
         case A_RETURN:
             a->x = slot_x(i) + g->formDx;
+#ifdef RULES_ARCADE
+            if (a->timer > 0) { --a->timer; break; }
+#endif
             if ((a->y += 2) >= slot_y(i)) { a->y = slot_y(i); a->st = A_FORM; a->esc = 0; }
             break;
         }
     }
 }
+#ifdef RULES_ARCADE
+/* The arcade's dive scheduler (f_0857, f_1B65 of the model, see ARCADE.md). One call is one arcade frame. */
+static int arc_standby(Game *g, int from, int to) {
+    int i;
+    for (i = from; i < to; ++i) if (g->al[i].st == A_FORM) return i;
+    return -1;
+}
+static void arc_sortie_boss(Game *g) {
+    int b = arc_standby(g, 0, 4), k, e, best[2] = {-1, -1}, score[2] = {9999, 9999};
+    if (b < 0) return;
+    if (!g->cap && !g->dual && !(++g->wingm & 1)) { start_dive(g, b, 1, 20); return; }
+    for (e = 4; e < 20; ++e) if (g->al[e].st == A_FORM) {   /* the two butterflies nearest under the boss */
+        int sc = abs(slot_x(e) - slot_x(b)) + (slot_y(e) - slot_y(4)) / 2;
+        if (sc < score[0]) { score[1] = score[0]; best[1] = best[0]; score[0] = sc; best[0] = e; }
+        else if (sc < score[1]) { score[1] = sc; best[1] = e; }
+    }
+    for (k = 0; k < 2; ++k) if (best[k] >= 0) g->al[best[k]].esc = b + 1;
+    start_dive(g, b, 0, 20);
+    for (k = 0; k < 2; ++k) if (best[k] >= 0) start_dive(g, best[k], 0, k ? 32 : 26);
+}
+static void arc_frame(Game *g) {
+    const unsigned char *p = arc_stage[arc_stage_no(g->stage)] + 1;
+    int i, n = 0, flying = 0, tens, idx, reload[3], maxb = p[4], cont;
+    ++g->af;
+    if (!((g->af >> 5) & 1) && g->tmr2 > 0) --g->tmr2;
+    for (i = 0; i < NAL; ++i) {
+        int st = g->al[i].st;
+        n += st != A_DEAD && st != A_EXPLODE;
+        flying += st == A_DIVE || st == A_RETURN || st == A_BEAM;
+    }
+    tens = n / 10;
+    if (g->tmr2 < 60) maxb = p[5];
+    g->bombFlags = arc_bomb_tab[4 * p[0] + tens];
+    cont = n < p[7];
+    idx = (g->tmr2 < 40) + (g->tmr2 == 0);
+    reload[0] = cont ? 2 : arc_bomb_tab[32 + 4 * p[1] + tens];
+    reload[1] = cont ? 2 : arc_red_reload[3 * p[2] + idx];
+    reload[2] = cont ? 2 : arc_bee_reload[3 * p[3] + idx];
+    for (i = 0; i < NAL; ++i) {   /* bombs: a diver drops one at every set bit of its flags, every 20 frames, high on the screen */
+        Alien *a = &g->al[i];
+        if (a->st != A_DIVE || a->capdive) continue;
+        if (--a->btmr > 0) continue;
+        a->btmr = 20;
+        if ((a->bflags & 1) && a->y <= 213) spawn_ebullet(g, a);
+        a->bflags >>= 1;
+    }
+    if (g->af & 15) return;
+    for (i = 0; i < 3; ++i) if (--g->sortie[i] == 0) break;
+    if (i == 3) return;
+    if (flying >= maxb) { ++g->sortie[i]; return; }
+    g->sortie[i] = reload[i];
+    if (i == 2) { if ((n = arc_standby(g, 20, 40)) >= 0) start_dive(g, n, 0, 0); }
+    else if (i == 1) { if ((n = arc_standby(g, 4, 20)) >= 0) start_dive(g, n, 0, 0); }
+    else arc_sortie_boss(g);
+}
+static void select_dive(Game *g) {
+    if (g->entering || g->challenge) return;
+    for (g->clk += 6; g->clk >= 5; g->clk -= 5) arc_frame(g);
+}
+#else
 static void select_dive(Game *g) {
     int i, tries, away = 0, pick = -1;
     if (g->entering || g->challenge) return;
@@ -377,11 +477,17 @@ static void select_dive(Game *g) {
         }
     }
 }
+#endif
 static void update_ebullets(Game *g) {
     int i;
-    for (i = 0; i < 3; ++i) if (g->eb[i].act) {
+    for (i = 0; i < EBN; ++i) if (g->eb[i].act) {
+#ifdef RULES_ARCADE
+        g->eb[i].y += 2 + (g->frame & 1);
+        g->eb[i].ax += g->eb[i].dx; g->eb[i].x += g->eb[i].ax >> 4; g->eb[i].ax &= 15;
+#else
         g->eb[i].y += 3;
         if (g->frame & 1) g->eb[i].x += g->eb[i].dx;
+#endif
         if (g->eb[i].y >= 250) g->eb[i].act = 0;
     }
 }
@@ -396,7 +502,7 @@ static void update_collisions(Game *g) {
         }
     }
     if (g->state != S_PLAY || g->invuln) return;
-    for (i = 0; i < 3 && g->state == S_PLAY; ++i) if (g->eb[i].act && g->eb[i].y >= 227 && g->eb[i].y <= 240) {
+    for (i = 0; i < EBN && g->state == S_PLAY; ++i) if (g->eb[i].act && g->eb[i].y >= 227 && g->eb[i].y <= 240) {
         for (j = 0; j < 1 + g->dual; ++j) {
             int sx = g->px + 16 * j;
             if (g->eb[i].x >= sx - 6 && g->eb[i].x <= sx + 7) { g->eb[i].act = 0; player_hit(g, j); break; }

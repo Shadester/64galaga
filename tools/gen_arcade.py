@@ -103,6 +103,37 @@ def steps(pts):
     return r[0], [(r[k + 1][0] - r[k][0], r[k + 1][1] - r[k][1]) for k in range(len(r) - 1)]
 
 
+# Dive paths from the formation: label, arcade path name, the rows of the formation that use it (0 boss, 1..2 butterfly, 3..4 bee).
+# A butterfly dive is the same as the model's until frame 105; then it aims at the ship (so the ship's position decides): we stop there
+# and the game steers. The bee and boss dives do not depend on the ship.
+DIVES = [('db_flv_atk_yllw', (3, 4), None), ('db_flv_atk_red', (1, 2), 105), ('db_flv_0411', (0, 1, 2), None)]
+ROW_Y = [76, 92, 104, 116, 128]
+OFF_Y = 255                     # our y where a diver has left the screen
+
+
+def dive_tracks():
+    f = gp.Formation()
+    exemplar = {}
+    for o in SLOT_OBJ:
+        exemplar.setdefault((ROW_Y.index(f.origin_xy(o)[1]), (o >> 1) & 1, o < 0x30 or o >= 0x40, o), o)
+    out = {}
+    for li, (name, rows, cut) in enumerate(DIVES):
+        for row in rows:
+            for side in (0, 1):
+                obj = next(o for (r, sd, _, o) in sorted(exemplar) if r == row and sd == side and
+                           ((name != 'db_flv_atk_yllw') or o < 0x30) and ((name != 'db_flv_atk_red') or o >= 0x40) and
+                           ((name != 'db_flv_0411') or o >= 0x30))
+                m = gd.gp.simulate_dive(obj, name, fighter_x=0x7A, breathe=False)
+                tr = m.tracks[obj]
+                pts = resample(tr, cut or len(tr))
+                for k, (x, y) in enumerate(pts):
+                    if y >= OFF_Y:
+                        pts = pts[:k + 1]
+                        break
+                out[(li, row, side)] = (steps(pts)[1], round(len(tr) * TICK))   # the steps, and the ticks of the whole dive incl. the way back
+    return out
+
+
 def main():
     rows = {}                      # (kind, row offset) -> first stage that uses it
     for st in range(1, STAGES + 1):
@@ -154,6 +185,24 @@ def main():
         p = gp.stage_parms(st, RANK)
         out.append('    {%d, %s},' % (row_ids[(k, off)], ','.join(str(v) for v in p)))
     out += ['};', '']
+    dv = dive_tracks()
+    keys = sorted(dv)
+    for i, k in enumerate(keys):
+        out.append('static const signed char arc_d%d[] = {%s};' % (i, ','.join('%d,%d' % d for d in dv[k][0])))
+    out.append('/* dive paths: steps per tick from the slot, in our coordinates; label (0 bee, 1 butterfly: stops where it aims, 2 boss and wingmen) */')
+    out.append('static const struct { short n, total; const signed char *d; } arc_dive_path[] = {')
+    out += ['    {%d, %d, arc_d%d},' % (len(dv[k][0]), dv[k][1], i) for i, k in enumerate(keys)]
+    out += ['};']
+    out.append('/* arc_dive[label][row][side]: index in arc_dive_path, or -1 */')
+    out.append('static const signed char arc_dive[3][5][2] = {')
+    for li in range(3):
+        out.append('    {%s},' % ','.join('{%d,%d}' % tuple(keys.index((li, r, sd)) if (li, r, sd) in dv else -1 for sd in (0, 1)) for r in range(5)))
+    out += ['};', '']
+    out.append('/* of each slot: its row (0 boss .. 4 bee) and side (0 left, 1 right) */')
+    f = gp.Formation()
+    out.append('static const unsigned char arc_slot_row[40] = {%s};' % ','.join(str(ROW_Y.index(f.origin_xy(o)[1])) for o in SLOT_OBJ))
+    out.append('static const unsigned char arc_slot_side[40] = {%s};' % ','.join(str((o >> 1) & 1) for o in SLOT_OBJ))
+    out.append('')
     out.append('/* sortie timer reloads (arcade counts of 16 frames) and bomb flags, as in the arcade tables */')
     for name, tab in (('arc_red_reload', gd.D_08CD), ('arc_bee_reload', gd.D_08EB), ('arc_bomb_tab', gd.D_0909)):
         out.append('static const unsigned char %s[] = {%s};' % (name, ','.join(str(v) for v in tab)))

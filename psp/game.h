@@ -6,8 +6,10 @@
 
 #ifdef RULES_ARCADE   /* the arcade rules: 40 enemies, see ../ARCADE.md */
 #define NAL 40
+#define EBN 8   /* enemy bombs on the screen */
 #else
 #define NAL 32
+#define EBN 3
 #endif
 #define TICK_HZ 50
 
@@ -25,8 +27,11 @@ enum {
 typedef struct {
     int x, y, st, type, hp, timer, dir, esc, capdive, fired;
     int path, pstep, mir, ent, dly;   /* ent: 0 waiting, 1 on path, 2 homing */
+#ifdef RULES_ARCADE
+    int dpath, bflags, btmr;   /* dive path (-1: free), bomb flags and the time to the next one (arcade frames) */
+#endif
 } Alien;
-typedef struct { int x, y, act, dx; } Bullet;
+typedef struct { int x, y, act, dx; int ax; } Bullet;   /* ax: the sideways speed of a bomb is dx / 16 pixel a tick, ax the rest */
 typedef struct { int left, right, fire, pause, quit; } Input;  /* pause/quit are edge pulses */
 
 typedef struct {
@@ -38,7 +43,10 @@ typedef struct {
     int cap, capBoss, beamLen, beamAcc, beamTimer, rx, ry;
     int snd, saveReq;
     Alien al[NAL];
-    Bullet ps[4], eb[3];
+#ifdef RULES_ARCADE   /* the dive scheduler runs on the arcade's 60 Hz clock: 6 arcade frames for every 5 ticks */
+    int clk, af, tmr2, sortie[3], wingm, bombFlags;
+#endif
+    Bullet ps[4], eb[EBN];
 } Game;
 
 void game_init(Game *g, int hiScore);
