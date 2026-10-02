@@ -3,15 +3,16 @@
 </p>
 
 <p align="center">
-  <b>One arcade shooter, five machines.</b><br>
-  Galaga clones for the Commodore 64, the PlayStation Portable, the Atari Lynx, the Thumby Color and PICO-8, written from the same game design.
+  <b>One arcade shooter, six machines.</b><br>
+  Galaga clones for the Commodore 64, the PlayStation Portable, the Atari Lynx, the Thumby Color, PICO-8 and the Commodore Amiga, written from the same game design.
 </p>
 
 <p align="center">
   <b>Play in your browser:</b>
   <a href="https://vc64web.github.io/#openROMS=true#https://raw.githubusercontent.com/Shadester/galagas/master/c64/docs/galaga.prg"><b>▶ C64</b></a> ·
   <a href="https://shadester.github.io/galagas/pico8/"><b>▶ PICO-8</b></a> ·
-  <a href="https://shadester.github.io/galagas/lynx/"><b>▶ Atari Lynx</b></a>
+  <a href="https://shadester.github.io/galagas/lynx/"><b>▶ Atari Lynx</b></a> ·
+  <a href="https://vamigaweb.github.io/#AROS=true#https://raw.githubusercontent.com/Shadester/galagas/master/amiga/docs/galaga.adz"><b>▶ Amiga</b></a>
 </p>
 
 <table>
@@ -59,9 +60,18 @@
       the C original in a test.
     </td>
   </tr>
+  <tr>
+    <td width="360"><a href="amiga/"><img src="amiga/docs/gameplay.gif" width="340" alt="Commodore Amiga"></a></td>
+    <td>
+      <h3><a href="amiga/">Commodore Amiga</a></h3>
+      <i>C and 68000 assembly (m68k-elf-gcc)</i><br><br>
+      A bootable floppy that takes over the bare A500: blitter sprites, copper, Paula sound. The rules are
+      <code>psp/game.c</code> itself, built without floats. A test runs it on the 68000 next to the Mac build.
+    </td>
+  </tr>
 </table>
 
 All of them have the same game: 32 aliens that fly in and dive, bosses that take two hits and capture your ship, a dual fighter when you rescue it, challenge stages with a perfect-clear bonus, and difficulty that rises every stage.
 
-The C64 source is the reference for how the game must behave. The PSP, Lynx, Thumby Color and PICO-8 games follow its rules.
+The C64 source is the reference for how the game must behave. The PSP, Lynx, Thumby Color, PICO-8 and Amiga games follow its rules.
 Each directory has its own README with build instructions.

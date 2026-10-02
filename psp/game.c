@@ -8,6 +8,9 @@
 #define MIRROR_X 344
 enum { P_A, P_B, P_C, P_D };
 typedef struct { int sx, sy, n; signed char dx[PMAX], dy[PMAX]; } Path;
+#ifdef GAME_PATHS_TABLE   /* no floating point (Amiga): the same paths as a table, made by amiga/tools/gen_paths.py */
+#include GAME_PATHS_TABLE   /* defines paths[] and an empty paths_init() */
+#else
 static Path paths[4];
 static int paths_ready;
 
@@ -59,10 +62,16 @@ static void paths_init(void) {
     build_path(&paths[P_D], ptD, sizeof ptD / sizeof *ptD);
     paths_ready = 1;
 }
+#endif
 
 static const int bossX[4] = {145, 171, 197, 223};
+#ifdef GAME_PATHS_TABLE   /* a 68000 divides slowly, and every alien asks for its slot in every tick: a table (made by amiga/tools/gen_paths.py) */
+int slot_x(int i) { return slot_xy[i][0]; }
+int slot_y(int i) { return slot_xy[i][1]; }
+#else
 int slot_x(int i) { return i < 4 ? bossX[i] : 106 + 26 * ((i - 4) % 7); }
 int slot_y(int i) { return i < 4 ? 72 : 100 + 28 * ((i - 4) / 7); }
+#endif
 
 /* Fly-in: launch delay (frames) and path per slot. Bit 4 of the path code = mirrored. */
 static const unsigned char entryDelay[NAL] = {
