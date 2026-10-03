@@ -4,6 +4,10 @@
 #ifndef GAME_H
 #define GAME_H
 
+/* Two sets of rules: the arcade's (the default, see ../ARCADE.md) and the C64 game's (-DRULES_C64: 32 enemies, our own fly-in and dives). */
+#ifndef RULES_C64
+#define RULES_ARCADE
+#endif
 #ifdef RULES_ARCADE   /* the arcade rules: 40 enemies, see ../ARCADE.md */
 #define NAL 40
 #define EBN 8   /* enemy bombs on the screen */

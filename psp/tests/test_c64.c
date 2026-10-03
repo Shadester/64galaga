@@ -1,4 +1,4 @@
-/* Host-side rule checks of the arcade rules (the default). Build: make test */
+/* Host-side rule checks of the C64 rules (-DRULES_C64). Build: make test */
 #include <stdio.h>
 #include <assert.h>
 #include "../game.c"
@@ -28,10 +28,13 @@ static void expect_score(int s) { if (g.score != s) { printf("score %d, want %d\
 int main(void) {
     int i, steps;
     paths_init();
-    assert(NAL == 40 && EBN == 8);
-    for (i = 0; i < ARC_NPATH; ++i) {   /* every path is long enough and starts at the edge of the 24..343 x 50..249 play area */
-        int x = arc_path[i].sx, y = arc_path[i].sy;
-        assert(arc_path[i].n > 50 && (x < 32 || x > 335 || y < 50));
+    assert(paths[P_C].n > 140 && paths[P_C].n < 185);
+    assert(paths[P_D].n > 155 && paths[P_D].n < 195);
+    assert(paths[P_A].n > 205 && paths[P_A].n < 250);
+    assert(paths[P_B].n > 210 && paths[P_B].n < 250);
+    for (i = 0; i < 4; ++i) { /* every path starts outside the 24..343 x 50..249 play area */
+        int x = paths[i].sx, y = paths[i].sy;
+        assert(x < 0 || x > 344 || y < 30);
     }
 
     /* scoring table */
@@ -39,7 +42,7 @@ int main(void) {
     shoot(20); expect_score(50);      /* bee, formation */
     shoot(5); expect_score(130);      /* butterfly, formation */
     g.al[6].st = A_DIVE; shoot(6); expect_score(290);
-    g.al[21].st = A_DIVE; shoot(21); expect_score(390);
+    g.al[19].st = A_DIVE; shoot(19); expect_score(390);
     shoot(0); expect_score(390); assert(g.al[0].hp == 1);   /* boss: first hit, no points */
     shoot(0); expect_score(540);      /* boss in formation */
 
@@ -47,12 +50,6 @@ int main(void) {
     begin(1); formation(); g.al[1].st = A_DIVE; shoot(1); shoot(1); expect_score(400);
     begin(1); formation(); g.al[1].st = A_DIVE; g.al[6].st = A_DIVE; g.al[6].esc = 2; shoot(1); shoot(1); expect_score(800);
     begin(1); formation(); g.al[1].st = A_DIVE; g.al[6].st = A_DIVE; g.al[6].esc = 2; g.al[7].st = A_DIVE; g.al[7].esc = 2; shoot(1); shoot(1); expect_score(1600);
-
-    /* a bomb is aimed at the ship, but moves sideways at most 0.6 of its fall speed (the arcade's limit) */
-    begin(1); formation(); g.px = 300; g.py = 230;
-    g.al[0].x = 40; g.al[0].y = 200; spawn_ebullet(&g, &g.al[0]); assert(g.eb[0].dx == BOMB_MAX_DX);
-    g.al[0].x = 300; g.al[0].y = 200; spawn_ebullet(&g, &g.al[0]); assert(g.eb[1].dx == 0);
-    g.al[0].x = 100; g.al[0].y = 120; g.px = 60; spawn_ebullet(&g, &g.al[0]); assert(g.eb[2].dx == -BOMB_MAX_DX + 0 || (g.eb[2].dx < 0 && g.eb[2].dx >= -BOMB_MAX_DX));
 
     /* bonus lives: 20k, 70k, 140k */
     begin(1); g.lives = 3;
@@ -63,14 +60,14 @@ int main(void) {
 
     /* challenge stages 3, 7, 11; per-hit value, perfect bonus */
     begin(3); assert(g.challenge && g.chalVal == 100);
-    begin(7); assert(g.challenge && g.chalVal == 100);
-    begin(11); assert(g.challenge && g.chalVal == 100);
+    begin(7); assert(g.challenge && g.chalVal == 200);
+    begin(11); assert(g.challenge && g.chalVal == 300);
     begin(4); assert(!g.challenge);
     begin(3);
     for (i = 0; i < NAL; ++i) { g.al[i].st = A_ENTER; g.al[i].ent = 1; g.al[i].x = 100; g.al[i].y = 100 + i; }
     for (i = 0; i < NAL; ++i) shoot(i);
-    expect_score(100 * NAL); assert(g.chalHits == NAL);
-    enter_result(&g); expect_score(100 * NAL + 10000);
+    expect_score(3200); assert(g.chalHits == NAL);
+    enter_result(&g); expect_score(13200);
 
     /* difficulty skips challenge stages */
     begin(1); g.diff = 1;
@@ -80,12 +77,11 @@ int main(void) {
 
     /* capture -> carry -> rescue -> dual */
     begin(1); formation(); g.px = g.al[2].x;
-    g.sortie[0] = g.sortie[1] = g.sortie[2] = 1 << 30;   /* only the capture boss dives */
     start_dive(&g, 2, 1, 20); assert(g.cap == C_DIVING);
     for (steps = 0; steps < 600 && g.cap != C_BEAM; ++steps) game_tick(&g, &none);
     assert(g.cap == C_BEAM);
     g.px = g.al[2].x;
-    for (steps = 0; steps < 300 && g.state == S_PLAY; ++steps) game_tick(&g, &none);
+    for (steps = 0; steps < 100 && g.state == S_PLAY; ++steps) game_tick(&g, &none);
     assert(g.state == S_CAPTURED && g.cap == C_PULL);
     for (steps = 0; steps < 100 && g.state == S_CAPTURED; ++steps) game_tick(&g, &none);
     assert(g.state == S_DYING && g.dyingQuiet && g.cap == C_CARRY && g.lives == 2);

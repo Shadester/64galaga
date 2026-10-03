@@ -352,6 +352,12 @@ static void update_challenge(Game *g) {
     }
 }
 
+#ifdef RULES_ARCADE   /* the arcade limits the sideways speed of a bomb to 0.6 of its fall speed (2.5 px a tick): 0.6 x 2.5 x 16 */
+#define BOMB_MAX_DX 24
+/* A diver drops no bombs below this line. In the arcade it is 97 of the 288 screen lines above the ship (a third of the screen),
+ * so a bomb always falls far: here 67 of 200 lines. */
+#define BOMB_LOW_Y 163
+#endif
 static void spawn_ebullet(Game *g, const Alien *a) {
     int i, d = g->px - a->x;
     for (i = 0; i < EBN; ++i) if (!g->eb[i].act) {
@@ -359,6 +365,8 @@ static void spawn_ebullet(Game *g, const Alien *a) {
 #ifdef RULES_ARCADE   /* aimed at the ship's place now: the bomb needs (py - y) / 2.5 ticks to fall, so it moves dx / ticks a tick, in 16ths */
         g->eb[i].ax = 0;
         g->eb[i].dx = 16 * d / ((g->py - g->eb[i].y) * 2 / 5 + 1);
+        if (g->eb[i].dx > BOMB_MAX_DX) g->eb[i].dx = BOMB_MAX_DX;
+        if (g->eb[i].dx < -BOMB_MAX_DX) g->eb[i].dx = -BOMB_MAX_DX;
         return;
 #else
         g->eb[i].dx = abs(d) < 16 ? 0 : d > 0 ? 1 : -1; return;
@@ -508,7 +516,7 @@ static void arc_frame(Game *g) {
         if (!((a->st == A_DIVE && !a->capdive) || (a->st == A_ENTER && a->ent == 1))) continue;
         if (--a->btmr > 0) continue;
         a->btmr = hdr0;
-        if ((a->bflags & 1) && a->y <= 213 && !g->hold) spawn_ebullet(g, a);
+        if ((a->bflags & 1) && a->y <= BOMB_LOW_Y && !g->hold) spawn_ebullet(g, a);
         a->bflags >>= 1;
     }
     if (g->entering || (g->af & 15)) return;

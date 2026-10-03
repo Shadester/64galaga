@@ -388,7 +388,7 @@ static void drawShots(void) {
         blendAdd(); glow(cx, cy, 22, RGBA(80, 200, 255, 160)); blendNormal();
         rect(cx - 1.5f, cy - 6, 3, 12, RGB(220, 250, 255)); rect(cx - 1, cy - 6, 2, 4, RGB(255, 255, 255));
     }
-    for (i = 0; i < 3; ++i) if (g.eb[i].act) {
+    for (i = 0; i < EBN; ++i) if (g.eb[i].act) {
         float cx = fx(lerpi(prev.eb[i].x, g.eb[i].x) + 12), cy = fy(lerpi(prev.eb[i].y, g.eb[i].y) + 4);
         blendAdd(); glow(cx, cy, 26, RGBA(255, 70, 50, 180)); blendNormal();
         rect(cx - 2, cy - 5, 4, 10, RGB(255, 150, 120)); rect(cx - 1, cy - 4, 2, 8, RGB(255, 240, 160));
