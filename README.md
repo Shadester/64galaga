@@ -30,7 +30,7 @@
     <td>
       <h3><a href="psp/">PlayStation Portable</a></h3>
       <i>C (PSPSDK)</i><br><br>
-      The reference of the rules, in C: the arcade rules, or the C64 rules with <code>-DRULES_C64</code>. It has pixel-art sprites, a glow and particle renderer and synthesised sound.
+      The reference of the rules, in C: the arcade rules (and, with <code>-DRULES_ARCADE32</code>, the same rules on the C64 layout with 32 aliens). It has pixel-art sprites, a glow and particle renderer and synthesised sound.
     </td>
   </tr>
   <tr>

@@ -36,7 +36,7 @@ On macOS: `tools/run.sh` (builds, then starts PPSSPP; `PPSSPP=...` overrides the
 
 The high score is saved to `PSP/SAVEDATA/PSPGALAGA/HISCORE.DAT` on the memory stick.
 
-## Features (the arcade rules; `-DRULES_C64` gives the rules of 64galaga, with 32 aliens)
+## Features (the arcade rules)
 
 - 40 aliens in 5 rows (4 bosses, 16 butterflies, 20 bees) with wing-flap animation; the formation swings while the aliens fly in, then breathes
 - Five-wave fly-in on the arcade flight paths (see `../ARCADE.md`)
@@ -58,7 +58,7 @@ The high score is saved to `PSP/SAVEDATA/PSPGALAGA/HISCORE.DAT` on the memory st
 | `tests/test_game.c` | Host tests for the rules |
 | `tools/run_shots.sh` | Debug: builds an unattended (`AUTOPLAY`) build, runs it in PPSSPP and saves BMP frames |
 
-Debug build flags (`make EXTRA_CFLAGS=...`): `AUTOPLAY`, `START_STAGE=n`, `FORCECAPTURE`,
+Debug build flags (`make EXTRA_CFLAGS=...`): `AUTOPLAY`, `START_STAGE=n`,
 `SHOT_FROM=n`, `SHOT_EVERY=n`, `SHOT_MAX=n`, `TITLE_HOLD=n` (an `AUTOPLAY` build shows the title screen for n frames, 150 by default, before it presses fire).
 
 To re-record `docs/gameplay.gif` (needs `ffmpeg`):

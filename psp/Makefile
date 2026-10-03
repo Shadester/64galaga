@@ -11,5 +11,4 @@ include $(PSPSDK)/lib/build.mak
 
 test:
 	cc -O1 -g -Wall -Wextra -fsanitize=address,undefined -o test_game.bin tests/test_game.c -lm && ./test_game.bin
-	cc -O1 -g -Wall -Wextra -DRULES_C64 -fsanitize=address,undefined -o test_c64.bin tests/test_c64.c -lm && ./test_c64.bin
 	cc -O1 -g -Wall -Wextra -DRULES_ARCADE32 -fsanitize=address,undefined -o test_arcade32.bin tests/test_arcade32.c -lm && ./test_arcade32.bin
