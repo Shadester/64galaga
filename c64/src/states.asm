@@ -131,11 +131,8 @@ leave_title:
 !zone st_title
 st_title:
     jsr twinkle_stars
-    lda joystick_state
-    and #$10
-    bne .rts                    ; Fire not pressed
-    lda fire_pressed
-    bne .rts
+    lda fire_edge
+    beq .rts                    ; Fire not pressed
     jmp start_game
 .rts:
     rts
@@ -180,7 +177,6 @@ start_game:
     lda #DIFF                   ; -DDIFF=n: start at difficulty n (1..8)
     sta diff
 }
-    sta fire_pressed            ; Fire held from the title must not shoot
     lda #160
     sta player_x
 !ifdef HALT {
@@ -602,8 +598,6 @@ st_gameover:
     beq .no_save
     jsr save_hiscore
 .no_save:
-    lda #1
-    sta fire_pressed        ; Held fire must be released first
     +print msg_press, SCREEN_RAM+14*40+15, 1
 !ifdef HALTOVER {
     jmp *                       ; -DHALTOVER=1: freeze on the game over screen (tests/run.sh)
@@ -611,9 +605,6 @@ st_gameover:
 .rts:
     rts
 .wait:
-    lda joystick_state
-    and #$10
-    bne .rts
-    lda fire_pressed
-    bne .rts
+    lda fire_edge
+    beq .rts
     jmp enter_title

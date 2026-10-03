@@ -53,14 +53,15 @@ zp_dst          = $fd        ; screen destination (word)
 
 ; Game Constants
 MAX_ENEMIES     = 32
-MAX_SPRITES     = 44            ; Player + 32 enemies + 4 player bullets + 3 enemy bullets + extras
+MAX_SPRITES     = 44            ; Player + 32 enemies + 4 player bullets + 4 enemy bullets + extras
+EBN             = 4             ; Enemy bombs on the screen (psp/game.c)
 NUM_STARS       = 12
 
 ; Virtual sprite slots (stable indices keep the per-frame sort cheap)
 VS_PLAYER       = MAX_ENEMIES
 VS_PBUL         = VS_PLAYER+1   ; 4 slots
-VS_EBUL         = VS_PBUL+4     ; 3 slots
-VS_DUAL         = VS_EBUL+3     ; second ship of the dual fighter
+VS_EBUL         = VS_PBUL+4     ; EBN slots
+VS_DUAL         = VS_EBUL+EBN   ; second ship of the dual fighter
 VS_CAPT         = VS_DUAL+1     ; captured ship carried by a boss
 VS_NONE         = MAX_SPRITES   ; Extra slot with Y=$ff: a hidden sprite
 PLAYER_Y        = 230

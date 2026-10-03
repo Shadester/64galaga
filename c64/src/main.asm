@@ -156,6 +156,7 @@ run_state:
 * = $3400                     ; Free memory up to $9fff for more code
 !src "src/paths.asm"
 !src "src/entry.asm"
+!src "src/arcade.asm"
 !src "src/hiscore.asm"
 !src "src/title_font.asm"
 

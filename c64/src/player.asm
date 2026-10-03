@@ -85,12 +85,21 @@ read_joystick:
     lda CIA1_PRA
     sta joystick_state
 }
+    lda #0
+    sta fire_edge
     lda joystick_state
     and #$10
-    beq .held
+    bne .released
+    lda fire_pressed            ; Pressed: a new press when it was up on the last pass
+    bne .held
+    lda #1
+    sta fire_pressed
+    sta fire_edge
+.held:
+    rts
+.released:
     lda #0
     sta fire_pressed            ; Released: next press counts
-.held:
     rts
 
 ; P pauses and resumes (during play only). Reads keyboard row 5, column 1.
@@ -228,13 +237,8 @@ update_player:
     inc player_x_msb
 
 .check_fire:
-    lda joystick_state
-    and #$10
-    bne .player_done
-    lda fire_pressed
-    bne .player_done
-    lda #1
-    sta fire_pressed
+    lda fire_edge
+    beq .player_done
     jmp shoot_bullet
 .player_done:
     rts

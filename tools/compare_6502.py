@@ -215,6 +215,11 @@ NAL = 40
 SCENARIOS_C64 = {
     'a32_entry': (['AUTOPLAY=1', 'NOFIRE=1', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE'], [130, 300, 500, 700, 900, 1100, 1300, 1600], 'fly-in, sway'),
     'a32_shoot': (['AUTOPLAY=1', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE'], [900, 1200, 1500, 2000, 2500], 'shooting the formation'),
+    # dives, escorts and bombs: the ship cannot be hit (a dual fighter, so that no boss captures it: the beam is the next milestone)
+    'a32_dive': (['AUTOPLAY=1', 'NOFIRE=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [900, 1100, 1300, 1600, 2000, 2500, 3200], 'dives, escorts, bombs'),
+    'a32_dive2': (['AUTOPLAY=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [1100, 1500, 2000, 2800, 3600, 4500], 'dives while the ship shoots'),
+    # a long run: several stages of dives with and without shooting
+    'a32_long': (['AUTOPLAY=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [6000, 8000, 10000, 12000, 15000], 'dives over several stages'),
     'a32_chal': (['AUTOPLAY=1', 'STAGE=3', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE', '-DSTART_STAGE=3'], [150, 400, 700, 1000, 1400, 1700, 1900], 'a challenge stage'),
 }
 
@@ -260,6 +265,16 @@ class C64:
 
 
 def c64_states(name, rom_flags, ticks):
+    """c64_run, tried up to 3 times: VICE's autostart sometimes misses the program (the monitor then never stops at the game loop)."""
+    for attempt in range(3):
+        try:
+            return c64_run(name, rom_flags, ticks)
+        except (TimeoutError, OSError, RuntimeError) as e:
+            print('  VICE did not run the program (%s): again' % e.__class__.__name__)
+    raise RuntimeError('VICE does not run the program')
+
+
+def c64_run(name, rom_flags, ticks):
     """Build the program with -DHALT=65535 (that only makes the loop counter), run it, and read the state after the given game loops.
     Returns the loop at which the game leaves the title screen and the states."""
     with tempfile.TemporaryDirectory() as tmp:

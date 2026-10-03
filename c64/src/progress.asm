@@ -36,6 +36,8 @@ hit_enemy:
 .dive_pts:
     cpy #0
     bne .std_dive
+    lda #6                  ; A boss shot while it dives: no bombs for a while
+    sta arc_hold
     jsr count_escorts       ; Diving boss: 400 / 800 / 1600 with 0 / 1 / 2 escorts alive
     tay
     ldx esc_pts_mid,y
@@ -130,6 +132,7 @@ player_hit:
     sta eb_active
     sta eb_active+1
     sta eb_active+2
+    sta eb_active+3
     sta pbul_active
     sta pbul_active+1
     sta pbul_active+2

@@ -198,7 +198,7 @@ check_ship:
     sta ov_off
     lda #14
     sta ov_w
-    ldx #2
+    ldx #EBN-1
 .eb_loop:
     lda eb_active,x
     beq .eb_next

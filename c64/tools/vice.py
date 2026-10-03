@@ -21,7 +21,11 @@ EV_STOPPED, EV_RESUMED = 0x62, 0x63
 
 
 class Vice:
-    def __init__(self, prg, port=6502, extra=()):
+    def __init__(self, prg, port=None, extra=()):
+        if port is None:                                 # a free port (an old VICE may still hold 6502)
+            with socket.socket() as s:
+                s.bind(('127.0.0.1', 0))
+                port = s.getsockname()[1]
         self.prg, self.port = prg, port
         self.rid = 0
         self.stopped = False
@@ -38,7 +42,7 @@ class Vice:
                 time.sleep(0.1)
         else:
             raise RuntimeError('cannot connect to the VICE monitor')
-        self.sock.settimeout(60)
+        self.sock.settimeout(20)
         self.buf = b''
         return self
 

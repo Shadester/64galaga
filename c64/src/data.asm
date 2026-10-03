@@ -29,7 +29,8 @@ frame:                 !byte 0
 anim:                  !byte 0
 rnd:                   !byte $a5
 joystick_state:        !byte 0
-fire_pressed:          !byte 0
+fire_pressed:          !byte 0         ; the fire button as it was on the last pass of the game loop
+fire_edge:             !byte 0         ; 1 = the button went down on this pass
 temp:                  !byte 0
 hit_idx:               !byte 0
 txt_col:               !byte 1
@@ -49,7 +50,6 @@ intro_timer:           !byte 0
 dying_timer:           !byte 0
 go_timer:              !byte 0
 invuln:                !byte 0
-dive_timer:            !byte 0
 swoop_cnt:             !byte 0
 
 ; Jingle player
@@ -76,18 +76,18 @@ enemy_idx:      !fill MAX_ENEMIES, 0    ; flight path step
 enemy_path:     !fill MAX_ENEMIES, 0    ; flight path (bit 7 = mirrored)
 enemy_ptr:      !fill MAX_ENEMIES, 0    ; sprite pointer, frame A
 enemy_esc:      !fill MAX_ENEMIES, 0    ; boss index + 1 for an escort of that boss
-enemy_flag:     !fill MAX_ENEMIES, 0    ; 1 = has fired this dive
+enemy_flag:     !fill MAX_ENEMIES, 0    ; entering: 0 waiting, 1 on its path, 2 homing
 
 pbul_x:         !fill 4, 0
 pbul_msb:       !fill 4, 0
 pbul_y:         !fill 4, 0
 pbul_active:    !fill 4, 0
 
-eb_x:           !fill 3, 0
-eb_msb:         !fill 3, 0
-eb_y:           !fill 3, 0
-eb_dx:          !fill 3, 0              ; -1, 0, +1 drift per 2 frames
-eb_active:      !fill 3, 0
+eb_x:           !fill EBN, 0
+eb_msb:         !fill EBN, 0
+eb_y:           !fill EBN, 0
+eb_dx:          !fill EBN, 0            ; sideways speed in 16ths of a pixel a tick (eb_ax holds the rest)
+eb_active:      !fill EBN, 0
 
 score:          !byte 0, 0, 0           ; BCD, low pair first
 hiscore:        !byte 0, 0, 0
@@ -208,12 +208,8 @@ pts_form_mid:   !byte $01, $00, $00
 pts_dive_lo:    !byte $00, $60, $00     ; 400 / 160 / 100
 pts_dive_mid:   !byte $04, $01, $01
 
-; Difficulty tables, index 1..8 (stage 9 on stays at 8)
-dive_int_tbl:   !byte 0, 130, 115, 100, 85, 70, 58, 48, 34   ; frames between dives
-max_div_tbl:    !byte 0, 1, 1, 2, 2, 3, 3, 4, 5             ; aliens out of formation at once
-fire_mask_tbl:  !byte 0, 1, 1, 0, 0, 0, 0, 0, 0     ; fire when rand & mask == 0
+; Difficulty table, index 1..8 (stage 9 on stays at 8)
 dive_dy_tbl:    !byte 0, 2, 2, 2, 2, 3, 3, 3, 3             ; dive speed, pixels per frame
-shots_tbl:      !byte 0, 1, 1, 1, 2, 2, 2, 2, 2             ; shots per dive
 
 ; Last used art row per sprite pointer ($c0..$cb): a hardware sprite can be
 ; reused once the raster is past y + lastrow

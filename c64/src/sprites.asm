@@ -27,6 +27,7 @@ reset_formation:
     sta eb_active
     sta eb_active+1
     sta eb_active+2
+    sta eb_active+3
     sta pbul_active
     sta pbul_active+1
     sta pbul_active+2
@@ -35,9 +36,7 @@ reset_formation:
     sta beam_len
     lda #1
     sta form_dir
-    ldy diff
-    lda dive_int_tbl,y
-    sta dive_timer
+    jsr arc_reset               ; the arcade's sortie timers and clocks (arcade.asm)
     ldx #MAX_ENEMIES-1
 .loop:
     lda #1
@@ -45,6 +44,7 @@ reset_formation:
     lda #0
     sta enemy_timer,x
     sta enemy_flag,x
+    sta enemy_esc,x
     ldy enemy_type_tbl,x
     lda type_hp,y
     sta enemy_hp,x
@@ -272,7 +272,7 @@ update_sprite_data:
     bpl .pb_loop
 
     ; Enemy bullets
-    ldx #2
+    ldx #EBN-1
 .eb_loop:
     lda eb_active,x
     bne .eb_on
