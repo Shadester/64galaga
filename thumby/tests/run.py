@@ -40,7 +40,7 @@ play|autoplay|1500
 challenge|autoplay stage=3 nofire|600
 chalresult|autoplay stage=3|1500
 explode|autoplay nofire dieat=1100|1125
-ready|autoplay nofire dieat=1100|1300
+ready|autoplay nofire lives=9 dieat=250|400
 pause|autoplay nofire pauseat=1100|1140
 quit|autoplay quitat=1100|1101
 gameover|autoplay nofire lives=1 dieat=250|400
