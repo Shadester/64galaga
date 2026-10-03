@@ -27,9 +27,13 @@ python3 tools/make_gif.py # re-record docs/gameplay.gif
 
 ## Hardware facts that bit us
 
-- **Frame time is the number of sprites (SCBs):** a frame with about 90 or more SCBs (each is a Suzy job of its own) is not finished in 20 ms: the
-  loop then runs at 25 Hz. The HUD was 38 glyph sprites; it is now one 160 x 11 picture (`hud_buf`, built again only when a number changes), so a
-  frame has about 60-70 SCBs and 40 aliens fit (the static 40-alien test build: 70). `-DPROFILE=1` counts late frames, the most sprites of a frame and
+- **Frame time:** the loop is serial: the CPU builds the frame, then Suzy draws it (the CPU sleeps), then the loop waits for the vertical blank. A frame
+  that is not drawn by then is late and the loop runs at 25 Hz. Measured with `TIM2CNT` (104 lines of 190 us a frame): the CPU needs about 50 lines, Suzy about
+  36, in play with 40 aliens, so about 15 lines are left. A frame with about 90 or more SCBs (each is a Suzy job of its own) is too long. The HUD is one
+  160 x 11 picture (`hud_buf`): it is cleared and labelled once, and only the number that changed is drawn again (a full rebuild on every hit cost
+  23k cycles and made one late frame per hit: 106 late frames in 4000 ticks, now 2). The SCB pool is made once (`scb_init`): `add_sprite` only stores
+  the data address, x and y (6 bytes), `frame_end` cuts the chain and `frame_begin` puts the pointer back (that saved 12 lines a frame). A frame has
+  about 60-70 SCBs and 40 aliens fit (the static 40-alien test build: 70). `-DPROFILE=1` counts late frames, the most sprites of a frame and
   the sprites that did not fit (`late_frames`, `scb_peak`, `scb_over`, read with `tools/dbg.py`). `add_sprite` drops a sprite when the SCB pool
   (`MAX_SCB`) is full.
 - The arcade rules are the only rules. Their data (`src/game/arcade_data.s`) is made by

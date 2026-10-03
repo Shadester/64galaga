@@ -21,6 +21,8 @@ rnd:    .res 1
         .bss
 scbs:   .res BG_SIZE + SCB_SIZE * MAX_SCB
 scbs_end:
+scb_room: .res 1             ; SCBs left in the pool
+scb_endp: .res 2            ; the last SCB of the last frame (its next pointer was cut), 0: none
 .ifdef PROFILE
 late_frames: .res 2             ; -DPROFILE: frames that were not finished at the vertical blank (the game runs slower then)
 scb_peak:    .res 1             ; most sprites in one frame (without the background)
@@ -58,7 +60,7 @@ render_init:
         sta SPRSYS
         lda #$a5
         sta rnd
-        rts
+        jmp scb_init
 
 pal_game:
         ldx #15
@@ -88,43 +90,21 @@ rand:   lda rnd
 @done:  sta rnd
         rts
 
-; Start a frame: the first SCB fills the screen with pen 0 (and loads the pen map).
-frame_begin:
-.ifdef PROFILE
-        stz scb_cnt
-.endif
+; The SCB pool is made once (scb_init): every SCB has its control bytes, its next pointer (the SCB after it) and its size already. A sprite
+; (add_sprite) only stores its data address, x and y. frame_end cuts the chain after the last SCB of the frame (next = 0); the next
+; frame_begin puts that pointer back. The background SCB (which fills the screen with pen 0 and loads the pen map) is copied once.
+scb_init:
         ldx #BG_SIZE - 1
-@cp:    lda bgscb,x
+@bg:    lda bgscb,x
         sta scbs,x
         dex
-        bpl @cp
+        bpl @bg
         lda #<(scbs + BG_SIZE)
         sta wp
         lda #>(scbs + BG_SIZE)
         sta wp+1
-        rts
-
-; Append a sprite: dr_d (literal 4 bpp data), dr_x, dr_y. Pen map is kept from the background SCB.
-add_sprite:
-        lda wp+1                ; the pool is full: drop the sprite (it would overwrite what follows the SCBs)
-        cmp #>scbs_end
-        bcc @room
-        bne @full
-        lda wp
-        cmp #<scbs_end
-        bcc @room
-@full:
-.ifdef PROFILE
-        inc scb_over
-        bne @rts
-        inc scb_over+1
-.endif
-@rts:   rts
-@room:
-.ifdef PROFILE
-        inc scb_cnt
-.endif
-        ldy #0
+        ldx #MAX_SCB
+@one:   ldy #0
         lda #$c4                ; 4 bpp, normal sprite (pen 0 transparent)
         sta (wp),y
         iny
@@ -142,14 +122,7 @@ add_sprite:
         lda wp+1
         adc #0
         sta (wp),y
-        ldx #0
-@arg:   iny
-        lda dr_d,x             ; data, x, y
-        sta (wp),y
-        inx
-        cpx #6
-        bne @arg
-        iny                     ; size 1:1
+        ldy #11                 ; size 1:1
         lda #0
         sta (wp),y
         iny
@@ -160,6 +133,75 @@ add_sprite:
         sta (wp),y
         iny
         lda #1
+        sta (wp),y
+        lda wp
+        clc
+        adc #SCB_SIZE
+        sta wp
+        bcc @n
+        inc wp+1
+@n:     dex
+        bne @one
+        stz scb_endp+1
+        rts
+
+; Start a frame: put back the pointer that frame_end cut, and start at the first sprite SCB.
+frame_begin:
+.ifdef PROFILE
+        stz scb_cnt
+.endif
+        lda scb_endp+1
+        beq @fresh
+        sta wp+1
+        lda scb_endp
+        sta wp
+        ldy #3
+        clc
+        adc #SCB_SIZE
+        sta (wp),y
+        iny
+        lda wp+1
+        adc #0
+        sta (wp),y
+@fresh: lda #<(scbs + BG_SIZE)
+        sta wp
+        lda #>(scbs + BG_SIZE)
+        sta wp+1
+        lda #MAX_SCB
+        sta scb_room
+        rts
+
+; Append a sprite: dr_d (literal 4 bpp data), dr_x, dr_y. Pen map is kept from the background SCB.
+add_sprite:
+        lda scb_room            ; the pool is full: drop the sprite (it would overwrite what follows the SCBs)
+        bne @room
+.ifdef PROFILE
+        inc scb_over
+        bne @rts
+        inc scb_over+1
+.endif
+@rts:   rts
+@room:  dec scb_room
+.ifdef PROFILE
+        inc scb_cnt
+.endif
+        ldy #5
+        lda dr_d                ; data, x, y
+        sta (wp),y
+        iny
+        lda dr_d+1
+        sta (wp),y
+        iny
+        lda dr_x
+        sta (wp),y
+        iny
+        lda dr_x+1
+        sta (wp),y
+        iny
+        lda dr_y
+        sta (wp),y
+        iny
+        lda dr_y+1
         sta (wp),y
         lda wp
         clc
@@ -200,6 +242,9 @@ frame_end:
         lda wp+1
         sbc #0
         sta wp+1
+        sta scb_endp+1          ; frame_begin puts this next pointer back
+        lda wp
+        sta scb_endp
         ldy #3
         lda #0
         sta (wp),y
