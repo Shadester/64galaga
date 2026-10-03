@@ -26,15 +26,8 @@ begin_stage:
     bne .normal
     lda #1
     sta in_chal
-    lda chal_mid                ; Points per hit: 100, 200, ... up to 900
-    cmp #$09
-    bcs .set
-    sed
-    clc
-    adc #1
-    cld
+    lda #1                      ; 100 points per hit
     sta chal_mid
-.set:
     jmp reset_challenge
 .normal:
     lda #0
@@ -148,6 +141,11 @@ chal_step:
     lda enemy_path,x
     and #3
     sta path_id
+    tay
+    lda enemy_idx,x
+    cmp path_len,y
+    bcs .over                   ; The step after the last one ends the path (as in psp/game.c)
+    lda path_id
     asl                         ; The tables sit on their own pages: dx A, dy A, dx B, ...
     adc #>pathA_dx              ; (carry is clear)
     sta zp_path+1
@@ -187,10 +185,8 @@ chal_step:
     dec enemy_x_msb,x
 .moved:
     inc enemy_idx,x
-    ldy path_id
-    lda enemy_idx,x
-    cmp path_len,y
-    bcc .rts
+    rts
+.over:
     lda enemy_state,x
     cmp #7
     beq .arrive
@@ -202,7 +198,6 @@ chal_step:
 .arrive:
     lda #2                      ; Now home in on the formation slot
     sta enemy_flag,x
-.rts:
     rts
 
 ; Result screen of a challenge stage: number of hits and the perfect bonus

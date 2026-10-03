@@ -8,6 +8,7 @@
 !zone update_formation
 update_formation:
     lda entering                ; The formation holds still while it is flying in
+    sta ent_start               ; (and the dive scheduler looks at this value, not at a newer one)
     bne .done
     inc enemy_counter
     lda #10
@@ -275,7 +276,10 @@ start_dive:
 ; (up to max_div_tbl[diff] out of formation at once)
 !zone update_dives
 update_dives:
-    lda entering            ; No dives while the formation is still flying in
+!ifdef NODIVE {
+    rts                         ; -DNODIVE=1: no dives (tools/compare_6502.py)
+}
+    lda ent_start            ; No dives while the formation is still flying in
     bne .rts
     lda dive_timer
     beq .try

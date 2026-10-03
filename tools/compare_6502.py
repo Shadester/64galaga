@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Compare a 6502 game (Lynx, later the C64) with the C reference psp/game.c at checkpoints.
+"""Compare a 6502 game (Lynx, C64) with the C reference psp/game.c at checkpoints.
 
-    python3 tools/compare_6502.py lynx SCENARIO [SCENARIO ...]      ('list' prints the scenarios)
+    python3 tools/compare_6502.py lynx|c64 SCENARIO [SCENARIO ...]      ('list' prints the scenarios)
 
 The same scripted game (the AUTOPLAY input of the 6502 game, copied into a small C driver) runs in the C reference and in the ROM.
 The ROM runs in Gearlynx (headless, lynx/tools/gearlynx.py); at each checkpoint (a game tick) the state is read from memory by label
 (`build/trace_<scenario>/galaga.lbl`) and compared with the state of the C game after the same tick: game state, lives, score, ship
 position, and for every alien its state and (when it is on the screen) its position. The arcade rules have no random numbers, so the
 games must stay equal.
-Needs the Lynx boot ROM (see lynx/CLAUDE.md), cc65 and Gearlynx."""
+The C64 runs in VICE (x64sc, the binary monitor, c64/tools/vice.py): the program stops at the label `tick_mark` after each pass of its game loop
+and the state is read at the checkpoints; the C reference is psp/game.c built with -DRULES_ARCADE32 (32 aliens, 4 bombs).
+Needs the Lynx boot ROM (see lynx/CLAUDE.md), cc65 and Gearlynx; or acme and VICE."""
 import json
 import os
 import re
@@ -18,6 +20,7 @@ import tempfile
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 sys.path.insert(0, os.path.join(ROOT, 'lynx', 'tools'))
+sys.path.insert(0, os.path.join(ROOT, 'c64', 'tools'))
 SKEW = int(os.environ.get('SKEW', '0'))      # the ROM is read between two ticks: its state may be that of the tick before its counter
 
 # name: (ROM flags, C flags, ticks to compare at, what is compared)
@@ -88,7 +91,7 @@ int main(void) {
 '''
 
 
-def c_trace(cflags, ticks, nofire, start):
+def c_trace(cflags, ticks, nofire, start, nb=8):
     with tempfile.TemporaryDirectory() as tmp:
         src = os.path.join(tmp, 'driver.c')
         open(src, 'w').write(C_DRIVER)
@@ -101,7 +104,6 @@ def c_trace(cflags, ticks, nofire, start):
         if not line:
             continue
         p = line.split(' ')
-        nb = 8
         al = [tuple(int(v) for v in a.split(',')) for a in p[7:-4 - nb]]
         sh = [tuple(int(v) for v in a.split(',')) for a in p[-4 - nb:-nb]]
         bm = [tuple(int(v) for v in a.split(',')) for a in p[-nb:]]
@@ -209,19 +211,108 @@ def start_tick(rom_flags):
 
 NAL = 40
 
+# name: (ROM flags, C flags, game loops to compare at, what is compared). The C game is always built with -DRULES_ARCADE32.
+SCENARIOS_C64 = {
+    'a32_entry': (['AUTOPLAY=1', 'NOFIRE=1', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE'], [130, 300, 500, 700, 900, 1100, 1300, 1600], 'fly-in, sway'),
+    'a32_shoot': (['AUTOPLAY=1', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE'], [900, 1200, 1500, 2000, 2500], 'shooting the formation'),
+    'a32_chal': (['AUTOPLAY=1', 'STAGE=3', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE', '-DSTART_STAGE=3'], [150, 400, 700, 1000, 1400, 1700, 1900], 'a challenge stage'),
+}
 
-def compare(name):
+
+class C64:
+    """Runs a C64 program in VICE (binary monitor) and reads its state when the game loop passes `tick_mark`."""
+
+    def __init__(self, prg, lbl):
+        from vice import Vice
+        self.v = Vice(prg).__enter__()
+        txt = open(lbl).read()
+        self.lbl = {m.group(2): int(m.group(1), 16) for m in re.finditer(r'al C:([0-9a-fA-F]+) \.(\w+)\n', txt)}
+        self.v.add_stop(self.lbl['tick_mark'])
+        self.v.start()
+
+    def close(self):
+        self.v.__exit__()
+
+    def next_tick(self):
+        """Run on to the end of the next pass of the game loop."""
+        if self.v.stopped:
+            self.v.resume()
+        self.v.wait_stop()
+
+    def read(self, name, n=1):
+        return self.v.read(self.lbl[name], n)
+
+    def bombs(self):
+        if 'eb_ax' not in self.lbl:
+            return []
+        s8 = lambda v: v - 256 if v > 127 else v
+        act, xl, xh, yy, dx, ax = (self.read(n, 4) for n in ('eb_active', 'eb_x', 'eb_msb', 'eb_y', 'eb_dx', 'eb_ax'))
+        return [(act[i] & 1, xl[i] + 256 * (xh[i] & 1), yy[i], s8(dx[i]), ax[i]) for i in range(4)]
+
+    def state(self, n_aliens):
+        st = [6 if v == 7 else v for v in self.read('enemy_state', n_aliens)]    # the 6502 numbers an entering alien 7, C 6
+        xl, xh, yy = (self.read(n, n_aliens) for n in ('enemy_x', 'enemy_x_msb', 'enemy_y'))
+        return dict(state=self.read('game_state')[0], score=bcd(self.read('score', 3)), lives=self.read('lives')[0],
+                    stage=int('%x' % self.read('level')[0]), px=self.read('player_x')[0] + 256 * (self.read('player_x_msb')[0] & 1),
+                    al=[(st[i], xl[i] + 256 * (xh[i] & 1), yy[i]) for i in range(n_aliens)],
+                    shots=[(act & 1, x + 256 * (m & 1), y) for act, x, m, y in zip(*(self.read(n, 4) for n in ('pbul_active', 'pbul_x', 'pbul_msb', 'pbul_y')))],
+                    esc=self.read('enemy_esc', n_aliens), bombs=self.bombs())
+
+
+def c64_states(name, rom_flags, ticks):
+    """Build the program with -DHALT=65535 (that only makes the loop counter), run it, and read the state after the given game loops.
+    Returns the loop at which the game leaves the title screen and the states."""
+    with tempfile.TemporaryDirectory() as tmp:
+        prg, lbl = os.path.join(tmp, 'g.prg'), os.path.join(tmp, 'g.lbl')
+        subprocess.run(['acme', '-f', 'cbm', *[f'-D{f}' for f in rom_flags], '-DHALT=65535', '--vicelabels', lbl, '-o', prg,
+                        os.path.join(ROOT, 'c64', 'src', 'main.asm')], check=True, cwd=os.path.join(ROOT, 'c64'))
+        c = C64(prg, lbl)
+        try:
+            n, start, out = 0, None, {}
+            while True:                                  # the first stops are not the game loop (the RAM is not yet loaded): wait for loop 1
+                c.next_tick()
+                if c.read('halt_cnt', 2) == [1, 0]:
+                    n = 1
+                    break
+            while True:
+                if start is None and c.read('game_state')[0] != 0:
+                    start = n
+                if n in ticks:
+                    out[n] = c.state(32)
+                if n >= max(ticks):
+                    break
+                c.next_tick()
+                n += 1
+            return start, out
+        finally:
+            c.close()
+
+
+def compare(platform, name):
     from concurrent.futures import ThreadPoolExecutor
-    rom_flags, c_flags, ticks, what = SCENARIOS[name]
-    start = start_tick(rom_flags)
-    ref = c_trace(c_flags, max(ticks) + 5, 'NOFIRE=1' in rom_flags, start)
-    with ThreadPoolExecutor(4) as ex:
-        roms = list(ex.map(lambda n: lynx_state_at(name, rom_flags, n, start), ticks))
+    nb = 8
+    if platform == 'c64':
+        rom_flags, c_flags, ticks, what = SCENARIOS_C64[name]
+        if os.environ.get('TICKS'):                      # TICKS=a,b,c: other checkpoints (to find the first tick that differs)
+            ticks = [int(t) for t in os.environ['TICKS'].split(',')]
+        start, roms = c64_states(name, rom_flags, ticks)
+        roms = [roms[n] for n in ticks]
+        for r in roms:
+            r['t8'] = None
+        nb = 4
+        c_flags = ['-DRULES_ARCADE32'] + c_flags
+    else:
+        rom_flags, c_flags, ticks, what = SCENARIOS[name]
+        start = start_tick(rom_flags)
+    ref = c_trace(c_flags, max(ticks) + 5, 'NOFIRE=1' in rom_flags, start, nb)
+    if platform == 'lynx':
+        with ThreadPoolExecutor(4) as ex:
+            roms = list(ex.map(lambda n: lynx_state_at(name, rom_flags, n, start), ticks))
     bad = 0
     for n, a in zip(ticks, roms):
         c = ref[n]
         diffs = []
-        if a['t8'] != n & 255:
+        if a['t8'] is not None and a['t8'] != n & 255:
             diffs.append(f'the ROM stopped at tick {a["t8"]}, not {n & 255} (mod 256): late frames or not enough boot frames')
         for key in ('state', 'score', 'lives', 'stage', 'px'):
             if key == 'stage' and a['state'] == 6 and a[key] == c[key] + 1:
@@ -252,14 +343,15 @@ def compare(name):
 
 
 def main():
-    if len(sys.argv) < 3 or sys.argv[1] != 'lynx':
+    if len(sys.argv) < 3 or sys.argv[1] not in ('lynx', 'c64'):
         sys.exit(__doc__)
-    names = sys.argv[2:]
+    platform, names = sys.argv[1], sys.argv[2:]
+    table = SCENARIOS if platform == 'lynx' else SCENARIOS_C64
     if names == ['list']:
-        for k, v in SCENARIOS.items():
+        for k, v in table.items():
             print(k, '-', v[3])
         return
-    sys.exit(1 if sum(compare(n) for n in names) else 0)
+    sys.exit(1 if sum(compare(platform, n) for n in names) else 0)
 
 
 main()

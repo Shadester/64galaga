@@ -199,6 +199,12 @@ start_game:
     lda #STAGE                  ; -DSTAGE=n: start at stage n (challenge stage testing)
     sta stage
     sta level
+    lda #1 + (STAGE - 1 - STAGE/4) ; the difficulty of that stage (as psp/game.c START_STAGE)
+    cmp #9
+    bcc .stage_diff
+    lda #8
+.stage_diff:
+    sta diff
     jsr begin_stage
 }
     ; fall through
@@ -428,6 +434,10 @@ st_play:
     bne .no_die
     jmp player_hit
 .no_die:
+}
+!ifdef GODMODE {
+    lda #100                    ; -DGODMODE=1: the ship cannot be hit (tools/compare_6502.py)
+    sta invuln
 }
     lda invuln
     beq .no_invuln

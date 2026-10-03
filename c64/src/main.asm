@@ -12,6 +12,7 @@
 ;         -DFORCEPERFECT=1 challenge stages count as perfect,
 ;         -DDIFF=n start at difficulty n, -DLIVES=n start with n lives, -DPAUSEAT=n press pause at frame n (needs HALT),
 ;         -DQUITAT=n RUN/STOP at frame n (needs HALT),
+;         -DGODMODE=1 the ship cannot be hit, -DNODIVE=1 no dives (tools/compare_6502.py),
 ;         -DHALT=n freeze after n frames, -DHALTOVER=1 freeze at game over,
 ;         -DDIEAT=n the ship is hit at frame n (needs HALT) (tests/run.sh)
 ; ===============================================
@@ -87,6 +88,7 @@ game_loop:
     jsr run_state
 .idle:
     jsr update_sprite_data      ; Update sprites for IRQ multiplexer
+tick_mark:                      ; tools/vice.py stops here: the game state after one loop (tools/compare_6502.py)
     jsr wait_for_irq            ; CRITICAL: Wait for IRQ to finish! Paces the loop to 1 frame
     lda game_state
     beq game_loop               ; Title screen has no HUD

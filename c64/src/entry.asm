@@ -3,8 +3,11 @@
 ; An entering alien has enemy_state 7. enemy_flag: 0 waiting (enemy_timer
 ; counts down to its launch), 1 flying its path, 2 homing on its slot.
 ; The path stepper (chal_step) is shared with the challenge stages.
+; `entering` counts the aliens in state 7: setup_entry sets it, an alien that is home
+; (home_step) or shot (set_explode) takes itself off. ent_start is its value at the
+; start of the game loop's formation update: what the dive scheduler may look at.
 
-; Launch delay (in 2-frame units: one alien every 8 frames) and path (id | $80 = mirrored) per formation slot
+; Launch delay (in 2-tick units: one alien every 8 ticks) and path (id | $80 = mirrored) per formation slot
 entry_delay_tbl:
     !byte 40,44,48,52,0,4,8,12
     !byte 56,60,64,68,80,84,88,92
@@ -17,6 +20,9 @@ entry_path_tbl:
     !byte $82,$02,$82,$02,$82,$02,$82,$02
 
 entering:       !byte 0                 ; Aliens still entering
+ent_start:      !byte 0
+entry_par:      !byte 0                 ; Odd / even tick of the entry (the delays count every 2nd tick)
+entry_wait:     !byte 0
 tgt_x:          !byte 0
 tgt_xh:         !byte 0
 d_lo:           !byte 0
@@ -27,6 +33,7 @@ moved:          !byte 0
 setup_entry:
     lda #0
     sta entering
+    sta entry_par
     ldx #MAX_ENEMIES-1
 .loop:
     lda enemy_state,x
@@ -49,19 +56,27 @@ setup_entry:
     bpl .loop
     rts
 
-; Per frame: launch waiting aliens, move flying ones, steer homing ones
+; Per tick: launch waiting aliens, move flying ones, steer homing ones. The waiting ones
+; wait while the ship is not in play (only the ones in the air go on).
 !zone update_entry
 update_entry:
     lda entering
     beq .rts
-    lda #0
-    sta entering
+    lda #$ff
+    sta entry_wait              ; $ff: the waiting aliens do not count
+    lda game_state
+    cmp #GS_PLAY
+    bne .count
+    lda entry_par
+    eor #1
+    sta entry_par
+    sta entry_wait              ; 1: odd tick (the delays do not count down), 0: even tick
+.count:
     ldx #MAX_ENEMIES-1
 .loop:
     lda enemy_state,x
     cmp #7
     bne .next
-    inc entering
     lda enemy_flag,x
     beq .wait
     cmp #1
@@ -72,13 +87,14 @@ update_entry:
     jsr home_step
     jmp .next
 .wait:
+    lda entry_wait
+    bmi .next
     lda enemy_timer,x
     beq .launch
-    lda frame
-    lsr
-    bcs .next                   ; The timer counts every 2nd frame
+    lda entry_wait
+    bne .next
     dec enemy_timer,x
-    jmp .next
+    bne .next
 .launch:
     lda #1
     sta enemy_flag,x
@@ -167,6 +183,7 @@ home_step:
 .end:
     lda moved
     bne .rts
+    dec entering
     lda #1                      ; Arrived
     sta enemy_state,x
     lda #0

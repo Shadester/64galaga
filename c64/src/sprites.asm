@@ -23,6 +23,7 @@ reset_formation:
     sta form_dx
     sta form_ext
     sta enemy_counter
+    sta entering
     sta eb_active
     sta eb_active+1
     sta eb_active+2
@@ -88,6 +89,11 @@ refresh_anim:
 ; Enemy X turns into an explosion (state 4). Preserves X.
 !zone set_explode
 set_explode:
+    lda enemy_state,x
+    cmp #7
+    bne .state
+    dec entering                ; (an entering alien was shot or rammed)
+.state:
     lda #4
     sta enemy_state,x
     lda #11
