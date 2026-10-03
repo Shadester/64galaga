@@ -261,6 +261,7 @@ HUD_ROWS = 11
 
 hud_buf:        .res HUD_ROW * HUD_ROWS + 1
 hud_sig:        .byte $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff   ; what the picture shows now: score, hi-score, lives, level (no BCD byte is $ff)
+hud_ready:      .byte 0                         ; the picture has been cleared and has its labels
 hn:             .byte 0
 hr:             .byte 0
 hy:             .byte 0
@@ -271,32 +272,12 @@ hs_score:       .res 7
 hs_hi:          .res 7
 
 draw_hud:
-        lda score
-        cmp hud_sig
-        bne @build
-        lda score+1
-        cmp hud_sig+1
-        bne @build
-        lda score+2
-        cmp hud_sig+2
-        bne @build
-        lda hiscore
-        cmp hud_sig+3
-        bne @build
-        lda hiscore+1
-        cmp hud_sig+4
-        bne @build
-        lda hiscore+2
-        cmp hud_sig+5
-        bne @build
-        lda lives
-        cmp hud_sig+6
-        bne @build
-        lda level
-        cmp hud_sig+7
-        beq @draw
-@build: jsr hud_build
-@draw:  lda #<hud_buf
+        lda hud_ready
+        bne @upd
+        jsr hud_clear                   ; the first time: the empty picture with the labels
+        inc hud_ready
+@upd:   jsr hud_fields
+        lda #<hud_buf
         sta dr_d
         lda #>hud_buf
         sta dr_d+1
@@ -306,24 +287,8 @@ draw_hud:
         stz dr_y+1
         jmp add_sprite
 
-; Set the picture: clear it, put the labels and the numbers in
-hud_build:
-        lda score
-        sta hud_sig
-        lda score+1
-        sta hud_sig+1
-        lda score+2
-        sta hud_sig+2
-        lda hiscore
-        sta hud_sig+3
-        lda hiscore+1
-        sta hud_sig+4
-        lda hiscore+2
-        sta hud_sig+5
-        lda lives
-        sta hud_sig+6
-        lda level
-        sta hud_sig+7
+; Clear the picture and put the labels in (the numbers are drawn by hud_fields: the glyphs cover their whole cell, so they need no clearing)
+hud_clear:
         lda #<hud_buf                   ; 11 lines of 81 bytes: the length, then 80 bytes of transparent pixels
         sta zp_dst
         lda #>hud_buf
@@ -350,31 +315,57 @@ hud_build:
         hud_str 32, 0, h_lives, font_r
         hud_str 62, 0, h_hi, font_r
         hud_str 134, 0, h_level, font_r
-        ldx #2                          ; the two 6-digit numbers as text
+        rts
+
+; Draw again the numbers that changed since the picture was made (a hit changes the score, so the usual cost is 6 glyphs)
+hud_fields:
+        ldx #2
+@s:     lda score,x
+        cmp hud_sig,x
+        bne @score
+        dex
+        bpl @s
+        bra @hi
+@score: ldx #2
         ldy #0
 @sc:    lda score,x
+        sta hud_sig,x
         jsr hud_two
         dex
         bpl @sc
         lda #0
         sta hs_score,y
-        ldx #2
+        hud_str 2, 6, hs_score, font_w
+@hi:    ldx #2
+@h:     lda hiscore,x
+        cmp hud_sig+3,x
+        bne @hinew
+        dex
+        bpl @h
+        bra @lives
+@hinew: ldx #2
         ldy #0
-@hi:    lda hiscore,x
+@hs:    lda hiscore,x
+        sta hud_sig+3,x
         jsr hud_two_hi
         dex
-        bpl @hi
+        bpl @hs
         lda #0
         sta hs_hi,y
-        hud_str 2, 6, hs_score, font_w
         hud_str 62, 6, hs_hi, font_w
-        lda lives                       ; one digit
+@lives: lda lives
+        cmp hud_sig+6
+        beq @level
+        sta hud_sig+6
         clc
         adc #'0'
         sta hudnum
         stz hudnum+1
         hud_str 38, 6, hudnum, font_w
-        lda level                       ; two BCD digits
+@level: lda level                       ; two BCD digits
+        cmp hud_sig+7
+        beq @done
+        sta hud_sig+7
         pha
         lsr
         lsr
@@ -390,7 +381,7 @@ hud_build:
         sta hudnum+1
         stz hudnum+2
         hud_str 142, 6, hudnum, font_w
-        rts
+@done:  rts
 
 ; The two digits of BCD byte A at hs_score,y (y advances by 2)
 hud_two:
