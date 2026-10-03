@@ -82,6 +82,18 @@ int slot_x(int i) { return i < 4 ? bossX[i] : 106 + 26 * ((i - 4) % 7); }
 int slot_y(int i) { return i < 4 ? 72 : 100 + 28 * ((i - 4) / 7); }
 #endif
 
+#ifdef RULES_ARCADE   /* where a slot is now: the swing of the whole formation and the breathing of its columns and rows */
+static int slot_px(const Game *g, int i) {
+    int x = slot_x(i) + g->formDx, c = arc_slot_col[i];
+    if (g->breathe) x += c < 5 ? arc_breath[g->bstep][c] : -arc_breath[g->bstep][9 - c];
+    return x;
+}
+static int slot_py(const Game *g, int i) { return slot_y(i) + (g->breathe ? arc_breath[g->bstep][5 + arc_slot_row[i]] : 0); }
+#else
+#define slot_px(g, i) (slot_x(i) + (g)->formDx)
+#define slot_py(g, i) slot_y(i)
+#endif
+
 #ifndef RULES_ARCADE
 /* Fly-in: launch delay (frames) and path per slot. Bit 4 of the path code = mirrored. */
 static const unsigned char entryDelay[NAL] = {
@@ -127,8 +139,15 @@ static void setup_stage(Game *g) {
 #else
     g->challenge = (g->stage & 3) == 3;
 #endif
+#ifdef RULES_ARCADE   /* 100 for each enemy, 10,000 when all 40 are hit (public descriptions of the arcade; not checked in the model) */
+    g->chalVal = 100;
+#else
     g->chalVal = 100 * ((g->stage + 1) / 4); if (g->chalVal > 900) g->chalVal = 900;
+#endif
     g->chalHits = g->chalTimer = g->shots = g->hits = 0;
+#ifdef RULES_ARCADE
+    g->fclk = g->ff = g->swayPos = g->breathe = g->bstep = 0; g->swayDir = 1;
+#endif
     g->formDx = 0; g->formDir = 3; g->formTimer = 0; g->diveTimer = diveInterval[g->diff - 1];
 #ifdef RULES_ARCADE
     g->clk = g->af = g->wingm = g->bombFlags = g->hold = 0; g->tmr2 = 120; g->sortie[0] = 22; g->sortie[1] = g->sortie[2] = 2;
@@ -264,6 +283,27 @@ static void path_launch(Alien *a) {
     a->ent = 1; a->pstep = 0; a->x = a->mir ? MIRROR_X - p->sx : p->sx; a->y = p->sy;
 }
 #endif
+#ifdef RULES_ARCADE
+/* The formation swings left and right while the aliens fly in (one arcade pixel every 4 frames, +-32), and when they are all home and
+ * the swing comes back to the middle it starts to breathe (arc_breath). */
+static void arc_form_frame(Game *g) {
+    ++g->ff;
+    if (g->breathe) { if (!(g->ff & 3)) g->bstep = (g->bstep + 1) & 63; return; }
+    if ((g->ff - 1) & 3) return;
+    g->swayPos += g->swayDir;
+    if (!g->entering && g->swayPos == 0) { g->breathe = 1; g->bstep = 0; }
+    else if (g->swayPos >= 32) g->swayDir = -1;
+    else if (g->swayPos <= -32) g->swayDir = 1;
+    g->formDx = g->swayPos + g->swayPos * 3 / 7;   /* 320 / 224 */
+}
+static void update_formation(Game *g) {
+    int i, n = 0;
+    for (i = 0; i < NAL; ++i) n += g->al[i].st == A_ENTER;
+    g->entering = n;
+    if (g->challenge) return;
+    for (g->fclk += 6; g->fclk >= 5; g->fclk -= 5) arc_form_frame(g);
+}
+#else
 static void update_formation(Game *g) {
     int i, n = 0;
     for (i = 0; i < NAL; ++i) n += g->al[i].st == A_ENTER;
@@ -275,6 +315,7 @@ static void update_formation(Game *g) {
         if (g->formDx <= -42) g->formDir = 3;
     }
 }
+#endif
 static void update_entry(Game *g) {
     int i;
     for (i = 0; i < NAL; ++i) {
@@ -283,7 +324,7 @@ static void update_entry(Game *g) {
         if (a->ent == 0) { if (--a->dly <= 0) path_launch(a); }
         else if (a->ent == 1) { if (a->pstep >= PATH_LEN(a->path)) a->ent = 2; else path_step(a); }
         else {
-            int tx = slot_x(i) + g->formDx, ty = slot_y(i);
+            int tx = slot_px(g, i), ty = slot_py(g, i);
             a->x += a->x < tx ? 2 : a->x > tx ? -2 : 0;
             a->y += a->y < ty ? 2 : a->y > ty ? -2 : 0;
             if (abs(a->x - tx) <= 3 && abs(a->y - ty) <= 3) { a->st = A_FORM; a->x = tx; a->y = ty; }
@@ -356,7 +397,7 @@ static void dive_step(Game *g, int i) {
 static void dive_step(Game *g, int i) {
     Alien *a = &g->al[i];
     if (a->capdive) { dive_step_old(g, i); return; }
-    if (a->timer > 0) { --a->timer; a->x = slot_x(i) + g->formDx; a->y = slot_y(i); return; }   /* an escort waits for its boss */
+    if (a->timer > 0) { --a->timer; a->x = slot_px(g, i); a->y = slot_py(g, i); return; }   /* an escort waits for its boss */
     if (a->dpath >= 0 && a->pstep < arc_dive_path[a->dpath].n) {
         const signed char *d = arc_dive_path[a->dpath].d + 2 * a->pstep;
         a->x += d[0]; a->y += d[1];
@@ -367,7 +408,7 @@ static void dive_step(Game *g, int i) {
     ++a->pstep;
     if (a->y >= 244) {   /* gone below the screen: back from the top when the arcade dive would end (the way back takes slot_y / 2 ticks) */
         int total = a->dpath >= 0 ? arc_dive_path[a->dpath].total : 220;
-        a->st = A_RETURN; a->y = 0; a->timer = total - a->pstep - slot_y(i) / 2; if (a->timer < 0) a->timer = 0;
+        a->st = A_RETURN; a->y = 0; a->timer = total - a->pstep - slot_py(g, i) / 2; if (a->timer < 0) a->timer = 0;
     }
 }
 #endif
@@ -377,7 +418,7 @@ static void update_aliens(Game *g) {
         Alien *a = &g->al[i];
         switch (a->st) {
         case A_FORM:
-            a->x = slot_x(i) + g->formDx; a->y = slot_y(i);
+            a->x = slot_px(g, i); a->y = slot_py(g, i);
 #ifdef RULES_ARCADE
             if (a->timer > 0) --a->timer;   /* just home: it turns round before it can dive again */
 #endif
@@ -385,12 +426,12 @@ static void update_aliens(Game *g) {
         case A_EXPLODE: if (--a->timer < 0) a->st = A_DEAD; break;
         case A_DIVE: dive_step(g, i); break;
         case A_RETURN:
-            a->x = slot_x(i) + g->formDx;
+            a->x = slot_px(g, i);
 #ifdef RULES_ARCADE
             if (a->timer > 0) { --a->timer; break; }
 #endif
-            if ((a->y += 2) >= slot_y(i)) {
-                a->y = slot_y(i); a->st = A_FORM; a->esc = 0;
+            if ((a->y += 2) >= slot_py(g, i)) {
+                a->y = slot_py(g, i); a->st = A_FORM; a->esc = 0;
 #ifdef RULES_ARCADE   /* the arcade takes 54 frames (bee: 3) to settle a boss or a butterfly: 45 ticks */
                 a->timer = a->type == T_BEE ? 3 : 45;
 #endif

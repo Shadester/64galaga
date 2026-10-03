@@ -38,6 +38,7 @@ SPRITE_W, SPRITE_H = 24, 21        # C64 sprite; the arcade one is 16 x 16
 # by one factor: it is bent between these knots (arcade Y of the five rows -> our Y), above and below them with their own slope.
 Y_KNOTS = [(76, 72), (92, 100), (104, 128), (116, 156), (128, 184)]
 Y_ABOVE, Y_BELOW = 1.0, 0.4
+BREATH_Y = 0.8                   # the rows breathe 0.8 px for each arcade px (they are 28 px apart already, and the ship is below)
 
 
 def warp_y(y):
@@ -207,6 +208,21 @@ def main():
     out.append('static const unsigned char arc_entry_bomb[40] = {%s};' % ','.join(str(gd.BOMB_FLAG.get(o, 0)) for o in SLOT_OBJ))
     out.append('/* the six butterflies that escort a boss, in the order of the arcade table (d_1d2c) */')
     out.append('static const unsigned char arc_wingmen[6] = {%s};' % ','.join(str(OBJ_SLOT[o]) for o in gd.D_1D2C_WINGMEN))
+    out.append('')
+    out.append('/* formation breathing: 64 steps of 4 arcade frames; the offset (our pixels) of the columns 0..4 (the right half is the mirror) and of the rows 0..4 */')
+    out.append('static const signed char arc_breath[64][10] = {')
+    fm = gp.Formation()
+    fm.breathe_active = True
+    base_c = [fm.spcoords[2 * i] for i in range(10)]
+    base_r = [fm.spcoords[20 + 2 * i] | (fm.spcoords[21 + 2 * i] << 8) for i in range(6)]
+    for fr in range(1, 257):
+        fm.f_1DE6(fr)
+        if fr & 3 == 0:
+            cols = [fm.spcoords[2 * i] - base_c[i] for i in range(5)]
+            rows = [(fm.spcoords[20 + 2 * i] | (fm.spcoords[21 + 2 * i] << 8)) - base_r[i] for i in range(1, 6)]
+            out.append('    {%s},' % ','.join(str(v) for v in [round(c * SX) for c in cols] + [round(r * BREATH_Y) for r in rows]))
+    out += ['};', '']
+    out.append('static const unsigned char arc_slot_col[40] = {%s};' % ','.join(str((round(gp.Formation().origin_xy(o)[0]) - 49) // 16) for o in SLOT_OBJ))
     out.append('')
     out.append('/* sortie timer reloads (arcade counts of 16 frames) and bomb flags, as in the arcade tables */')
     for name, tab in (('arc_red_reload', gd.D_08CD), ('arc_bee_reload', gd.D_08EB), ('arc_bomb_tab', gd.D_0909)):

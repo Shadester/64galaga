@@ -3,8 +3,9 @@
 Status: the entry (rows 1-6), the dive scheduler, the escorts and the bombs (rows 7-11, 13-15) are in `psp/game.c` behind
 `-DRULES_ARCADE`; the old rules are still the default. `tools/gen_arcade.py` makes the data (`psp/arcade_data.h`).
 `tools/compare_arcade.py` checks the dives against the model: for stages 1, 2, 4, 5, 8, 9 and 12 the first 10 launches (who, with
-whom) are the same, and the times differ by less than 45 frames. Not done yet: formation breathing, the beam (12), the bonus bee (16),
-challenge stages (17), hit boxes (22), the respawn details (24). Known differences: a boss's bonus counts the escorts that are still
+whom) are the same, and the times differ by less than 45 frames. The formation swing and breathing (row 6) and the challenge stages (17: five groups of 8 on the arcade paths, 100 for each enemy,
+10,000 for all 40) are done too. Not done yet: the beam (12), the bonus bee (16; it needs new enemy art, see below), hit boxes (22), the
+respawn details (24). Known differences: a boss's bonus counts the escorts that are still
 alive (the model fixes it when the sortie starts); a captive fighter in the formation is not modelled.
 
 ## Sources
