@@ -39,7 +39,12 @@ tools/run.sh             # play in an SDL window; extra arguments: autoplay, sta
 python3 tests/run.py     # screenshot tests (the desktop engine runs the game and grabs the screen)
 python3 tests/test_game.py && python3 tests/test_lockstep.py   # rules; and the Python port against psp/game.c
 python3 tools/make_gif.py   # record docs/gameplay.gif
+tools/run.sh c64         # play with the rules of the C64 game instead (see below)
 ```
+
+### Rules
+
+The game follows the rules of the arcade Galaga that are described in `../ARCADE.md`: 40 aliens, arcade flight paths and dive scheduler, up to 8 aimed bombs, formation swing and breathing, challenge stages with 100 points for each alien. `tools/run.sh c64` plays with the rules of the C64 game instead (32 aliens). The switch is `game.set_arcade(False)`: call it before the first `Game()`, then `view.configure()`. The numbers are in `Galaga/arcade_data.py` (made by `tools/gen_arcade_data.py` from `../psp/arcade_data.h`; the paths are stored as base64 bytes to save memory).
 
 ### On the Thumby Color
 
@@ -53,8 +58,9 @@ Connect the device with USB and run `tools/install.sh` (it installs `mpremote` w
 | `Galaga/view.py` | What is on the screen: sprite slots, beam strips, stars, texts |
 | `Galaga/main.py` | The engine part: nodes, input, main loop at 50 ticks a second, debug arguments |
 | `Galaga/sfx.py` | Sound: tones and the jingles (`jingles/*.rtttl`) |
-| `Galaga/paths_data.py`, `sprite_ids.py`, `*.bmp` | Generated: flight paths, sprite sheet, beam, title, icon, font |
+| `Galaga/paths_data.py`, `arcade_data.py`, `sprite_ids.py`, `*.bmp` | Generated: flight paths, arcade numbers, sprite sheet, beam, title, icon, font |
 | `tools/gen_paths.py` | Makes `paths_data.py` by running the path builder of `psp/game.c` |
+| `tools/gen_arcade_data.py` | Makes `arcade_data.py` from `../psp/arcade_data.h` |
 | `tools/gen_assets.py` | Makes the pictures from `../c64/src/art.asm` and `assets/title-source.png` |
 | `tools/rawframes.py`, `make_gif.py` | Frame dumps of the engine as images; the GIF |
 | `tests/` | `test_game.py` (rules), `test_lockstep.py` + `c_trace.c` (against the C code), `run.py` + `ref/` (screenshots), `mp_check.py` (MicroPython gives the same results as CPython) |

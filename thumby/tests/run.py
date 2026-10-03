@@ -18,21 +18,32 @@ LIMIT = 4           # different pixels allowed
 
 # name | arguments | game ticks until the screenshot
 CASES = '''
-title||60
-entry|autoplay nofire|230
-settled|autoplay nofire|800
-play|autoplay|900
-challenge|autoplay stage=3|500
-explode|autoplay nofire dieat=650|675
-ready|autoplay nofire dieat=650|770
-hard|autoplay nofire diff=8|800
-pause|autoplay nofire pauseat=700|740
-capture|autoplay forcecapture|3000
-result|autoplay few diff=2|1080
-chalintro|autoplay few diff=2 stage=2|1230
-dual|autoplay forcecapture|3600
-quit|autoplay quitat=700|701
-gameover|autoplay nofire lives=1 dieat=600|700
+title|c64|60
+c64_entry|c64 autoplay nofire|230
+c64_settled|c64 autoplay nofire|800
+c64_play|c64 autoplay|900
+c64_challenge|c64 autoplay stage=3|500
+c64_explode|c64 autoplay nofire dieat=650|675
+c64_ready|c64 autoplay nofire dieat=650|770
+c64_hard|c64 autoplay nofire diff=8|800
+c64_pause|c64 autoplay nofire pauseat=700|740
+c64_capture|c64 autoplay forcecapture|3000
+c64_result|c64 autoplay few diff=2|1080
+c64_chalintro|c64 autoplay few diff=2 stage=2|1230
+c64_dual|c64 autoplay forcecapture|3600
+c64_quit|c64 autoplay quitat=700|701
+c64_gameover|c64 autoplay nofire lives=1 dieat=600|700
+entry|autoplay nofire|300
+settled|autoplay nofire|1300
+dive|autoplay nofire|2600
+play|autoplay|1500
+challenge|autoplay stage=3 nofire|600
+chalresult|autoplay stage=3|1500
+explode|autoplay nofire dieat=1100|1125
+ready|autoplay nofire dieat=1100|1300
+pause|autoplay nofire pauseat=1100|1140
+quit|autoplay quitat=1100|1101
+gameover|autoplay nofire lives=1 dieat=250|400
 '''
 
 

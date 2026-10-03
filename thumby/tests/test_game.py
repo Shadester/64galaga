@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Rule checks of Galaga/game.py (a translation of psp/tests/test_c64.c: the C64 rules). Usage: python3 tests/test_game.py"""
+"""Rule checks of the arcade rules (the default) of Galaga/game.py (a translation of psp/tests/test_game.c). Usage: python3 tests/test_game.py"""
 import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Galaga'))
 import game as G  # noqa: E402
-G.set_arcade(False)       # these are the checks of the C64 rules (psp/tests/test_c64.c)
 from game import *  # noqa: E402,F403
 
 none = Input()
@@ -47,17 +46,17 @@ def expect_score(s):
     assert g.score == s, (g.score, s)
 
 
-# every path starts outside the 24..343 x 50..249 play area
-for p in G.PATHS:
-    assert p[0] < 0 or p[0] > 344 or p[1] < 30
-assert 140 < G.PATHS[P_C][2] < 185 and 155 < G.PATHS[P_D][2] < 195
+# every path is long enough and starts at the edge of the 24..343 x 50..249 play area
+assert NAL == 40 and EBN == 8
+for p in G.AD.ARC_PATH:
+    assert p[2] > 50 and (p[0] < 32 or p[0] > 335 or p[1] < 50)
 
 # scoring table
 begin(1); formation()
 shoot(20); expect_score(50)           # bee, formation
 shoot(5); expect_score(130)           # butterfly, formation
 g.al[6].st = A_DIVE; shoot(6); expect_score(290)
-g.al[19].st = A_DIVE; shoot(19); expect_score(390)
+g.al[21].st = A_DIVE; shoot(21); expect_score(390)
 shoot(0); expect_score(390); assert g.al[0].hp == 1     # boss: first hit, no points
 shoot(0); expect_score(540)           # boss in formation
 
@@ -66,6 +65,12 @@ begin(1); formation(); g.al[1].st = A_DIVE; shoot(1); shoot(1); expect_score(400
 begin(1); formation(); g.al[1].st = A_DIVE; g.al[6].st = A_DIVE; g.al[6].esc = 2; shoot(1); shoot(1); expect_score(800)
 begin(1); formation(); g.al[1].st = A_DIVE
 g.al[6].st = A_DIVE; g.al[6].esc = 2; g.al[7].st = A_DIVE; g.al[7].esc = 2; shoot(1); shoot(1); expect_score(1600)
+
+# a bomb is aimed at the ship, but moves sideways at most 0.6 of its fall speed (the arcade's limit)
+begin(1); formation(); g.px = 300; g.py = 230
+g.al[0].x = 40; g.al[0].y = 200; g.spawn_ebullet(g.al[0]); assert g.eb[0].dx == G.BOMB_MAX_DX
+g.al[0].x = 300; g.al[0].y = 200; g.spawn_ebullet(g.al[0]); assert g.eb[1].dx == 0
+g.al[0].x = 100; g.al[0].y = 120; g.px = 60; g.spawn_ebullet(g.al[0]); assert -G.BOMB_MAX_DX <= g.eb[2].dx < 0
 
 # bonus lives: 20k, 70k, 140k
 begin(1); g.lives = 3
@@ -76,16 +81,16 @@ g.add_score(70000); assert g.lives == 6
 
 # challenge stages 3, 7, 11; per-hit value, perfect bonus
 begin(3); assert g.challenge and g.chalVal == 100
-begin(7); assert g.challenge and g.chalVal == 200
-begin(11); assert g.challenge and g.chalVal == 300
+begin(7); assert g.challenge and g.chalVal == 100
+begin(11); assert g.challenge and g.chalVal == 100
 begin(4); assert not g.challenge
 begin(3)
 for i, a in enumerate(g.al):
     a.st = A_ENTER; a.ent = 1; a.x = 100; a.y = 100 + i
 for i in range(NAL):
     shoot(i)
-expect_score(3200); assert g.chalHits == NAL
-g.enter_result(); expect_score(13200)
+expect_score(100 * NAL); assert g.chalHits == NAL
+g.enter_result(); expect_score(100 * NAL + 10000)
 
 # difficulty skips challenge stages
 begin(1); g.diff = 1
@@ -95,6 +100,7 @@ g.next_stage(); assert g.diff == 3 and g.stage == 4
 
 # capture -> carry -> rescue -> dual
 begin(1); formation(); g.px = g.al[2].x
+g.sortie = [1 << 30] * 3        # only the capture boss dives
 g.start_dive(2, 1, 20); assert g.cap == C_DIVING
 steps = 0
 while steps < 600 and g.cap != C_BEAM:
@@ -102,7 +108,7 @@ while steps < 600 and g.cap != C_BEAM:
 assert g.cap == C_BEAM
 g.px = g.al[2].x
 steps = 0
-while steps < 100 and g.state == S_PLAY:
+while steps < 300 and g.state == S_PLAY:
     g.tick(none); steps += 1
 assert g.state == S_CAPTURED and g.cap == C_PULL
 steps = 0

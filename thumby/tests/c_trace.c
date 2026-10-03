@@ -1,5 +1,5 @@
 /* Runs psp/game.c with scripted input and prints the whole game state after every tick, for tests/test_lockstep.py.
- * rand / srand are replaced by the same generator that Galaga/game.py has. Flags: -DTICKS=n -DSTART_STAGE=n -DFORCECAPTURE */
+ * rand / srand are replaced by the same generator that Galaga/game.py has. Flags: -DTICKS=n -DSTART_STAGE=n -DFORCECAPTURE -DGODMODE -DRULES_C64 (the C64 rules instead of the arcade rules) */
 #include <stdio.h>
 
 static unsigned lcg = 1;
@@ -39,6 +39,10 @@ int main(void) {
     game_init(&g, 0);
     for (t = 0; t < TICKS; ++t) {
         script(&g, t, &in);
+#ifdef GODMODE   /* the ship cannot be hit, except while a tractor beam is on (and then no bomb falls): long games, captures */
+        g.invuln = (g.cap == C_BEAM || g.cap == C_PULL) ? 0 : 100;
+        if (g.cap == C_BEAM) memset(g.eb, 0, sizeof g.eb);   /* no bomb during the beam, so the capture happens */
+#endif
         game_tick(&g, &in);
         printf("%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
                g.state, g.paused, g.stateTimer, g.frame, g.score, g.hi, g.lives, g.stage, g.diff, g.nextBonus,
@@ -52,6 +56,12 @@ int main(void) {
         }
         for (i = 0; i < 4; ++i) printf(" %d,%d,%d", g.ps[i].x, g.ps[i].y, g.ps[i].act);
         for (i = 0; i < 3; ++i) printf(" %d,%d,%d,%d", g.eb[i].x, g.eb[i].y, g.eb[i].act, g.eb[i].dx);
+#ifdef RULES_ARCADE   /* the fields of the arcade rules, after the ones above (tests/test_lockstep.py prints the same) */
+        printf(" A %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", g.fclk, g.ff, g.swayPos, g.swayDir, g.breathe, g.bstep,
+               g.clk, g.af, g.tmr2, g.hold, g.sortie[0], g.sortie[1], g.sortie[2], g.wingm, g.bombFlags, g.beamPh, g.beamStep);
+        for (i = 0; i < NAL; ++i) printf(" %d,%d,%d", g.al[i].dpath, g.al[i].bflags, g.al[i].btmr);
+        for (i = 0; i < EBN; ++i) printf(" %d,%d,%d,%d,%d", g.eb[i].x, g.eb[i].y, g.eb[i].act, g.eb[i].dx, g.eb[i].ax);
+#endif
         printf("\n");
         g.snd = 0; g.saveReq = 0;
     }

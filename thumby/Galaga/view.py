@@ -10,6 +10,17 @@ W = H = 128
 HUD_H = 14
 N_SLOTS = 43                       # 32 aliens, ship, dual ship, captive, 4 player bullets, 3 enemy bullets, the lives icon
 SLOT_SHIP, SLOT_DUAL, SLOT_CAPT, SLOT_PBUL, SLOT_EBUL, SLOT_LIFE = 32, 33, 34, 35, 39, 42
+
+
+def configure():
+    """The slots follow the number of aliens (G.NAL) and of enemy bombs (G.EBN): call it after G.set_arcade and before Scene()."""
+    global N_SLOTS, SLOT_SHIP, SLOT_DUAL, SLOT_CAPT, SLOT_PBUL, SLOT_EBUL, SLOT_LIFE
+    SLOT_SHIP, SLOT_DUAL, SLOT_CAPT, SLOT_PBUL = G.NAL, G.NAL + 1, G.NAL + 2, G.NAL + 3
+    SLOT_EBUL = SLOT_PBUL + 4
+    SLOT_LIFE = SLOT_EBUL + G.EBN
+    N_SLOTS = SLOT_LIFE + 1
+
+
 NUM_STARS = 12
 MAX_MSG = 3
 WHITE, RED, CYAN, BLUE = 0, 1, 2, 3          # text colours (main.py maps them)
@@ -76,7 +87,7 @@ class Scene:
         frame = g.frame
         anim = (frame >> 4) & 1
         # aliens
-        for i in range(32):
+        for i in range(G.NAL):
             a = g.al[i]
             st = a.st
             if st == G.A_DEAD or (st == G.A_ENTER and a.ent == 0):
@@ -136,7 +147,7 @@ class Scene:
                 sy[SLOT_PBUL + i] = HUD_H + ((b.y + 6 - 50) * 14) // 25
             else:
                 sid[SLOT_PBUL + i] = -1
-        for i in range(3):
+        for i in range(G.EBN):
             b = g.eb[i]
             if b.act:
                 sid[SLOT_EBUL + i] = S.EBUL
