@@ -29,7 +29,10 @@ $(BUILD):
 run: $(TARGET)
 	tools/run.sh
 
+run-portrait:
+	tools/run_portrait.sh
+
 clean:
 	rm -rf build
 
-.PHONY: all run clean
+.PHONY: all run run-portrait clean

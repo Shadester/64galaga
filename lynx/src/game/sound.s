@@ -1,6 +1,7 @@
 ; Sound on the Mikey voices. The C64 uses the three SID voices; here: voice 0 shoot / ship hit (square),
 ; voice 1 explosions (noise), voice 2 jingles, the dive swoop and the beam hum (square). Effects fade
-; out by themselves: snd_tick lowers the volume every frame.
+; out by themselves: snd_tick lowers the volume every frame (each time by a part of it: a quick bang, a long tail) and
+; slides the pitch down (the timer reload grows), so a shot is a "pew" and an explosion a noise that falls.
 ;
 ; A Mikey voice makes a square wave with FEED = $80 (a 12-bit shift register with one tap: 24 timer steps
 ; a cycle) and noise with several taps. Timer: 1 MHz / (reload + 1). Hz = 41667 / (reload + 1).
@@ -18,7 +19,10 @@ V_EXPL          = 8
 V_JINGLE        = 16
 
 snd_vol:        .res 2          ; fading voices 0 and 1
-snd_dec:        .res 2
+snd_dec:        .res 2          ; each frame: volume = volume - (volume >> snd_dec) - 1
+snd_rl:         .res 2          ; the timer reload now
+snd_rs:         .res 2          ; added to it each frame (0: no slide)
+snd_t:          .res 1
 
 init_sound:
         stz MSTEREO             ; all voices on, both ears
@@ -53,27 +57,32 @@ sound_shoot:
         phx                     ; the callers keep X and Y (shoot_bullet loops on Y)
         phy
         ldx #V_SHOOT
-        lda #33                 ; 1.2 kHz
+        lda #14                 ; 2.8 kHz, sliding down
         ldy #SQUARE
         jsr snd_start
-        lda #$50
-        ldx #6
-        bra snd_fade0
+        lda #14
+        ldx #3
+        ldy #3
+        bra snd_set0
 
 ; Lower descending tone
 sound_player_hit:
         phx                     ; the callers keep X and Y (shoot_bullet loops on Y)
         phy
         ldx #V_SHOOT
-        lda #112                ; 370 Hz
+        lda #70                 ; 590 Hz, sliding down
         ldy #SQUARE
         jsr snd_start
+        lda #70
+        ldx #4
+        ldy #9
+snd_set0:                       ; A = reload now, X = decay shift, Y = slide
+        sta snd_rl
+        stx snd_dec
+        sty snd_rs
         lda #$60
-        ldx #3
-snd_fade0:
         sta snd_vol
         sta AUD_VOL + V_SHOOT
-        stx snd_dec
         ply
         plx
         rts
@@ -83,27 +92,32 @@ sound_explosion:
         phx                     ; the callers keep X and Y (shoot_bullet loops on Y)
         phy
         ldx #V_EXPL
-        lda #12
+        lda #5                  ; hiss, falling quickly
         ldy #NOISE
         jsr snd_start
-        lda #$60
-        ldx #3
-        bra snd_fade1
+        lda #5
+        ldx #2
+        ldy #3
+        bra snd_set1
 
 ; The ship explodes: long low noise rumble
 sound_player_die:
         phx                     ; the callers keep X and Y (shoot_bullet loops on Y)
         phy
         ldx #V_EXPL
-        lda #40
+        lda #18
         ldy #NOISE
         jsr snd_start
-        lda #$70
-        ldx #1
-snd_fade1:
+        lda #18
+        ldx #4
+        ldy #2
+snd_set1:                       ; A = reload now, X = decay shift, Y = slide
+        sta snd_rl+1
+        stx snd_dec+1
+        sty snd_rs+1
+        lda #$7f
         sta snd_vol+1
         sta AUD_VOL + V_EXPL
-        stx snd_dec+1
         ply
         plx
         rts
@@ -132,21 +146,41 @@ snd_tick:
         ldx #1
 @fade:  lda snd_vol,x
         beq @next
-        sec
-        sbc snd_dec,x
-        bcs @set
-        lda #0
-@set:   sta snd_vol,x
-        pha
         txa
         asl
         asl
         asl
-        tay
-        pla
+        tay                     ; the voice's offset
+        lda snd_rl,x            ; slide the pitch down
+        clc
+        adc snd_rs,x
+        bcc @rl
+        lda #255
+@rl:    sta snd_rl,x
+        sta AUD_BKUP,y
+        lda snd_vol,x           ; volume = volume - (volume >> shift) - 1
+        sta snd_t
+        phx
+        lda snd_dec,x
+        tax
+@sh:    dex
+        bmi @shd
+        lsr snd_t
+        bra @sh
+@shd:   plx
+        lda snd_vol,x
+        sec
+        sbc snd_t
+        beq @off
+        bcc @off
+        dec
+        beq @off
+        sta snd_vol,x
         sta AUD_VOL,y
-        bne @next
-        lda #0
+        bra @next
+@off:   lda #0
+        sta snd_vol,x
+        sta AUD_VOL,y
         sta AUD_CTLA,y          ; faded out: stop the voice
 @next:  dex
         bpl @fade

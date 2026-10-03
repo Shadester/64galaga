@@ -35,6 +35,7 @@ The emulator needs the Lynx boot ROM. It is copyrighted: you must dump it from y
 ```sh
 make               # build/galaga.lnx
 make run           # build and start it in Gearlynx (tools/run.sh)
+make run-portrait  # the portrait version (tools/run_portrait.sh)
 tests/run.py       # screenshot tests, headless Gearlynx; --update after an intended change
 python3 tools/make_gif.py   # record docs/gameplay.gif (--portrait: docs/gameplay-portrait.gif)
 ```
@@ -64,7 +65,7 @@ The web page is `../docs/lynx/index.html`, and the ROM there (`../docs/lynx/gala
 | `tools/gearlynx.py` | Runs a ROM in headless Gearlynx (its MCP server): steps frames, presses buttons, takes screenshots |
 | `tools/dbg.py` | Prints the program counter and the values of labels after N frames |
 | `tools/make_gif.py` | Records `docs/gameplay.gif` |
-| `tools/run.sh`, `tools/setup-macos.sh` | Start the game in Gearlynx; install the tools |
+| `tools/run.sh`, `tools/run_portrait.sh`, `tools/setup-macos.sh` | Start the game in Gearlynx; install the tools |
 
 The generated files are in the repository. You only run the generators when you change the art or the title picture.
 
