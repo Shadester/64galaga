@@ -74,14 +74,14 @@ def final_segment_start(track):
 
 
 def unwrap(track):
-    """The arcade X is 8 bits and Y 9 bits: a path that leaves the screen wraps round. Make it continuous; stop at 'END'."""
-    out, ox, oy = [], 0, 0
+    """The arcade X is 8 bits: a path that leaves the screen sideways wraps round. Make it continuous; stop at 'END' or at a jump in Y."""
+    out, ox = [], 0
     for i, r in enumerate(track):
         if i and abs(r['x'] + ox - out[-1][0]) > 128:
             ox += 256 if out[-1][0] > r['x'] + ox else -256
-        if i and abs(r['y'] + oy - out[-1][1]) > 256:
-            oy += 512 if out[-1][1] > r['y'] + oy else -512
-        out.append((r['x'] + ox, r['y'] + oy))
+        if i and abs(r['y'] - out[-1][1]) > 128:
+            break                    # a jump: the arcade puts the enemy at the top again (path 22 of stage 5). We stop where it left the screen
+        out.append((r['x'] + ox, r['y']))
         if r['event'] and 'END' in r['event']:
             break
     return out
