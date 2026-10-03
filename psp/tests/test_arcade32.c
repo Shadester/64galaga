@@ -21,6 +21,7 @@ static void formation(void) {
 }
 static void shoot(int i) {
     g.ps[0].act = 1; g.ps[0].x = g.al[i].x + 6; g.ps[0].y = g.al[i].y;
+    g.frame &= ~1;   /* the C64 tests shot 0 in even ticks */
     update_collisions(&g);
 }
 
@@ -31,7 +32,7 @@ int main(void) {
 
     /* a challenge stage: 100 for each alien, 10,000 when all 32 are hit */
     begin(3); assert(g.challenge && g.chalVal == 100);
-    for (i = 0; i < NAL; ++i) { g.al[i].st = A_ENTER; g.al[i].ent = 1; g.al[i].x = 100; g.al[i].y = 100 + i; }
+    for (i = 0; i < NAL; ++i) { g.al[i].st = A_ENTER; g.al[i].ent = 1; g.al[i].x = 30 + 20 * i; g.al[i].y = 100; }
     for (i = 0; i < NAL; ++i) shoot(i);
     assert(g.score == 100 * NAL && g.chalHits == NAL);
     enter_result(&g); assert(g.score == 100 * NAL + 10000);

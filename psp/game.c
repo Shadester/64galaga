@@ -1,10 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 #include "game.h"
 
 #define PMAX 256
-#define PATH_SPEED 2.6f
 #define MIRROR_X 344
 enum { P_A, P_B, P_C, P_D };
 typedef struct { int sx, sy, n; signed char dx[PMAX], dy[PMAX]; } Path;
@@ -12,59 +10,10 @@ typedef struct { int sx, sy, n; signed char dx[PMAX], dy[PMAX]; } Path;
 #ifdef RULES_ARCADE
 #define PATH_LEN(i) (arc_path[i].n)
 static void paths_init(void) {}
-#else   /* the C64 layout: the fly-in splines of the C64 game */
+#else   /* the C64 layout: the flight paths of the C64 game (made by c64/tools/gen_paths.py) */
+#include "paths32.h"
 #define PATH_LEN(i) (paths[i].n)
-static Path paths[4];
-static int paths_ready;
-
-/* Control points from 64galaga tools/gen_paths.py. */
-static const float ptA[][2] = {{60,30},{120,88},{196,128},{232,100},{200,66},{158,96},{176,156},{236,204},{290,246}};
-static const float ptB[][2] = {{292,30},{236,72},{120,92},{62,132},{98,174},{206,188},{274,214},{296,246}};
-static const float ptC[][2] = {{240,30},{206,84},{140,136},{90,122},{98,84},{150,78},{196,112}};
-static const float ptD[][2] = {{24,96},{86,104},{150,138},{192,176},{158,198},{118,168},{140,124},{196,104}};
-
-static void build_path(Path *p, const float (*src)[2], int n) {
-    static float dense[700][2], out[PMAX + 1][2], pts[16][2];
-    const float (*pt)[2] = (const float (*)[2])pts;
-    int nd = 0, seg, k, j, no = 1;
-    float cx, cy, lx = src[1][0] - src[0][0], ly = src[1][1] - src[0][1], ll = sqrtf(lx * lx + ly * ly);
-    /* Lead-in: start 70 px before the first point so aliens fly in from off-screen. */
-    pts[0][0] = src[0][0] - lx / ll * 70; pts[0][1] = src[0][1] - ly / ll * 70;
-    memcpy(pts[1], src, n * sizeof *src); ++n;
-    for (seg = 0; seg < n - 1; ++seg) {
-        const float *p0 = pt[seg ? seg - 1 : 0], *p1 = pt[seg], *p2 = pt[seg + 1], *p3 = pt[seg + 2 < n ? seg + 2 : n - 1];
-        for (k = 0; k < 60; ++k) {
-            float t = k / 60.0f, t2 = t * t, t3 = t2 * t;
-            dense[nd][0] = .5f * (2 * p1[0] + (p2[0] - p0[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (3 * p1[0] - p0[0] - 3 * p2[0] + p3[0]) * t3);
-            dense[nd][1] = .5f * (2 * p1[1] + (p2[1] - p0[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (3 * p1[1] - p0[1] - 3 * p2[1] + p3[1]) * t3);
-            ++nd;
-        }
-    }
-    dense[nd][0] = pt[n - 1][0]; dense[nd][1] = pt[n - 1][1]; ++nd;
-    /* Resample to a constant speed, then store integer per-frame deltas. */
-    cx = out[0][0] = dense[0][0]; cy = out[0][1] = dense[0][1];
-    for (j = 1; j < nd && no < PMAX; ++j) {
-        for (;;) {
-            float dx = dense[j][0] - cx, dy = dense[j][1] - cy, d = sqrtf(dx * dx + dy * dy);
-            if (d < PATH_SPEED || no >= PMAX) break;
-            cx += dx / d * PATH_SPEED; cy += dy / d * PATH_SPEED;
-            out[no][0] = cx; out[no][1] = cy; ++no;
-        }
-    }
-    p->sx = (int)lroundf(out[0][0]); p->sy = (int)lroundf(out[0][1]); p->n = no - 1;
-    for (k = 0; k < p->n; ++k) {
-        p->dx[k] = (signed char)(lroundf(out[k + 1][0]) - lroundf(out[k][0]));
-        p->dy[k] = (signed char)(lroundf(out[k + 1][1]) - lroundf(out[k][1]));
-    }
-}
-static void paths_init(void) {
-    if (paths_ready) return;
-    build_path(&paths[P_A], ptA, sizeof ptA / sizeof *ptA);
-    build_path(&paths[P_B], ptB, sizeof ptB / sizeof *ptB);
-    build_path(&paths[P_C], ptC, sizeof ptC / sizeof *ptC);
-    build_path(&paths[P_D], ptD, sizeof ptD / sizeof *ptD);
-    paths_ready = 1;
-}
+static void paths_init(void) {}
 #endif
 
 static const int bossX[4] = {145, 171, 197, 223};
@@ -308,9 +257,16 @@ static void update_entry(Game *g) {
         else if (a->ent == 1) { if (a->pstep >= PATH_LEN(a->path)) a->ent = 2; else path_step(a); }
         else {
             int tx = slot_px(g, i), ty = slot_py(g, i);
+#ifdef RULES_ARCADE32   /* the C64's: an axis that is within 3 px stays, the alien is home when none moves */
+            int moved = 0;
+            if (abs(a->x - tx) > 3) { a->x += a->x < tx ? 2 : -2; moved = 1; }
+            if (abs(a->y - ty) > 3) { a->y += a->y < ty ? 2 : -2; moved = 1; }
+            if (!moved) { a->st = A_FORM; a->x = tx; a->y = ty; }
+#else
             a->x += a->x < tx ? 2 : a->x > tx ? -2 : 0;
             a->y += a->y < ty ? 2 : a->y > ty ? -2 : 0;
             if (abs(a->x - tx) <= 3 && abs(a->y - ty) <= 3) { a->st = A_FORM; a->x = tx; a->y = ty; }
+#endif
         }
     }
 }
@@ -323,7 +279,7 @@ static void update_challenge(Game *g) {
 #ifdef RULES_ARCADE
         if (a->ent == 0) { if (g->chalTimer >= a->dly) path_launch(a); }
 #else
-        if (a->ent == 0) { if (g->chalTimer >= (i >> 3) * 55 + (i & 7) * 6) path_launch(a); }
+        if (a->ent == 0) { if (g->chalTimer > (i >> 3) * 55 + (i & 7) * 6) path_launch(a); }   /* (the C64's delay counts down to 0, then launches) */
 #endif
         else if (a->pstep >= PATH_LEN(a->path)) a->st = A_DEAD;
         else path_step(a);
@@ -406,7 +362,11 @@ static void update_aliens(Game *g) {
             if (a->timer > 0) --a->timer;   /* just home: it turns round before it can dive again */
 #endif
             break;
+#ifdef RULES_ARCADE32
+        case A_EXPLODE: if (--a->timer <= 0) a->st = A_DEAD; break;   /* the C64's explosion lasts 11 ticks */
+#else
         case A_EXPLODE: if (--a->timer < 0) a->st = A_DEAD; break;
+#endif
         case A_DIVE: dive_step(g, i); break;
         case A_RETURN:
             a->x = slot_px(g, i);
@@ -533,7 +493,11 @@ static void update_ebullets(Game *g) {
 
 static void update_collisions(Game *g) {
     int i, j;
+#ifdef RULES_ARCADE32   /* the C64 tests a shot every 2nd tick (it moves 4 px, the window is 16 px), from the last alien down */
+    for (i = 3; i >= 0; --i) if (g->ps[i].act && !((i ^ g->frame) & 1)) for (j = NAL - 1; j >= 0; --j) {
+#else
     for (i = 0; i < 4; ++i) if (g->ps[i].act) for (j = 0; j < NAL; ++j) {
+#endif
         Alien *a = &g->al[j];
         if (a->st == A_DEAD || a->st == A_EXPLODE || (a->st == A_ENTER && a->ent == 0)) continue;
         if (g->ps[i].y - 8 <= a->y && a->y < g->ps[i].y + 8 && a->x - 6 <= g->ps[i].x && g->ps[i].x < a->x + 12) {
@@ -547,7 +511,11 @@ static void update_collisions(Game *g) {
             if (g->eb[i].x >= sx - 6 && g->eb[i].x <= sx + 7) { g->eb[i].act = 0; player_hit(g, j); break; }
         }
     }
+#ifdef RULES_ARCADE32   /* the C64 tests half of the aliens in a tick, from the last one down */
+    for (j = g->frame & 1 ? NAL - 1 : NAL / 2 - 1; j >= (g->frame & 1 ? NAL / 2 : 0) && g->state == S_PLAY && !g->invuln && !g->challenge; --j) {
+#else
     for (j = 0; j < NAL && g->state == S_PLAY && !g->invuln && !g->challenge; ++j) {   /* challenge aliens never ram */
+#endif
         Alien *a = &g->al[j];
         int s;
         if (!((a->st == A_DIVE) || (a->st == A_ENTER && a->ent))) continue;
