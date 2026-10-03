@@ -145,46 +145,48 @@ fn letter_color(ch: u8, v: &Variant) -> Option<Rgb> {
     })
 }
 
-/// A picture from the art rows: the left half is mirrored; reduced to `size` x `size` pixels (None: clear).
-fn scale_art(rows: &[&str; 16], v: &Variant, size: usize) -> Vec<Option<Rgb>> {
-    let mut full = [[None::<Rgb>; 16]; 16];
-    for (y, row) in rows.iter().enumerate() {
-        let b = row.as_bytes();
-        for x in 0..16 {
-            full[y][x] = letter_color(if x < 8 { b[x] } else { b[15 - x] }, v);
-        }
-    }
-    let mut out = vec![None; size * size];
-    if size >= 16 {
-        for ty in 0..size {
-            for tx in 0..size {
-                out[ty * size + tx] = full[ty * 16 / size][tx * 16 / size];
-            }
-        }
-        return out;
-    }
-    for ty in 0..size {
-        for tx in 0..size {
-            let (mut n, mut opaque, mut sum) = (0u32, 0u32, [0u32; 3]);
-            for sy in 0..16 {
-                for sx in 0..16 {
-                    if sy * size / 16 == ty && sx * size / 16 == tx {
-                        n += 1;
-                        if let Some(c) = full[sy][sx] {
-                            opaque += 1;
-                            for i in 0..3 {
-                                sum[i] += c[i] as u32;
-                            }
+/// A picture from the art rows (the left half only): reduced to `size` (even) pixels wide and as high as the art's rows need. The left half is reduced
+/// and mirrored, so the picture is symmetric. An output pixel is clear when less than half of its source pixels are opaque; else it takes the colour
+/// that is most frequent among them, a detail colour (yellow, cyan, white, orange, red) counting double, so that an antenna or an eye does not go grey.
+/// Returns (pixels, width, height).
+fn scale_art(rows: &[&str; 16], v: &Variant, size: usize) -> (Vec<Option<Rgb>>, usize, usize) {
+    let used: Vec<usize> = (0..16).filter(|&y| rows[y].bytes().any(|c| c != b'.')).collect();
+    let (y0, y1) = (used[0], used[used.len() - 1] + 1);
+    let h = ((y1 - y0) * size + 8) / 16;
+    let h = h.max(2);
+    let half = size / 2;
+    let mut out = vec![None; size * h];
+    for ty in 0..h {
+        let sy0 = y0 + ty * (y1 - y0) / h;
+        let sy1 = (y0 + (ty + 1) * (y1 - y0) / h).max(sy0 + 1);
+        for tx in 0..half {
+            let sx0 = tx * 8 / half;
+            let sx1 = ((tx + 1) * 8 / half).max(sx0 + 1);
+            let mut tally: Vec<(u8, u32)> = Vec::new();
+            let (mut n, mut opaque) = (0u32, 0u32);
+            for sy in sy0..sy1 {
+                for sx in sx0..sx1 {
+                    n += 1;
+                    let ch = rows[sy].as_bytes()[sx];
+                    if letter_color(ch, v).is_some() {
+                        opaque += 1;
+                        let w = if b"ywcroY".contains(&ch) { 2 } else { 1 };
+                        match tally.iter_mut().find(|t| t.0 == ch) {
+                            Some(t) => t.1 += w,
+                            None => tally.push((ch, w)),
                         }
                     }
                 }
             }
             if n > 0 && opaque * 2 >= n {
-                out[ty * size + tx] = Some([(sum[0] / opaque) as u8, (sum[1] / opaque) as u8, (sum[2] / opaque) as u8]);
+                let best = tally.iter().max_by_key(|t| t.1).unwrap().0;
+                let c = letter_color(best, v);
+                out[ty * size + tx] = c;
+                out[ty * size + size - 1 - tx] = c;
             }
         }
     }
-    out
+    (out, size, h)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -213,7 +215,7 @@ fn art_of(s: Spr) -> (&'static [&'static str; 16], &'static Variant) {
 /// The renderer: the scale, the sprites reduced to it, and the little state a picture needs.
 pub struct Renderer {
     pub layout: Layout,
-    cache: HashMap<(Spr, usize), Vec<Option<Rgb>>>,
+    cache: HashMap<(Spr, usize), (Vec<Option<Rgb>>, usize, usize)>,
 }
 
 impl Renderer {
@@ -224,16 +226,17 @@ impl Renderer {
     /// Draw a sprite `gsize` game pixels wide with its centre at the game coordinates (cx, cy).
     fn sprite(&mut self, cv: &mut Canvas, s: Spr, cx: i32, cy: i32, gsize: i32) {
         let k = self.layout.k;
-        let size = ((gsize + k / 2) / k).max(2) as usize;
-        let pic = self.cache.entry((s, size)).or_insert_with(|| {
+        let size = ((gsize + k / 2) / k).max(4) as usize & !1; // even (rounded down): the picture is symmetric about its middle
+        let (pic, w, h) = self.cache.entry((s, size)).or_insert_with(|| {
             let (rows, v) = art_of(s);
             scale_art(rows, v, size)
         });
-        let x0 = (cx - 24) / k - size as i32 / 2;
-        let y0 = (cy - 50) / k - size as i32 / 2;
-        for ty in 0..size {
-            for tx in 0..size {
-                if let Some(c) = pic[ty * size + tx] {
+        let (w, h) = (*w, *h);
+        let x0 = (cx - 24).div_euclid(k) - w as i32 / 2;
+        let y0 = (cy - 50).div_euclid(k) - h as i32 / 2;
+        for ty in 0..h {
+            for tx in 0..w {
+                if let Some(c) = pic[ty * w + tx] {
                     cv.set(x0 + tx as i32, y0 + ty as i32, c);
                 }
             }
