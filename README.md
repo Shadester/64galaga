@@ -37,7 +37,7 @@
     </td>
   </tr>
   <tr>
-    <td width="360"><a href="lynx/"><img src="lynx/docs/gameplay.gif" width="340" alt="Atari Lynx"></a></td>
+    <td width="360"><a href="lynx/"><img src="lynx/docs/gameplay.gif" width="340" alt="Atari Lynx Landscape"></a><br><a href="lynx/"><img src="lynx/docs/gameplay-portrait.gif" width="170" alt="Atari Lynx Portrait"></a></td>
     <td>
       <h3><a href="lynx/">Atari Lynx</a> (landscape and portrait)</h3>
       <i>65C02 assembly (ca65)</i><br><br>
