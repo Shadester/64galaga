@@ -1,7 +1,7 @@
 -- galaga for pico-8: input, drawing and sound. The rules are in game.lua (the same code the lockstep test runs).
 -- c64 coordinates (x 24..343, y 50..249) are stretched to the 128 x 128 screen like the thumby version:
 -- screen x = (x - 24) * 0.4, screen y = 14 + (y - 50) * 0.56 (the top 14 rows are the hud). Sprites are not stretched.
--- start arguments (pico8 -run galaga.p8 -p "autoplay stage=3"): autoplay forcecapture few c64 stage=N lives=N diff=N
+-- start arguments (pico8 -run galaga.p8 -p "autoplay stage=3"): autoplay forcecapture few stage=N lives=N diff=N
 -- shot=N (the screenshot test: saves the screen after N updates), rec=A gif=B (a GIF of the updates A..B, for docs/)
 -- sprite ids: 0 bee, 2 butterfly, 4 boss, 6 boss after a hit (two frames each), 8 ship, 9 captive, 10 and 11 bullets,
 -- 12 alien explosion, 15 ship explosion, 19 lives icon
@@ -21,7 +21,6 @@ function say(t,y,c) print(t,64-#t*2,y-2,c) end
 function _init()
  cartdata("shadester_galaga")
  local args=split(stat(6)," ")
- for t in all(args) do arcade=arcade and t~="c64" end -- c64: the rules of the c64 game (32 aliens, 3 bombs), else the arcade rules
  game_init(dget(0))
  for t in all(args) do
   local k,v=unpack(split(t,"="))

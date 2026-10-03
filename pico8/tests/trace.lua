@@ -1,11 +1,7 @@
 -- headless run of game.lua with the scripted input of tests/test_lockstep.py: prints the whole state after every tick
--- the scenario "c64-NAME" runs the c64 rules; the others the arcade rules (and print the arcade fields too: the C side is tests/c_trace_arcade.c)
+-- the C side is tests/c_trace_arcade.c (psp/game.c)
 local p=split(stat(6)," ")
 local scen,ticks=p[1],p[2]
-if sub(scen,1,4)=="c64-" then
- arcade=false
- scen=sub(scen,5)
-end
 game_init(0)
 if scen=="challenge" then start_stage_no=3
 elseif scen=="capture" then force_capture=true
@@ -42,19 +38,16 @@ for t=0,ticks-1 do
  local s=""
  for _,v in pairs({state,paused,stateTimer,frame,r(score),r(hi),lives,stage,diff,r(nextBonus),
   challenge,chalVal,chalHits,chalTimer,shots,hits,px,py,invuln,dual,
-  dyingQuiet,formDx,formDir,formTimer,entering,diveTimer,cap,capBoss,beamLen,
+  dyingQuiet,formDx,formDir,formTimer,entering,cap,capBoss,beamLen,
   beamAcc,beamTimer,rx,ry,snd}) do s..=n(v).." " end
  s=sub(s,1,-2)
- if arcade then
-  for _,v in pairs({fclk,ff,swayPos,swayDir,breathe,bstep,clk,af,tmr2,hold,wingm,bombFlags,beamPh,beamStep,sortie[0],sortie[1],sortie[2]}) do s..=" "..n(v) end
- end
+ for _,v in pairs({fclk,ff,swayPos,swayDir,breathe,bstep,clk,af,tmr2,hold,wingm,bombFlags,beamPh,beamStep,sortie[0],sortie[1],sortie[2]}) do s..=" "..n(v) end
  for i=0,nal-1 do
   local x=al[i]
-  s..=" "..x.st..","..x.x..","..x.y..","..x.hp..","..x.timer..","..x.dir..","..x.esc..","..n(x.capdive)..","..x.fired..","..x.pstep..","..x.ent..","..x.dly
-  if arcade then s..=","..x.dpath..","..x.bflags..","..x.btmr end
+  s..=" "..x.st..","..x.x..","..x.y..","..x.hp..","..x.timer..","..x.dir..","..x.esc..","..n(x.capdive)..","..x.pstep..","..x.ent..","..x.dly..","..x.dpath..","..x.bflags..","..x.btmr
  end
  for i=0,3 do s..=" "..ps[i].x..","..ps[i].y..","..n(ps[i].act) end
- for i=0,ebn-1 do s..=" "..eb[i].x..","..eb[i].y..","..n(eb[i].act)..","..eb[i].dx..(arcade and ","..eb[i].ax or "") end
+ for i=0,ebn-1 do s..=" "..eb[i].x..","..eb[i].y..","..n(eb[i].act)..","..eb[i].dx..","..eb[i].ax end
  printh(s)
  snd,saveReq=0,false
 end

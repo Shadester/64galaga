@@ -92,7 +92,7 @@ def cart():
     px = gfx()
     blob = A.blob()
     A.place(px, blob)
-    s = 'pico-8 cartridge // http://www.pico-8.com\nversion 42\n__lua__\n#include paths.lua\n#include arcade_data.lua\n#include game.lua\n#include main.lua\n'
+    s = 'pico-8 cartridge // http://www.pico-8.com\nversion 42\n__lua__\n#include arcade_data.lua\n#include game.lua\n#include main.lua\n'
     s += '__gfx__\n' + '\n'.join(''.join('%x' % v for v in row) for row in px) + '\n'
     snd = sounds()
     s += '__sfx__\n' + '\n'.join(snd.get(i, sfx(1, [])) for i in range(max(snd) + 1)) + '\n'

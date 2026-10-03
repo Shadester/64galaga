@@ -1,4 +1,4 @@
-/* Runs psp/game.c with -DRULES_ARCADE and the scripted input of tests/test_lockstep.py, and prints the whole game state after every
+/* Runs psp/game.c and the scripted input of tests/test_lockstep.py, and prints the whole game state after every
  * tick (the fields of thumby/tests/c_trace.c, then the fields of the arcade rules). Flags: -DTICKS=n -DSTART_STAGE=n -DFORCECAPTURE -DBEAMTEST */
 #include <stdio.h>
 
@@ -43,18 +43,18 @@ int main(void) {
         if (g.cap == C_BEAM) memset(g.eb, 0, sizeof g.eb);
 #endif
         game_tick(&g, &in);
-        printf("%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
+        printf("%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
                g.state, g.paused, g.stateTimer, g.frame, g.score, g.hi, g.lives, g.stage, g.diff, g.nextBonus,
                g.challenge, g.chalVal, g.chalHits, g.chalTimer, g.shots, g.hits, g.px, g.py, g.invuln, g.dual,
-               g.dyingQuiet, g.formDx, g.formDir, g.formTimer, g.entering, g.diveTimer, g.cap, g.capBoss, g.beamLen,
+               g.dyingQuiet, g.formDx, g.formDir, g.formTimer, g.entering, g.cap, g.capBoss, g.beamLen,
                g.beamAcc, g.beamTimer, g.rx, g.ry, g.snd);
         printf(" %d %d %d %d %d %d %d %d %d %d %d %d %d %d", g.fclk, g.ff, g.swayPos, g.swayDir, g.breathe, g.bstep, g.clk,
                g.af, g.tmr2, g.hold, g.wingm, g.bombFlags, g.beamPh, g.beamStep);
         printf(" %d %d %d", g.sortie[0], g.sortie[1], g.sortie[2]);
         for (i = 0; i < NAL; ++i) {
             const Alien *a = &g.al[i];
-            printf(" %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", a->st, a->x, a->y, a->hp, a->timer, a->dir, a->esc, a->capdive,
-                   a->fired, a->pstep, a->ent, a->dly, a->dpath, a->bflags, a->btmr);
+            printf(" %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", a->st, a->x, a->y, a->hp, a->timer, a->dir, a->esc, a->capdive,
+                   a->pstep, a->ent, a->dly, a->dpath, a->bflags, a->btmr);
         }
         for (i = 0; i < 4; ++i) printf(" %d,%d,%d", g.ps[i].x, g.ps[i].y, g.ps[i].act);
         for (i = 0; i < EBN; ++i) printf(" %d,%d,%d,%d,%d", g.eb[i].x, g.eb[i].y, g.eb[i].act, g.eb[i].dx, g.eb[i].ax);

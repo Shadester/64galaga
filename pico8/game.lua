@@ -2,35 +2,23 @@
 -- no drawing here: main.lua draws, tests/trace.p8 runs this file headless against the c code.
 -- c64 coordinates, 50 ticks a second: play area x 24..343, y 50..249. x / y = top left of a 24 x 21 box.
 -- pico-8 numbers are 16.16 fixed point and 0 is true: flags are booleans, counters are compared, and
--- score / hi / rng hold a plain integer in the raw bits (n>>16 makes the number whose raw bits are n).
--- arcade=true (the default): the arcade rules (40 aliens, 8 bombs, see ../ARCADE.md and psp/game.c); false: the rules of the c64 game. Set it before game_init.
-arcade=true
-nal=32
-mirror_x=344
+-- score / hi hold a plain integer in the raw bits (n>>16 makes the number whose raw bits are n).
+-- the arcade rules (40 aliens, 8 bombs, see ../ARCADE.md and psp/game.c)
 S_TITLE,S_INTRO,S_PLAY,S_DYING,S_GAMEOVER,S_CAPTURED,S_RESULT,S_READY=0,1,2,3,4,5,6,7
 T_BOSS,T_BUTTERFLY,T_BEE=0,1,2
 A_DEAD,A_FORM,A_DIVE,A_RETURN,A_EXPLODE,A_BEAM,A_ENTER=0,1,2,3,4,5,6
 C_NONE,C_DIVING,C_BEAM,C_PULL,C_CARRY,C_RESCUE=0,1,2,3,4,5
-P_A,P_B,P_C,P_D=1,2,3,4
 -- sound events, one bit each; main.lua clears snd after it reads it
 SND_SHOOT,SND_EXPLODE,SND_HIT,SND_DEATH,SND_SWOOP=1,2,4,8,16
 JG_STAGE,JG_OVER,JG_CAPTURE,JG_RESCUE,JG_BONUS=32,64,128,256,512
 
-boss_x={145,171,197,223}
--- fly-in: launch delay (ticks / 2) per slot
-entry_delay={40,44,48,52,0,4,8,12,56,60,64,68,80,84,88,92,
- 96,100,16,20,24,28,104,108,120,124,128,132,136,140,144,148}
--- difficulty tables, index diff
-dive_interval={130,115,100,85,70,58,48,34}
-dive_max={1,1,2,2,3,3,4,5}
-dive_shots={1,1,1,2,2,2,2,2}
 -- raw bits of 50000 and 70000 (too big for a number)
 r50000,r70000=0x0.c350,0x1.1170
 r999999=0xf.423f
 
-function slot_x(i) return arcade and a_sl[2*i+1] or i<4 and boss_x[i+1] or 106+26*((i-4)%7) end
-function slot_y(i) return arcade and a_sl[2*i+2] or i<4 and 72 or 100+28*((i-4)\7) end
--- where a slot is now: the swing of the formation, and the breathing of its columns and rows (arcade)
+function slot_x(i) return a_sl[2*i+1] end
+function slot_y(i) return a_sl[2*i+2] end
+-- where a slot is now: the swing of the formation, and the breathing of its columns and rows
 function slot_px(i)
  local x=slot_x(i)+formDx
  if breathe then
@@ -115,46 +103,19 @@ function arc_sn()
  return (s-1)*12+2
 end
 
--- a deterministic generator (the c test build has the same): the game is the same on every device.
--- rs is a 32 bit integer in the raw bits; rs*1103515245 (0x41c64e6d) is done in two 16 bit halves
-function rseed(s) rs=s end
-function rand()
- rs=(rs*0x4e6d+((rs*0x41c6)<<16)+(12345>>16))&0x7fff.ffff
-end
--- prand(m): bits 4.. of the next number, masked with m (m = 1, 3 or 31)
-function prand(m)
- rand()
- return ((rs>>4)&(m>>16))<<16
-end
-
-function entry_path(i)
- local w=1
- if i<4 or (i>=8 and i<12) then w=2
- elseif (i>=12 and i<18) or i==22 or i==23 then w=3
- elseif i>=24 then w=4 end
- if w==1 then return P_C,i==5 or i==7 or i==19 or i==21 end
- if w==2 then return P_D,false end
- if w==3 then return P_D,true end
- return P_C,(i-24)&1==0
-end
-
 function new_alien()
- return {x=0,y=0,st=0,ty=0,hp=0,timer=0,dir=0,esc=0,capdive=false,fired=0,path=1,pstep=0,mir=false,ent=0,dly=0,dpath=0,bflags=0,btmr=0}
+ return {x=0,y=0,st=0,ty=0,hp=0,timer=0,dir=0,esc=0,capdive=false,path=1,pstep=0,ent=0,dly=0,dpath=0,bflags=0,btmr=0}
 end
 
 function new_bullet() return {x=0,y=0,act=false,dx=0,ax=0} end
 
 function game_init(hi_)
  al,ps,eb={},{},{}
- nal,ebn=32,3
- if arcade then
-  nal,ebn=40,8
-  arc_data()
- end
+ nal,ebn=40,8
+ arc_data()
  for i=0,nal-1 do al[i]=new_alien() end
  for i=0,3 do ps[i]=new_bullet() end
  for i=0,ebn-1 do eb[i]=new_bullet() end
- rs=1
  state=S_TITLE
  paused,prevfire=false,false
  stateTimer,frame,score,lives,stage,diff,nextBonus=0,0,0,0,0,0,0
@@ -163,7 +124,7 @@ function game_init(hi_)
  chalVal,chalHits,chalTimer,shots,hits=0,0,0,0,0
  px,py=160,230
  invuln,dual,dyingQuiet=0,false,false
- formDx,formDir,formTimer,entering,diveTimer=0,0,0,0,0
+ formDx,formDir,formTimer,entering=0,0,0,0
  fclk,ff,swayPos,swayDir,breathe,bstep,clk,af,tmr2,hold,wingm,bombFlags,beamPh,beamStep=0,0,0,0,false,0,0,0,0,0,0,0,0,0
  sortie={[0]=0,0,0}
  cap,capBoss,beamLen,beamAcc,beamTimer,rx,ry=0,0,0,0,0,0,0
@@ -191,55 +152,33 @@ function add_score(n)
 end
 
 function setup_stage()
- local row
- if arcade then
-  row=a_st[arc_sn()-1]
-  challenge=a_rm[row*3+1]==1
-  chalVal=100
-  fclk,ff,swayPos,swayDir,breathe,bstep=0,0,0,1,false,0
-  clk,af,wingm,bombFlags,hold,tmr2=0,0,0,0,0,120
-  sortie={[0]=22,2,2}
- else
-  challenge=stage&3==3
-  chalVal=min(900,100*((stage+1)\4))
- end
+ local row=a_st[arc_sn()-1]
+ challenge=a_rm[row*3+1]==1
+ chalVal=100
+ fclk,ff,swayPos,swayDir,breathe,bstep=0,0,0,1,false,0
+ clk,af,wingm,bombFlags,hold,tmr2=0,0,0,0,0,120
+ sortie={[0]=22,2,2}
  chalHits,chalTimer,shots,hits=0,0,0,0
  formDx,formDir,formTimer=0,3,0
- diveTimer=dive_interval[diff]
  cap,beamLen=C_NONE,0
  clear_bullets(ps)
  clear_bullets(eb)
  for i=0,nal-1 do
   local a=new_alien()
   al[i]=a
-  if arcade then
-   a.ty=i<4 and T_BOSS or i<20 and T_BUTTERFLY or T_BEE
-  elseif challenge then
-   a.ty=i\8==1 and T_BUTTERFLY or i\8==3 and T_BOSS or T_BEE
-  else
-   a.ty=i<4 and T_BOSS or i<18 and T_BUTTERFLY or T_BEE
-  end
+  a.ty=i<4 and T_BOSS or i<20 and T_BUTTERFLY or T_BEE
   a.hp=(not challenge and a.ty==T_BOSS) and 2 or 1
   a.st=A_ENTER
   a.y=255
-  if arcade then
-  elseif challenge then
-   a.path=(i\8)&1==1 and P_B or P_A
-   a.mir=i\8>=2
-  else
-   a.path,a.mir=entry_path(i)
-   a.dly=2*entry_delay[i+1]
-  end
  end
- if arcade then -- when each slot starts, and on which path (slot -1: an extra alien, not used)
-  local w,h=a_w[row+1],a_rm[row*3+3]
-  for k=1,#w,3 do
-   local a=al[w[k+1]]
-   if w[k+1]>=0 then
-    a.dly,a.path=w[k],w[k+2]
-    a.bflags=a_eb[w[k+1]+1]==1 and h or 0
-    a.btmr=a_p[w[k+2]+1][3]
-   end
+ -- when each slot starts, and on which path (slot -1: an extra alien, not used)
+ local w,h=a_w[row+1],a_rm[row*3+3]
+ for k=1,#w,3 do
+  local a=al[w[k+1]]
+  if w[k+1]>=0 then
+   a.dly,a.path=w[k],w[k+2]
+   a.bflags=a_eb[w[k+1]+1]==1 and h or 0
+   a.btmr=a_p[w[k+2]+1][3]
   end
  end
  if few then -- debug: only three bees
@@ -255,8 +194,6 @@ function start_stage()
 end
 
 function start_game()
- -- frame * 2654435761 + 1 (0x9e3779b1) mod 2^32, in two halves
- rseed(((frame>>16)*0x79b1)+(((frame>>16)*-0x61c9)<<16)+(1>>16))
  score,lives,stage,diff=0,start_lives,start_stage_no,1
  if stage~=1 then diff=min(8,1+(stage-1-stage\4)) end
  if start_diff>0 then diff=start_diff end
@@ -285,7 +222,7 @@ function player_hit(side)
  end
  lives-=1
  state=S_DYING
- stateTimer=arcade and 107 or 63
+ stateTimer=107
  dyingQuiet=false
  clear_bullets(eb)
  clear_bullets(ps)
@@ -351,7 +288,7 @@ function alien_hit(i)
    end
   end
   pts=dive and 400<<n or 150
-  if arcade and dive then hold=6 end
+  if dive then hold=6 end
  elseif a.ty==T_BUTTERFLY then
   pts=dive and 160 or 80
  else
@@ -375,36 +312,21 @@ function alien_hit(i)
 end
 
 function path_step(a)
- if arcade then
-  local k=a.pstep*2+4
-  local p=a_p[a.path+1]
-  a.x+=p[k]
-  a.y+=p[k+1]
-  a.pstep+=1
-  return
- end
- local p=paths[a.path]
- local k=a.pstep+1
- local dx=sub(p[4],k,k)-3
- a.x+=a.mir and -dx or dx
- a.y+=sub(p[5],k,k)-3
+ local k=a.pstep*2+4
+ local p=a_p[a.path+1]
+ a.x+=p[k]
+ a.y+=p[k+1]
  a.pstep+=1
 end
 
 function path_launch(a)
+ local p=a_p[a.path+1]
  a.ent=1
  a.pstep=0
- if arcade then
-  local p=a_p[a.path+1]
-  a.x,a.y=p[1],p[2]
-  return
- end
- local p=paths[a.path]
- a.x=a.mir and mirror_x-p[1] or p[1]
- a.y=p[2]
+ a.x,a.y=p[1],p[2]
 end
 
--- the formation swings while the aliens fly in (+-32, a step every 4 arcade frames), then breathes (arcade)
+-- the formation swings while the aliens fly in (+-32, a step every 4 arcade frames), then breathes
 function arc_form_frame()
  ff+=1
  if breathe then
@@ -426,22 +348,11 @@ function update_formation()
   if al[i].st==A_ENTER then n+=1 end
  end
  entering=n
- if arcade then -- the arcade clock: 6 frames for every 5 ticks
-  if challenge then return end
-  fclk+=6
-  while fclk>=5 do
-   fclk-=5
-   arc_form_frame()
-  end
-  return
- end
- if n>0 or challenge then return end
- formTimer+=1
- if formTimer>=10-diff then
-  formTimer=0
-  formDx+=formDir
-  if formDx>=42 then formDir=-3 end
-  if formDx<=-42 then formDir=3 end
+ if challenge then return end -- the arcade clock: 6 frames for every 5 ticks
+ fclk+=6
+ while fclk>=5 do
+  fclk-=5
+  arc_form_frame()
  end
 end
 
@@ -451,7 +362,7 @@ function toward(v,t,n)
 end
 
 function plen(a) -- steps of the path of an alien
- return arcade and (#a_p[a.path+1]-3)\2 or paths[a.path][3]
+ return (#a_p[a.path+1]-3)\2
 end
 
 function update_entry()
@@ -459,7 +370,7 @@ function update_entry()
   local a=al[i]
   if a.st==A_ENTER then
    if a.ent==0 then
-    if state==S_PLAY or not arcade then -- the waves wait while the ship is dead or taken
+    if state==S_PLAY then -- the waves wait while the ship is dead or taken
      a.dly-=1
      if a.dly<=0 then path_launch(a) end
     end
@@ -485,7 +396,7 @@ function update_challenge()
   local a=al[i]
   if a.st==A_ENTER then
    if a.ent==0 then
-    if chalTimer>=(arcade and a.dly or (i\8)*55+(i&7)*6) then path_launch(a) end
+    if chalTimer>=a.dly then path_launch(a) end
    elseif a.pstep>=plen(a) then
     a.st=A_DEAD
    else
@@ -503,12 +414,9 @@ function spawn_ebullet(a)
    b.act=true
    b.x=a.x
    b.y=a.y+8
-   if arcade then -- aimed at the ship: it falls (py - y) / 2.5 ticks, the speed is in 16ths of a pixel
-    b.ax=0
-    b.dx=mid(-24,td(16*d,(py-b.y)*2\5+1),24) -- at most 0.6 of the fall speed, as in the arcade
-   else
-    b.dx=abs(d)<16 and 0 or d>0 and 1 or -1
-   end
+   -- aimed at the ship: it falls (py - y) / 2.5 ticks, the speed is in 16ths of a pixel
+   b.ax=0
+   b.dx=mid(-24,td(16*d,(py-b.y)*2\5+1),24) -- at most 0.6 of the fall speed, as in the arcade
    return
   end
  end
@@ -518,7 +426,6 @@ function start_dive(i,capture,peel)
  local a=al[i]
  a.st=A_DIVE
  a.timer=peel
- a.fired=0
  a.capdive=capture
  if capture then
   a.dir=a.x<px and 1 or -1
@@ -530,15 +437,14 @@ function start_dive(i,capture,peel)
   cap=C_DIVING
   capBoss=i
  end
- if arcade then -- the arcade path of its kind: boss or escort 2, butterfly 1, bee 0
-  a.pstep,a.bflags,a.btmr=0,bombFlags,30
-  a.dpath=capture and -1 or a_map[((a.esc>0 or a.ty==T_BOSS) and 2 or a.ty==T_BUTTERFLY and 1 or 0)*10+a_row[i+1]*2+a_side[i+1]+1]
- end
+ -- the arcade path of its kind: boss or escort 2, butterfly 1, bee 0
+ a.pstep,a.bflags,a.btmr=0,bombFlags,30
+ a.dpath=capture and -1 or a_map[((a.esc>0 or a.ty==T_BOSS) and 2 or a.ty==T_BUTTERFLY and 1 or 0)*10+a_row[i+1]*2+a_side[i+1]+1]
 end
 
 function dive_step(i)
  local a=al[i]
- if arcade and not a.capdive then
+ if not a.capdive then
   if a.timer>0 then -- an escort waits for its boss
    a.timer-=1
    a.x,a.y=slot_px(i),slot_py(i)
@@ -560,28 +466,20 @@ function dive_step(i)
   end
   return
  end
- local dy=diff>=5 and 3 or 2
  if a.timer>0 then
   a.timer-=1
   a.x+=2*a.dir
   a.y+=1
   return
  end
- a.y+=dy
+ a.y+=3-(diff<5 and 1 or 0)
  if a.capdive or frame&1==1 then a.x+=toward(a.x,px,1) end
- if a.esc==0 and not a.capdive then
-  local mask=diff<=2 and 1 or 0
-  if (a.fired==0 and a.y>=100) or (a.fired==1 and dive_shots[diff]==2 and a.y>=150) then
-   a.fired+=1
-   if prand(mask)==0 then spawn_ebullet(a) end
-  end
- end
  if a.capdive and a.y>=196 then
   a.st=A_BEAM
   cap=C_BEAM
   beamLen,beamAcc=0,0
   beamTimer=180
-  if arcade then beamPh,beamStep=0,a_st[arc_sn()+6]*50\6\4 end
+  beamPh,beamStep=0,a_st[arc_sn()+6]*50\6\4
  elseif a.y>=244 then
   a.st=A_RETURN
   a.y=0
@@ -596,7 +494,7 @@ function update_aliens()
   if st==A_FORM then
    a.x=slot_px(i)
    a.y=slot_py(i)
-   if arcade and a.timer>0 then a.timer-=1 end -- just home: it turns round before it can dive again
+   if a.timer>0 then a.timer-=1 end -- just home: it turns round before it can dive again
   elseif st==A_EXPLODE then
    a.timer-=1
    if a.timer<0 then a.st=A_DEAD end
@@ -604,7 +502,7 @@ function update_aliens()
    dive_step(i)
   elseif st==A_RETURN then
    a.x=slot_px(i)
-   if arcade and a.timer>0 then
+   if a.timer>0 then
     a.timer-=1
    else
     a.y+=2
@@ -612,7 +510,7 @@ function update_aliens()
      a.y=slot_py(i)
      a.st=A_FORM
      a.esc=0
-     if arcade then a.timer=a.ty==T_BEE and 3 or 45 end
+     a.timer=a.ty==T_BEE and 3 or 45
     end
    end
   end
@@ -732,54 +630,11 @@ function arc_frame()
 end
 
 function select_dive()
- if arcade then
-  if challenge then return end
-  clk+=6
-  while clk>=5 do
-   clk-=5
-   arc_frame()
-  end
-  return
- end
- if entering>0 or challenge then return end
- diveTimer-=1
- if diveTimer>0 then return end
- diveTimer=dive_interval[diff]
- local away=0
- for j=0,nal-1 do
-  local a=al[j]
-  if a.esc==0 and (a.st==A_DIVE or a.st==A_RETURN or a.st==A_BEAM) then away+=1 end
- end
- if away>=dive_max[diff] then return end
- if force_capture and cap==0 and not dual and al[1].st==A_FORM then
-  start_dive(1,true,20)
-  return
- end
- local pick=-1
- if cap==0 and not dual and prand(1)==1 then
-  local i=prand(3)
-  if al[i].st==A_FORM then pick=i end
- end
- local tries=0
- while pick<0 and tries<8 do
-  local i=prand(31)
-  if al[i].st==A_FORM then pick=i end
-  tries+=1
- end
- if pick<0 then return end
- if al[pick].ty==T_BOSS and cap==0 and not dual then
-  start_dive(pick,true,20)
-  return
- end
- start_dive(pick,false,20)
- if al[pick].ty==T_BOSS and (cap>0 or dual) then
-  for k=0,1 do
-   local e=al[5+pick+k]
-   if e.st==A_FORM then
-    start_dive(5+pick+k,false,k==1 and 32 or 26)
-    e.esc=pick+1
-   end
-  end
+ if challenge then return end
+ clk+=6
+ while clk>=5 do
+  clk-=5
+  arc_frame()
  end
 end
 
@@ -787,15 +642,10 @@ function update_ebullets()
  for i=0,ebn-1 do
   local b=eb[i]
   if b.act then
-   if arcade then
-    b.y+=2+(frame&1)
-    b.ax+=b.dx
-    b.x+=b.ax\16
-    b.ax&=15
-   else
-    b.y+=3
-    if frame&1==1 then b.x+=b.dx end
-   end
+   b.y+=2+(frame&1)
+   b.ax+=b.dx
+   b.x+=b.ax\16
+   b.ax&=15
    if b.y>=250 then b.act=false end
   end
  end
@@ -858,14 +708,14 @@ function update_capture()
  if cap==C_BEAM then
   local b=al[capBoss]
   if frame&31==0 then snd|=SND_SWOOP end
-  if arcade and beamPh==0 then
+  if beamPh==0 then
    beamAcc+=1
    if beamAcc>=beamStep then
     beamAcc=0
     beamLen+=1
     if beamLen>=4 then beamPh,beamTimer=1,53 end
    end
-  elseif arcade and beamPh==2 then
+  elseif beamPh==2 then
    beamAcc+=1
    if beamAcc>=beamStep then
     beamAcc=0
@@ -876,12 +726,6 @@ function update_capture()
      b.y=0
     end
    end
-  elseif not arcade and beamLen<4 then
-   beamAcc+=1
-   if beamAcc>=8 then
-    beamAcc=0
-    beamLen+=1
-   end
   elseif state==S_PLAY and invuln==0 and b.x-20<=px and px<=b.x+19 then
    cap=C_PULL
    state=S_CAPTURED
@@ -891,13 +735,7 @@ function update_capture()
   else
    beamTimer-=1
    if beamTimer<=0 then
-    if arcade then
-     beamPh,beamAcc=2,0
-    else
-     cap=C_NONE
-     b.st=A_RETURN
-     b.y=0
-    end
+    beamPh,beamAcc=2,0
    end
   end
  elseif cap==C_RESCUE then
@@ -1006,12 +844,12 @@ function game_tick()
     game_over()
    else
     state=S_READY
-    stateTimer=arcade and 80 or 90
+    stateTimer=80
    end
   end
  elseif st==S_READY then
   if challenge then update_aliens() else move_world() end
-  if arcade and not challenge then -- the ship comes back when nothing flies any more: the divers finish first, the beam too
+  if not challenge then -- the ship comes back when nothing flies any more: the divers finish first, the beam too
    local flying=0
    update_capture()
    for k=0,nal-1 do
@@ -1025,7 +863,7 @@ function game_tick()
    state=S_PLAY
    px=160
    invuln=120
-   if arcade then tmr2=min(120,tmr2+30) end -- after a death the sorties start slowly again
+   tmr2=min(120,tmr2+30) -- after a death the sorties start slowly again
   end
  elseif st==S_CAPTURED then
   move_world()

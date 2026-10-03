@@ -125,7 +125,7 @@ def main():
     place(px, bl)
     last = max(r for r in range(128) if any(px[r]))
     cart = ('pico-8 cartridge // http://www.pico-8.com\nversion 42\n__lua__\n-- made by tools/gen_arcade_p8.py: the code is trace.lua\n'
-            '#include ../paths.lua\n#include ../arcade_data.lua\n#include ../game.lua\n#include trace.lua\n__gfx__\n' + '\n'.join(''.join('%x' % v for v in px[r]) for r in range(last + 1)) + '\n' + map_section(bl))
+            '#include ../arcade_data.lua\n#include ../game.lua\n#include trace.lua\n__gfx__\n' + '\n'.join(''.join('%x' % v for v in px[r]) for r in range(last + 1)) + '\n' + map_section(bl))
     open(os.path.join(ROOT, 'tests', 'trace.p8'), 'w').write(cart)
 
 
