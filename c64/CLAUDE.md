@@ -35,7 +35,9 @@ python3 tools/make_gif.py # re-record docs/gameplay.gif: title screen, then auto
   does the same under `RULES_ARCADE32`.
 - VICE needs `frames*40000+20M` cycles (`-limitcycles`) or the game may not reach its `HALT`.
 - After any change to `src/`: `make` so that `docs/galaga.prg` (the browser link of the README)
-  matches the source. Never push without the user's OK (global rule).
+  matches the source. Commit it, then run `tools/web_link.sh` and commit the READMEs: the links name the commit of the file, so that a browser or
+  vc64web cannot play an old copy from a cache (a link to `master` can be cached; `?v=...` breaks vc64web, which needs an address that ends in `.prg`).
+  Never push without the user's OK (global rule).
 
 ## Memory map
 
