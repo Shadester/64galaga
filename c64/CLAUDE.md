@@ -2,6 +2,9 @@
 
 Galaga clone for the Commodore 64 in 6502 assembly (ACME). PAL timing. `README.md` has the
 feature list, controls and the explanation of the sprite multiplexer.
+The rules are the arcade's (`../ARCADE.md`) on a layout of 32 aliens: `src/arcade.asm` translates `../psp/game.c`
+built with `-DRULES_ARCADE32` (the reference). Keep the names and the order of that C code, and check a change
+with `python3 ../tools/compare_6502.py c64 SCENARIO` (see below).
 
 ## Build, run, test
 
@@ -22,6 +25,13 @@ python3 tools/make_gif.py # re-record docs/gameplay.gif: title screen, then auto
 - `tests/cmp.py` allows 64 different pixels (raster jitter). `cmp.py --game` rejects a blank or
   BASIC screenshot (VICE autostart sometimes misses); `run.sh` retries, also on `--update`.
   Always look at new references before you commit them.
+- `python3 ../tools/compare_6502.py c64 SCENARIO` (`list` shows them: a32_entry, a32_shoot, a32_chal, a32_dive, a32_dive2, a32_long,
+  a32_play, a32_capture, a32_rescue) builds the game with `-DHALT=65535` (that only makes the loop counter `halt_cnt`), runs it
+  in VICE with the binary monitor (`tools/vice.py`), stops at the label `tick_mark` after each pass of the game loop, and
+  compares the state at the checkpoints with the C reference: game state, score, lives, ship, every alien (state, position,
+  escort), shots and bombs. The two must be equal. `TICKS=a,b,c` sets other checkpoints, to find the first tick that differs.
+  Where the C64 needs a shortcut for the CPU (shots tested every 2nd tick, half of the aliens tested for rams), the C reference
+  does the same under `RULES_ARCADE32`.
 - VICE needs `frames*40000+20M` cycles (`-limitcycles`) or the game may not reach its `HALT`.
 - After any change to `src/`: `make` so that `docs/galaga.prg` (the browser link of the README)
   matches the source. Never push without the user's OK (global rule).
@@ -33,7 +43,7 @@ python3 tools/make_gif.py # re-record docs/gameplay.gif: title screen, then auto
 | `$0801` | BASIC stub, `SYS 2064` |
 | `$0810-$2fff` | code and variables (`!error` guard at `$3000`) |
 | `$3000-$33ff` | sprite art (`art.asm`), pointers `$c0..$cf` |
-| `$3400-` | `paths.asm`, `entry.asm`, `hiscore.asm`, `title_font.asm` |
+| `$3400-` | `paths.asm`, `entry.asm`, `arcade.asm` (+ `arcade_data.asm`), `hiscore.asm`, `title_font.asm` |
 | `$5800-$7f3f` | title picture: colours `$5800`, screen matrix `$5c00`, bitmap `$6000` (`title.bin`) |
 
 The title screen switches VIC to bank 1 (`$dd00`) with a multicolor bitmap; the game uses bank 0
@@ -43,12 +53,14 @@ and text mode. `leave_title` undoes it.
 
 `main.asm` (start-up, main loop, includes) - `states.asm` (title, intro, play, dying, captured,
 game over, result) - `player.asm` (joystick, P pause, RUN/STOP quit) - `enemies.asm` /
-`entry.asm` / `challenge.asm` (formation, dives, fly-in, challenge paths) - `combat.asm`
+`entry.asm` / `challenge.asm` (formation, dive steps, fly-in, challenge paths) - `arcade.asm` (the dive
+scheduler, escorts and bombs; tables in the generated `arcade_data.asm`) - `combat.asm`
 (collisions) - `capture.asm` (tractor beam) - `progress.asm` (score, death, stages) -
 `multiplexer.asm` + `sprites.asm` (sprites) - `screen.asm` (text, HUD, stars) - `hiscore.asm`
 (disk file) - `data.asm`, `constants.asm`.
 
-Generated, committed files (do not edit by hand): `src/paths.asm` (`tools/gen_paths.py`),
+Generated, committed files (do not edit by hand): `src/paths.asm` and `../psp/paths32.h` (`tools/gen_paths.py`), `src/arcade_data.asm`
+(`tools/gen_arcade.py`, from `../psp/arcade_data.h`),
 `src/title.bin` and `src/title_font.asm` (`tools/gen_title.py`, from `assets/title-source.png` and
 `art.asm`). The title logo picture was made with Codex (`codex exec`, image tool).
 

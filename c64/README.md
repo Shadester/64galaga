@@ -8,14 +8,15 @@ A Galaga clone for the Commodore 64, written in 6502 assembly ([ACME](https://so
 
 ## Features
 
-- 32-alien formation in 5 rows: 4 bosses, 14 butterflies, 14 bees, with wing-flap animation
+- 32-alien formation in 5 rows: 4 bosses, 14 butterflies, 14 bees, with wing-flap animation. (The arcade has 40 aliens in rows of 10. The VIC-II cannot show 10 sprites in a row.)
 - **Fly-in:** at the start of each stage the aliens swoop in along curved paths in four waves and settle into the formation
-- Aliens dive out of formation, steer towards you and fire back
-- **Tractor beam capture:** a boss can capture your ship. Shoot that boss while it dives to free the ship and fly a **dual fighter** with double firepower. Shoot it while it is still in formation and the captive is lost
+- **Arcade rules:** the dive scheduler, the escorts, the bombs, the tractor beam, the death and the respawn follow the arcade Galaga (see [`../ARCADE.md`](../ARCADE.md)). `../psp/game.c` built with `-DRULES_ARCADE32` has the same rules in C. `../tools/compare_6502.py c64` runs both games and compares them tick by tick
+- Dives: three timers send a boss, a butterfly or a bee out of the formation. The stage and the number of aliens left set the timers and the number of divers. A diver steers towards you and drops aimed bombs (four at most on the screen)
+- **Tractor beam capture:** every second boss sortie tries to capture your ship. The beam grows row by row, holds for about one second and shrinks again. Shoot that boss while it dives to free the ship and fly a **dual fighter** with double firepower. Shoot it while it is still in formation and the captive is lost
 - Bosses take two hits
 - Arcade scoring: 50/100 (bee), 80/160 (butterfly), 150/400 (boss, formation/diving), 1,000 for a rescue
-- **Escorts:** a diving boss brings two butterflies along. Shooting the boss is worth 400, or 800 / 1,600 with one / two escorts still flying
-- **Challenge stages** (3, 7, 11, ...): 32 aliens fly set paths and never shoot; points for every hit and a 10,000 bonus for a perfect clear
+- **Escorts:** a diving boss brings up to two butterflies along (the arcade's wingman table). Shooting the boss is worth 400, or 800 / 1,600 with one / two escorts still flying
+- **Challenge stages** (3, 7, 11, ...): 32 aliens fly set paths and never shoot; 100 points for every hit and a 10,000 bonus for a perfect clear
 - Shots / hits / ratio screen after each stage
 - Bonus ship at 20,000 and 70,000 points, then every 70,000
 - Stage intro, respawn invulnerability, hi-score, game over
@@ -25,7 +26,7 @@ A Galaga clone for the Commodore 64, written in 6502 assembly ([ACME](https://so
 
 ## How the game shows more than 8 sprites
 
-The C64 video chip (VIC-II) has only 8 hardware sprites. A stage has more than 40 moving objects: 32 aliens, the ship, 4 player shots, 3 enemy shots and some extra sprites. The game shows all of them at the same time. It uses a *sprite multiplexer*. The code is in `src/multiplexer.asm`.
+The C64 video chip (VIC-II) has only 8 hardware sprites. A stage has more than 40 moving objects: 32 aliens, the ship, 4 player shots, 4 enemy bombs and some extra sprites. The game shows all of them at the same time. It uses a *sprite multiplexer*. The code is in `src/multiplexer.asm`.
 
 ### The idea
 
@@ -91,12 +92,14 @@ A joystick in port 2 works as well. In VICE, use a keyset mapped to joystick por
 
 | Tool | Purpose |
 |------|---------|
-| `tools/gen_paths.py` | Makes `src/paths.asm`: the flight paths of the fly-in and the challenge stages |
+| `tools/gen_paths.py` | Makes `src/paths.asm` and `../psp/paths32.h`: the flight paths of the fly-in and the challenge stages (the C reference uses the same table) |
+| `tools/gen_arcade.py` | Makes `src/arcade_data.asm` from `../psp/arcade_data.h`: the tables of the dive scheduler |
+| `tools/vice.py` | A small client of the VICE binary monitor. `../tools/compare_6502.py c64` uses it |
 | `tools/gen_title.py` | Makes `src/title.bin` and `src/title_font.asm`: the title picture. The GALAGA logo comes from `assets/title-source.png`. The aliens and the ship come from `src/art.asm` |
 | `tools/make_gif.py` | Records `docs/gameplay.gif`: the title screen, then the autoplay build |
 | `tools/setup-macos.sh` | Installs the build tools with Homebrew |
 
-The generated files are in the repository. You only run the generators when you change a path or the title picture.
+The generated files are in the repository. You only run the generators when you change a path, the arcade tables or the title picture.
 
 ## Notes for contributors and AI assistants
 
@@ -116,13 +119,13 @@ Pass to ACME (`acme -f cbm -DAUTOPLAY=1 -o out.prg src/main.asm`) for headless t
 | `DIFF=n` | Start at difficulty n (1..8) |
 | `DUAL` | Start with a dual fighter |
 | `FEW` | Only three bees per stage (fast stage clears) |
-| `BOSSDIVE` | Boss 1 always dives (escort test) |
 | `STAGE=n` | Start at stage n (e.g. 3 for a challenge stage) |
 | `FORCEPERFECT` | Challenge stages count as perfect |
 | `HALT=n` | Freeze after n frames, so a screenshot is exact (used by `make test`) |
 | `HALTOVER` | Freeze on the game over screen (used by `make test`) |
 | `DIEAT=n` | With `HALT`: the ship is hit at frame n (used by `make test`) |
-| `CAPTURE` | With `AUTOPLAY`: a boss always dives to capture, and the ship shoots it once it carries the captive |
+| `CAPTURE` | With `AUTOPLAY`: the ship walks under the capture boss, and shoots it once it carries the captive |
+| `GODMODE`, `GODBEAM`, `NODIVE` | Test helpers of `../tools/compare_6502.py`: the ship cannot be hit (`GODBEAM`: only the beam takes it), no sorties |
 
 ## Source layout
 
@@ -135,7 +138,8 @@ Pass to ACME (`acme -f cbm -DAUTOPLAY=1 -o out.prg src/main.asm`) for headless t
 | `screen.asm` | Screen and colours, text, HUD, starfield |
 | `sprites.asm` | Sprite setup, formation setup, game to multiplexer sprite copy |
 | `player.asm` | Joystick, pause and quit keys, player movement, shooting |
-| `enemies.asm` | Formation sway, enemy movement, dives, enemy bullets |
+| `enemies.asm` | Formation sway, enemy movement, the steps of a dive |
+| `arcade.asm`, `arcade_data.asm` | The arcade's dive scheduler, escorts and bombs (made by `tools/gen_arcade.py`) |
 | `combat.asm` | Collision detection |
 | `capture.asm` | Tractor beam, capture, rescue |
 | `progress.asm` | Hits, scoring, player death, stage progression |

@@ -8,7 +8,7 @@
 ; Debug:  acme -DAUTOPLAY=1 ...   synthetic joystick input, for headless tests
 ;         add -DNOFIRE=1 to stop shooting during play (tests player death)
 ;         -DDUAL=1 dual fighter at start, -DCAPTURE=1 scripted capture, -DFEW=1 three bees per stage,
-;         -DBOSSDIVE=1 boss 1 always dives (escort test), -DSTAGE=n start at stage n,
+;         -DSTAGE=n start at stage n (and its difficulty),
 ;         -DFORCEPERFECT=1 challenge stages count as perfect,
 ;         -DDIFF=n start at difficulty n, -DLIVES=n start with n lives, -DPAUSEAT=n press pause at frame n (needs HALT),
 ;         -DQUITAT=n RUN/STOP at frame n (needs HALT),
