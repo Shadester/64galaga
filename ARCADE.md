@@ -1,5 +1,9 @@
 # Our rules against the arcade Galaga
 
+Default: the C reference (`psp/game.c`), the PSP, Amiga, Thumby Color and PICO-8 play by the arcade rules (`-DRULES_C64` or the start
+argument `c64` gives the C64 rules). The C64 and Lynx games (6502 assembly) still have the C64 rules: 40 enemies do not fit (8 sprites a line,
+the arcade rows have 10 bees).
+
 Status: the entry (rows 1-6), the dive scheduler, the escorts and the bombs (rows 7-11, 13-15) are in `psp/game.c` behind
 `-DRULES_ARCADE`; the old rules are still the default. `tools/gen_arcade.py` makes the data (`psp/arcade_data.h`).
 `tools/compare_arcade.py` checks the dives against the model: for stages 1, 2, 4, 5, 8, 9 and 12 the first 10 launches (who, with
@@ -45,7 +49,7 @@ The alien art stays the art of the C64 game (`c64/src/art.asm`).
 | 11 | Capture sortie | Every second boss sortie tries to capture, if no captive is in formation (`wingm & 1`, `dives:468`) | A random boss when no capture, no dual (`game.c:309,312`) | Different. Same idea |
 | 12 | Beam | Starts aiming, then beam for `20 * parm6 + 65` frames; `parm6` = 12 / 9 / 6 by stage (`dives:581`) | Beam 180 ticks, grows in 4 steps (`game.c:281,368`) | Different. Use `parm6` |
 | 13 | Enemy bombs | Up to 8 at a time, aimed at the ship at the drop (`_drop_bomb` `dives:388`), speed 2-3 px/frame; flags by stage and number of enemies (`D_0909`) | 3 at a time, sideways step 0 / +-1 every second tick, fixed fall speed 3 (`game.c:253-259,322-329`) | **Different.** Take the arcade bomb |
-| 14 | Bombs by position | Dropped when the enemy is below y `0x4C` in the dive path (`dives:379`) | Dropped at y 100 and, if `diveShots=2`, at y 150 (`game.c:275`) | Different |
+| 14 | Bombs by position | Dropped when the enemy is below y `0x4C` in the dive path (`dives:379`) | Dropped at y 100 and, if `diveShots=2`, at y 150 (`game.c:275`) | Different. In `-DRULES_ARCADE`: no bombs below y 163 (the arcade's 97 of 288 lines above the ship, scaled to 200 lines), and the sideways speed is at most 0.6 of the fall speed (`dives:402`: the model limits the rate to `0x60`) |
 | 15 | Continuous bombing | When enemies left `< parm7` (6..9), bombs every 2 counts (`dives:241,726`) | None | **Missing** |
 | 16 | Bonus bee ("clone attack") | From stage 4 on (`parms[10]`, `paths:1100`), not in challenge stages: after `0xC0` counts one enemy turns to a bonus colour and dives alone (`f_1A80` `dives:531`) | None | **Missing** |
 | 17 | Challenge stage | Stage 3, 7, 11, ... (`(stage+1) & 3 == 0`, `paths:1074`). 5 groups of 8 on set paths (`D_CHALLG_STG_DAT`), 100 per enemy (?), 10,000 for all 40 (?) | Stage 3, 7, 11, ... 4 groups of 8, `100 * ((stage + 1) / 4)` per enemy up to 900, 10,000 for all 32 (`game.c:110-111`, `399`) | **Different:** the value per enemy (?), the count, the paths |
