@@ -6,6 +6,8 @@ A Galaga clone for the Atari Lynx, written in 6502 assembly ([ca65](https://cc65
 
 ![Gameplay: the title screen, then the autoplay build with stage intro, fly-in and a tractor beam](docs/gameplay.gif)
 
+[**▶ Portrait version**](https://shadester.github.io/galagas/lynx/portrait.html) (see "Portrait version" below): ![Gameplay of the portrait version](docs/gameplay-portrait.gif)
+
 The rules are the rules of the arcade Galaga (see [`../ARCADE.md`](../ARCADE.md)): 40 aliens, the arcade flight paths, dive scheduler and bombs, a formation that swings and breathes, and challenge stages of five waves. They are a translation of `../psp/game.c`: `../tools/compare_6502.py` runs the same game in the ROM and in that C code and compares the state at checkpoints. The game runs in C64 sprite coordinates (x 24..343, y 50..249) at 50 ticks a second. The Lynx screen is 160 x 102 pixels, so the picture is the C64 picture at half size.
 
 ## Features
@@ -34,7 +36,7 @@ The emulator needs the Lynx boot ROM. It is copyrighted: you must dump it from y
 make               # build/galaga.lnx
 make run           # build and start it in Gearlynx (tools/run.sh)
 tests/run.py       # screenshot tests, headless Gearlynx; --update after an intended change
-python3 tools/make_gif.py   # record docs/gameplay.gif
+python3 tools/make_gif.py   # record docs/gameplay.gif (--portrait: docs/gameplay-portrait.gif)
 ```
 
 The web page is `../docs/lynx/index.html`, and the ROM there (`../docs/lynx/galaga.lnx`) is a copy of `build/galaga.lnx`, and `../docs/lynx/galaga-portrait.lnx` is a copy of the build of `make PORTRAIT=1`: copy them again after a change. The `.lnx` file also runs in other Lynx emulators and on a Lynx with a flash cartridge. The hi-score is in the 93C46 EEPROM. Gearlynx writes it to `galaga.sav` when it exits.

@@ -2,7 +2,8 @@
 """Record docs/gameplay.gif: the title screen, then the autoplay build (stage intro, fly-in, dives, shooting; the ship cannot be hit: GODMODE).
 
 Runs headless Gearlynx and takes a screenshot every few frames. Needs Pillow.
-Usage: python3 tools/make_gif.py [game_frames] [step]
+With --portrait: the portrait ROM, docs/gameplay-portrait.gif (Gearlynx turns the picture back).
+Usage: python3 tools/make_gif.py [--portrait] [game_frames] [step]
 """
 import json
 import os
@@ -15,6 +16,9 @@ sys.path.insert(0, HERE)
 from gearlynx import Gearlynx  # noqa: E402
 from PIL import Image  # noqa: E402
 
+PORTRAIT = '--portrait' in sys.argv
+if PORTRAIT:
+    sys.argv.remove('--portrait')
 LAST = int(sys.argv[1]) if len(sys.argv) > 1 else 1100       # game frames of the autoplay part
 STEP = int(sys.argv[2]) if len(sys.argv) > 2 else 4          # game frames (20 ms each) per GIF frame
 TITLE = 120                                                  # game frames of the title screen
@@ -22,8 +26,8 @@ SCALE = 3
 
 
 def build(name, flags):
-    out = f'build/gif/{name}'
-    defs = ' '.join(f'-D {f}' for f in flags.split())
+    out = f'build/gif/{"p_" if PORTRAIT else ""}{name}'
+    defs = ' '.join(f'-D {f}' for f in (flags + (' PORTRAIT=1' if PORTRAIT else '')).split())
     subprocess.run(['make', '-C', ROOT, f'BUILD={out}', f'CAFLAGS={defs}'], check=True, stdout=subprocess.DEVNULL)
     return os.path.join(ROOT, out)
 
@@ -52,5 +56,6 @@ os.chdir(ROOT)
 imgs = record(build('title', ''), TITLE) + record(build('play', 'AUTOPLAY=1 GODMODE=1'), LAST)
 imgs = [im.resize((im.width * SCALE, im.height * SCALE), Image.NEAREST) for im in imgs]
 os.makedirs('docs', exist_ok=True)
-imgs[0].save('docs/gameplay.gif', save_all=True, append_images=imgs[1:], duration=STEP * 20, loop=0, optimize=True)
-print(len(imgs), 'frames,', os.path.getsize('docs/gameplay.gif') // 1024, 'KB')
+OUT = 'docs/gameplay-portrait.gif' if PORTRAIT else 'docs/gameplay.gif'
+imgs[0].save(OUT, save_all=True, append_images=imgs[1:], duration=STEP * 20, loop=0, optimize=True)
+print(len(imgs), 'frames,', os.path.getsize(OUT) // 1024, 'KB')
