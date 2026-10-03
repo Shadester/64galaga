@@ -68,7 +68,7 @@ Requires [ACME](https://sourceforge.net/projects/acme-crossass/), the [VICE](htt
 
 ```sh
 make          # builds build/galaga.prg (compressed) and build/galaga.d64
-make run      # builds and starts the disk image in VICE
+make run      # builds and starts the disk image in VICE (tools/run.sh does the same in a window with WASD + Space)
 make test     # screenshot regression tests (headless VICE, no window); make test-update after an intended change
 python3 tools/make_gif.py   # re-records docs/gameplay.gif (headless VICE, about 5 minutes)
 ```
@@ -95,6 +95,7 @@ A joystick in port 2 works as well. In VICE, use a keyset mapped to joystick por
 | `tools/gen_arcade.py` | Makes `src/arcade_data.asm` (the tables of the dive scheduler), `src/arcade_wave.asm` and `src/arcade_paths.asm` (the entry paths and the launch lists on our 32 slots) and `../psp/paths32.h` (the same for the C reference), all from `../psp/arcade_data.h` |
 | `tools/vice.py` | A small client of the VICE binary monitor. `../tools/compare_6502.py c64` uses it |
 | `tools/gen_title.py` | Makes `src/title.bin` and `src/title_font.asm`: the title picture. The GALAGA logo comes from `assets/title-source.png`. The aliens and the ship come from `src/art.asm` |
+| `tools/run.sh` | Builds and runs the game in a VICE window (A / D / Space through `.vice/vicerc`) |
 | `tools/make_gif.py` | Records `docs/gameplay.gif`: the title screen, then the autoplay build |
 | `tools/setup-macos.sh` | Installs the build tools with Homebrew |
 

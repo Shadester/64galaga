@@ -36,6 +36,7 @@ What is different:
 ## Run and test
 
 ```sh
+tools/run.sh                              # play, in a window (arguments go to PICO-8)
 pico8 -run galaga.p8                      # play (add -windowed 1 if it starts full screen)
 pico8 -run galaga.p8 -p "autoplay stage=3"   # arguments: autoplay forcecapture few stage=N lives=N diff=N shot=N rec=A gif=B
 python3 tools/gen_arcade_p8.py             # arcade_data.lua and tests/trace.p8, from ../psp/arcade_data.h
