@@ -128,7 +128,11 @@ pts_dive_mid:   .byte $04, $01, $01
 
 ; Difficulty tables, index 1..8 (stage 9 on stays at 8)
 
+.ifdef PORTRAIT
+hw_tbl:         .byte 1, 1, 2, 3                          ; beam half-width per row (cells of 4 pixels; tools/gen_art_portrait.py has the same)
+.else
 hw_tbl:         .byte 2, 3, 4, 5                          ; beam half-width per row
+.endif
 
 ; Jingle notes: SID frequency word (low, high) as on the C64, duration in frames. jnote turns the SID word into the
 ; Mikey timer reload: the square wave (FEED $80) has 24 timer steps a cycle, the timer runs at 1 MHz.

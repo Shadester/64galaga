@@ -4,7 +4,9 @@ compare the last frame with tests/ref/<case>.png.
 
 Every case builds with -DHALT=n: the game freezes after n frames, so the screenshot is exact (Gearlynx is
 deterministic, so the compare allows only a few different pixels). Usage:
-    tests/run.py [--update] [case ...]
+    tests/run.py [--update] [--portrait] [case ...]
+--portrait builds the portrait ROM (-D PORTRAIT=1); Gearlynx turns the picture back (the rotation byte of the header): the screenshots are 102 x 160 and the references are
+in tests/ref/portrait/.
 """
 import os
 import shutil
@@ -39,12 +41,19 @@ gameover|AUTOPLAY=1 NOFIRE=1 LIVES=1 HALTOVER=1|2200
 '''
 
 
+PORTRAIT = '--portrait' in sys.argv
+if PORTRAIT:
+    sys.argv.remove('--portrait')
+
+
 def run_case(case):
     name, flags, frames = case
-    out = os.path.join(ROOT, 'build', 'test', name)
+    if PORTRAIT:
+        flags += ' PORTRAIT=1'
+    out = os.path.join(ROOT, 'build', 'test', ('p_' if PORTRAIT else '') + name)
     shutil.rmtree(out, ignore_errors=True)               # the Makefile does not see changed flags
     defs = ' '.join(f'-D {f}' for f in flags.split()) + f' -D HALT={frames}'
-    subprocess.run(['make', '-C', ROOT, f'BUILD=build/test/{name}', f'CAFLAGS={defs}'], check=True,
+    subprocess.run(['make', '-C', ROOT, 'BUILD=' + os.path.relpath(out, ROOT), f'CAFLAGS={defs}'], check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     png = out + '.png'
     with Gearlynx() as g:
@@ -69,11 +78,12 @@ def main():
     cases = [tuple(c.split('|')) for c in CASES.strip().splitlines()]
     cases = [(n, f, int(h)) for n, f, h in cases if not names or n in names]
     os.makedirs(os.path.join(ROOT, 'build', 'test'), exist_ok=True)
-    os.makedirs(os.path.join(HERE, 'ref'), exist_ok=True)
+    refdir = os.path.join(HERE, 'ref', 'portrait') if PORTRAIT else os.path.join(HERE, 'ref')
+    os.makedirs(refdir, exist_ok=True)
     fail = 0
     with ThreadPoolExecutor(4) as pool:
         for name, png in pool.map(run_case, cases):
-            ref = os.path.join(HERE, 'ref', name + '.png')
+            ref = os.path.join(refdir, name + '.png')
             if update:
                 os.replace(png, ref)
                 print('UPDATED', name)

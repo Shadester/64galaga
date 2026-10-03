@@ -25,6 +25,10 @@ VS_NONE         = MAX_SPRITES
 
 ; The geometry of the field: the same names as the G_* macros of psp/game.h (the C reference). The portrait ROM (-D PORTRAIT=1) has the portrait field.
 .ifdef PORTRAIT
+MSG_DX          = 29            ; a message (the C64 text grid) is at the column * 4 - MSG_DX, the row * 4 + MSG_DY of the upright picture
+MSG_DY          = 40
+TITLE_X         = 79            ; the title picture (57 wide, turned) is at the upright rows 24..80
+HUD_X           = 130           ; the HUD strip: the upright top 30 rows are the screen columns 130..159
 PLAYER_Y        = 242
 SCREEN_LEFT     = 4
 SCREEN_RIGHT    = 186           ; the ship's biggest x (a dual fighter: less DUAL_DX)
@@ -61,6 +65,9 @@ HB_BEAM_XR      = 12
 HB_DOCK_L       = 3
 HB_DOCK_R       = 2
 .else
+MSG_DX          = 0
+MSG_DY          = 0
+TITLE_X         = 0
 PLAYER_Y        = 230
 SCREEN_LEFT     = 24
 SCREEN_RIGHT    = 320           ; Max player X (9-bit), sprite right edge at 344

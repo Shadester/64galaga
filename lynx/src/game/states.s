@@ -11,7 +11,11 @@ enter_title:
     sta fire_pressed            ; Fire must be released pressed again
     jsr clear_screen
     jsr pal_title
+.ifdef PORTRAIT
+    print_xy msg_hiscore, 35, 92, 2         ; (upright picture positions)
+.else
     print_xy msg_hiscore, 40, 91, 2
+.endif
     setnum num_hi               ; The hi-score digits
     lda hiscore+2
     jsr draw_bcd
@@ -19,8 +23,13 @@ enter_title:
     jsr draw_bcd
     lda hiscore
     jsr draw_bcd
+.ifdef PORTRAIT
+    print_xy num_hi, 39, 100, 1
+    print_xy msg_press, 31, 118, 1
+.else
     print_xy num_hi, 76, 91, 1
     print_xy msg_press, 60, 97, 1
+.endif
     rts
 
 msg_over:       .asciiz "GAME OVER"

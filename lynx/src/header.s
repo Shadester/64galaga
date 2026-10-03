@@ -12,7 +12,11 @@
         .res 32 - 6, 0
         .byte "Shadester"               ; manufacturer (16 bytes)
         .res 16 - 9, 0
+.ifdef PORTRAIT
+        .byte 2                         ; rotation: the picture is turned (screen X = 159 - y, screen Y = x), the emulator turns it back (right)
+.else
         .byte 0                         ; rotation: none
+.endif
         .byte 0                         ; audin
         .byte 1                         ; EEPROM: 93C46
         .byte 0, 0, 0

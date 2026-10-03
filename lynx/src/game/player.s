@@ -132,7 +132,11 @@ read_joystick:
 .else
     ldx #$ff                    ; The pad as the C64 joystick: active low left / right / fire
     lda JOYSTICK
+.ifdef PORTRAIT
+    bit #$80                    ; The picture is turned: the pad's up and down are the ship's left and right
+.else
     bit #$20                    ; Left
+.endif
     beq @pad_r
     pha
     txa
@@ -140,7 +144,11 @@ read_joystick:
     tax
     pla
 @pad_r:
+.ifdef PORTRAIT
+    bit #$40                    ; Down
+.else
     bit #$10                    ; Right
+.endif
     beq @pad_f
     pha
     txa

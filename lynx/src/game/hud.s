@@ -73,13 +73,13 @@ clear_screen = msg_clear_all
 
 ; Blank the message rows: 16 (stage intro) and 20 (READY, FIGHTER CAPTURED)
 clear_stage_row:
-        lda #16*4
-        ldx #20*4
+        lda #16*4+MSG_DY
+        ldx #20*4+MSG_DY
         jmp msg_clear_y
 
 clear_result:
-        lda #9*4
-        ldx #13*4
+        lda #9*4+MSG_DY
+        ldx #13*4+MSG_DY
         jmp msg_clear_y
 
 ; Draw the zero-terminated string at zp_src in the font at zp_dst..., see draw_msgs: dr_x/dr_y = position,
@@ -113,12 +113,21 @@ draw_glyph:
         adc fnt+1
         sta dr_d+1
         jsr add_sprite
+.ifdef PORTRAIT
+        lda dr_y                        ; the text runs along the screen's y (the upright x)
+        clc
+        adc #4
+        sta dr_y
+        bcc @nc
+        inc dr_y+1
+.else
         lda dr_x
         clc
         adc #4
         sta dr_x
         bcc @nc
         inc dr_x+1
+.endif
 @nc:    rts
 
 draw_msgs:
@@ -130,12 +139,25 @@ draw_msgs:
         sta zp_src
         lda msg_hi,x
         sta zp_src+1
+.ifdef PORTRAIT
+        lda msg_x,x                     ; (x, y) of the upright picture: the screen y = x, the screen x = 155 - y (a glyph is 5 wide)
+        sta dr_y
+        stz dr_y+1
+        lda #155
+        sec
+        sbc msg_y,x
+        sta dr_x
+        lda #0
+        sbc #0
+        sta dr_x+1
+.else
         lda msg_x,x
         sta dr_x
         stz dr_x+1
         lda msg_y,x
         sta dr_y
         stz dr_y+1
+.endif
         ldy #<font_w
         lda msg_col,x
         cmp #2
@@ -239,6 +261,32 @@ draw_bcd:
 ; Top rows: red labels on y 0..4, white numbers on y 6..10 (the formation starts at y 11).
 ; The HUD is one sprite (a 160 x 11 literal picture): 38 glyph sprites made the frame too long for Suzy. The picture is built again
 ; only when the score, the hi-score, the lives or the level change.
+.ifdef PORTRAIT
+; The portrait HUD is the strip of the upright picture's top 30 rows, turned: a picture of 30 x 102 pixels (screen x 130..159, 102 lines). A string
+; at the upright position (xx, yy) runs down the lines xx, xx + 1, ...; a glyph is 5 pixels wide at the picture column 25 - yy (yy odd, so that the
+; column is even: a glyph is three whole bytes).
+HUD_ROW  = 16                           ; one line of the picture: the length byte and 15 bytes (30 pixels)
+HUD_ROWS = 102
+HP_SCORE  = 2                           ; where the texts are in the upright strip: x (the lines); the label is on yy 1, the number on yy 7
+HP_HI     = 54                          ; (the second pair: labels on yy 15, numbers on yy 21)
+HP_LIVES  = 2
+HP_LEVEL  = 54
+.macro hud_str xx, yy, str, font
+        lda #<str
+        sta zp_src
+        lda #>str
+        sta zp_src+1
+        lda #<font
+        sta fnt
+        lda #>font
+        sta fnt+1
+        lda #<(hud_buf + (xx) * HUD_ROW + 1 + (25 - (yy)) / 2)
+        sta zp_dst
+        lda #>(hud_buf + (xx) * HUD_ROW + 1 + (25 - (yy)) / 2)
+        sta zp_dst+1
+        jsr hud_put
+.endmacro
+.else
 HUD_ROW  = 81                           ; one line of the picture: the length byte and 80 bytes (160 pixels)
 HUD_ROWS = 11
 
@@ -258,6 +306,7 @@ HUD_ROWS = 11
         sta zp_dst+1
         jsr hud_put
 .endmacro
+.endif
 
 hud_buf:        .res HUD_ROW * HUD_ROWS + 1
 hud_sig:        .byte $ff, $ff, $ff, $ff, $ff, $ff, $ff, $ff   ; what the picture shows now: score, hi-score, lives, level (no BCD byte is $ff)
@@ -281,7 +330,12 @@ draw_hud:
         sta dr_d
         lda #>hud_buf
         sta dr_d+1
+.ifdef PORTRAIT
+        lda #HUD_X
+        sta dr_x
+.else
         stz dr_x
+.endif
         stz dr_x+1
         stz dr_y
         stz dr_y+1
@@ -311,10 +365,17 @@ hud_clear:
         bne @line
         lda #0                          ; end of the picture
         sta (zp_dst)
+.ifdef PORTRAIT
+        hud_str HP_SCORE, 1, h_score, font_r
+        hud_str HP_LIVES, 15, h_lives, font_r
+        hud_str HP_HI, 1, h_hi, font_r
+        hud_str HP_LEVEL, 15, h_level, font_r
+.else
         hud_str 2, 0, h_score, font_r
         hud_str 32, 0, h_lives, font_r
         hud_str 62, 0, h_hi, font_r
         hud_str 134, 0, h_level, font_r
+.endif
         rts
 
 ; Draw again the numbers that changed since the picture was made (a hit changes the score, so the usual cost is 6 glyphs)
@@ -335,7 +396,11 @@ hud_fields:
         bpl @sc
         lda #0
         sta hs_score,y
+.ifdef PORTRAIT
+        hud_str HP_SCORE, 7, hs_score, font_w
+.else
         hud_str 2, 6, hs_score, font_w
+.endif
 @hi:    ldx #2
 @h:     lda hiscore,x
         cmp hud_sig+3,x
@@ -352,7 +417,11 @@ hud_fields:
         bpl @hs
         lda #0
         sta hs_hi,y
+.ifdef PORTRAIT
+        hud_str HP_HI, 7, hs_hi, font_w
+.else
         hud_str 62, 6, hs_hi, font_w
+.endif
 @lives: lda lives
         cmp hud_sig+6
         beq @level
@@ -361,7 +430,11 @@ hud_fields:
         adc #'0'
         sta hudnum
         stz hudnum+1
+.ifdef PORTRAIT
+        hud_str HP_LIVES, 21, hudnum, font_w
+.else
         hud_str 38, 6, hudnum, font_w
+.endif
 @level: lda level                       ; two BCD digits
         cmp hud_sig+7
         beq @done
@@ -380,7 +453,11 @@ hud_fields:
         adc #'0'
         sta hudnum+1
         stz hudnum+2
+.ifdef PORTRAIT
+        hud_str HP_LEVEL, 21, hudnum, font_w
+.else
         hud_str 142, 6, hudnum, font_w
+.endif
 @done:  rts
 
 ; The two digits of BCD byte A at hs_score,y (y advances by 2)
@@ -420,6 +497,72 @@ hud_two_hi:
         iny
         rts
 
+.ifdef PORTRAIT
+; Copy the turned glyphs of the string at zp_src (font fnt) into the picture at zp_dst (the first line and byte of the first glyph): a glyph is
+; three lines of three bytes (the length byte of each line is skipped), and the next glyph starts 4 lines further
+hud_put:
+        ldy #0
+        stz hn
+@g:     lda (zp_src),y                  ; the address of every glyph: font + (char - 32) * 16
+        beq @gd
+        sec
+        sbc #32
+        sta dr_d
+        stz dr_d+1
+        .repeat 4
+        asl dr_d
+        rol dr_d+1
+        .endrepeat
+        lda dr_d
+        clc
+        adc fnt
+        sta tg_lo,y
+        lda dr_d+1
+        adc fnt+1
+        sta tg_hi,y
+        iny
+        cpy #24
+        bcc @g
+@gd:    sty hn
+        stz hy
+@glyph: ldy hy
+        cpy hn
+        bcc @go
+        rts
+@go:    lda tg_lo,y
+        sta dr_d
+        lda tg_hi,y
+        sta dr_d+1
+        .repeat 3, line
+        ldy #1 + 4 * line
+        lda (dr_d),y
+        ldy #0
+        sta (zp_dst),y
+        ldy #2 + 4 * line
+        lda (dr_d),y
+        ldy #1
+        sta (zp_dst),y
+        ldy #3 + 4 * line
+        lda (dr_d),y
+        ldy #2
+        sta (zp_dst),y
+        lda zp_dst
+        clc
+        adc #HUD_ROW
+        sta zp_dst
+        bcc :+
+        inc zp_dst+1
+:
+        .endrepeat
+        lda zp_dst                      ; the fourth line of the cell
+        clc
+        adc #HUD_ROW
+        sta zp_dst
+        bcc @nx
+        inc zp_dst+1
+@nx:    inc hy
+        jmp @glyph
+.else
 ; Copy the glyphs of the string at zp_src (font fnt) into the picture at zp_dst (the first line; the next line is HUD_ROW further)
 hud_put:
         ldy #0
@@ -486,6 +629,7 @@ hud_put:
         cmp #5
         bcc @row
         rts
+.endif
 
 hudnum:         .res 3
 h_score:        .asciiz "SCORE"
@@ -498,13 +642,21 @@ star_x:         .res NUM_STARS
 star_y:         .res NUM_STARS
 star_v:         .res NUM_STARS
 
+STAR_W = SCR_W - 30                     ; (the portrait HUD strip is the screen columns 130..159: stars stay left of it)
+
 init_stars:
         ldx #NUM_STARS - 1
 @s:     jsr rand
         and #$7f
+.ifdef PORTRAIT
+        cmp #STAR_W
+        bcc @xok
+        sbc #STAR_W
+.else
         cmp #SCR_W
         bcc @xok
         sbc #SCR_W
+.endif
 @xok:   sta star_x,x
         jsr rand
         and #$7f
@@ -525,6 +677,14 @@ draw_stars:
         ldx #NUM_STARS - 1
 @s:     lda paused
         bne @still                      ; Paused: the stars hold still
+.ifdef PORTRAIT
+        lda star_x,x                    ; they move towards the screen's left edge (the upright bottom)
+        sec
+        sbc star_v,x
+        bcs @keep
+        lda #STAR_W-1
+@keep:  sta star_x,x
+.else
         lda star_y,x
         clc
         adc star_v,x
@@ -532,6 +692,7 @@ draw_stars:
         bcc @keep
         lda #0
 @keep:  sta star_y,x
+.endif
 @still: lda star_y,x
         sta dr_y
         stz dr_y+1

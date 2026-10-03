@@ -30,9 +30,9 @@ tgy:            .res 2
         sta zp_src
         lda #>msg
         sta zp_src+1
-        lda #(((addr) .mod 40) * 4)
+        lda #(((addr) .mod 40) * 4 - MSG_DX)
         sta zp_dst
-        lda #(((addr) / 40) * 4)
+        lda #(((addr) / 40) * 4 + MSG_DY)
         sta zp_dst+1
         lda #col
         sta txt_col
@@ -135,7 +135,8 @@ show_frame:
         sta dr_d
         lda #>title_pic
         sta dr_d+1
-        stz dr_x
+        lda #TITLE_X
+        sta dr_x
         stz dr_x+1
         stz dr_y
         stz dr_y+1
