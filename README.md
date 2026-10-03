@@ -43,7 +43,6 @@
       <i>65C02 assembly (ca65)</i><br><br>
       A port of the C64 code to the Lynx: the same rules and numbers at half the size.
       The Suzy sprite engine replaces the multiplexer. The hi-score is saved in the cartridge EEPROM.
-      There is also a <a href="lynx/docs/gameplay-portrait.gif">portrait version</a> (the arcade's own shape): <a href="https://shadester.github.io/galagas/lynx/portrait.html">play it</a>.
     </td>
   </tr>
   <tr>
