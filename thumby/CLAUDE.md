@@ -8,18 +8,16 @@ The rules are a port of `../psp/game.c` (the reference for this port; it follows
 ```sh
 tools/setup-macos.sh                 # once: the desktop engine in build/ (not in git)
 tools/run.sh [autoplay stage=3 ...]  # SDL window
-python3 tests/test_game.py           # the arcade rules (tests/test_c64.py: the C64 rules)
-python3 tests/test_lockstep.py [n] [scenario ...]   # game.py against psp/game.c, every tick, 8 scenarios with the arcade rules and 4 (`c64_*`) with the C64 rules; needs cc
+python3 tests/test_game.py           # the rules
+python3 tests/test_lockstep.py [n] [scenario ...]   # game.py against psp/game.c, every tick, 8 scenarios; needs cc
 python3 tests/run.py [--update] [case ...]   # screenshots; look at new refs before you commit them
 ```
 
 - A change in `psp/game.c` needs the same change in `Galaga/game.py`: the lockstep test shows the first tick that differs.
-  `tools/gen_paths.py` makes `paths_data.py` again if the paths change.
-- The arcade rules are the default (`../ARCADE.md`); the C64 rules are `-DRULES_C64` in C, `game.set_arcade(False)` here, `c64` as a start argument.
-  Both are in the same files (`if ARCADE:`). `tests/test_game.py` checks the arcade rules, `tests/test_c64.py` the C64 rules. A change in `psp/game.c` under `RULES_ARCADE` needs the same change in `game.py`; `tools/gen_arcade_data.py`
+- The rules are the arcade rules (`../ARCADE.md`), 40 aliens. A change in `psp/game.c` under `RULES_ARCADE` needs the same change in `game.py`; `tools/gen_arcade_data.py`
   makes `arcade_data.py` from `psp/arcade_data.h`. C integer division rounds toward zero: use `cdiv` for values that can be negative.
   `god*` scenarios make the ship unhittable (except under a beam), so the games are long and reach captures and later stages.
-- Generated and committed: `Galaga/paths_data.py`, `Galaga/arcade_data.py`, `sprite_ids.py`, `*.bmp` (`tools/gen_assets.py`).
+- Generated and committed: `Galaga/arcade_data.py`, `sprite_ids.py`, `*.bmp` (`tools/gen_assets.py`).
 - Never push without the user's OK (global rule).
 
 ## The engine (what the docs do not say)

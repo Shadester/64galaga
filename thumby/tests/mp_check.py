@@ -1,12 +1,9 @@
 # Runs the rules for a scripted game and prints a checksum of the state: CPython and MicroPython (the engine's)
-# must print the same number. Usage: python3 tests/mp_check.py [c64]   |   tools/run_mp.sh tests/mp_check.py [c64]  (c64: the C64 rules, else the arcade rules)
+# must print the same number. Usage: python3 tests/mp_check.py   |   tools/run_mp.sh tests/mp_check.py
 import sys
 sys.path.append('../Galaga')
 sys.path.append('Galaga')
 import game as G
-
-if 'c64' in sys.argv:
-    G.set_arcade(False)
 
 g = G.Game(0)
 inp = G.Input()

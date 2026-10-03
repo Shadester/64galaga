@@ -1,50 +1,25 @@
 # Galaga rules, a port of psp/game.c (which follows the C64 game). No engine imports: runs on CPython for tests.
 # Logic runs at the C64 PAL rate (50 ticks/s) in C64 sprite coordinates: play area x 24..343, y 50..249.
 # x / y are the top-left of a 24 x 21 sprite box. Names follow game.c, so a change there can be carried over.
-from paths_data import PATHS
+import arcade_data as AD   # the numbers of the arcade rules (ARCADE.md)
 
-NAL = 32
-EBN = 3                   # enemy bombs on the screen
-ARCADE = False            # the arcade rules (ARCADE.md, the default, switched on below) or the C64 rules: set_arcade() before a Game is made
-AD = None
+NAL = 40
+EBN = 8                   # enemy bombs on the screen
 TICK_HZ = 50
 MIRROR_X = 344
-BOMB_LOW_Y = 163         # arcade rules: no bombs from a diver below this line (97 of 288 screen lines above the ship in the arcade: 67 of 200 here)
-BOMB_MAX_DX = 24         # arcade rules: a bomb moves sideways at most 0.6 of its fall speed (2.5 px a tick): 0.6 x 2.5 x 16
+BOMB_LOW_Y = 163         # no bombs from a diver below this line (97 of 288 screen lines above the ship in the arcade: 67 of 200 here)
+BOMB_MAX_DX = 24         # a bomb moves sideways at most 0.6 of its fall speed (2.5 px a tick): 0.6 x 2.5 x 16
 
 S_TITLE, S_INTRO, S_PLAY, S_DYING, S_GAMEOVER, S_CAPTURED, S_RESULT, S_READY = range(8)
 T_BOSS, T_BUTTERFLY, T_BEE = range(3)
 A_DEAD, A_FORM, A_DIVE, A_RETURN, A_EXPLODE, A_BEAM, A_ENTER = range(7)
 C_NONE, C_DIVING, C_BEAM, C_PULL, C_CARRY, C_RESCUE = range(6)   # tractor beam / captive state
-P_A, P_B, P_C, P_D = range(4)
 
 # Sound events, one bit each; the platform clears Game.snd after reading.
 SND_SHOOT, SND_EXPLODE, SND_HIT, SND_DEATH, SND_SWOOP = 1, 2, 4, 8, 16
 JG_STAGE, JG_OVER, JG_CAPTURE, JG_RESCUE, JG_BONUS = 32, 64, 128, 256, 512
 
-BOSS_X = (145, 171, 197, 223)
-BOSS_FOR_B = (0, 1, 3, 2, 0)      # arcade: the boss that goes with the wingmen pattern B (B = 1..4)
-# Fly-in: launch delay (ticks / 2) per slot
-ENTRY_DELAY = (40, 44, 48, 52, 0, 4, 8, 12, 56, 60, 64, 68, 80, 84, 88, 92,
-               96, 100, 16, 20, 24, 28, 104, 108, 120, 124, 128, 132, 136, 140, 144, 148)
-# Difficulty tables, index diff - 1
-DIVE_INTERVAL = (130, 115, 100, 85, 70, 58, 48, 34)
-DIVE_MAX = (1, 1, 2, 2, 3, 3, 4, 5)
-DIVE_SHOTS = (1, 1, 1, 2, 2, 2, 2, 2)
-
-
-def set_arcade(on):
-    global ARCADE, NAL, EBN, AD
-    ARCADE = bool(on)
-    NAL = 40 if on else 32
-    EBN = 8 if on else 3
-    if on and AD is None:
-        import arcade_data
-        AD = arcade_data
-
-
-set_arcade(True)
-
+BOSS_FOR_B = (0, 1, 3, 2, 0)      # the boss that goes with the wingmen pattern B (B = 1..4)
 
 def cdiv(a, b):
     """Integer division that rounds toward zero, as in C."""
@@ -60,15 +35,11 @@ def arc_stage_no(stage):
 
 
 def slot_x(i):
-    if ARCADE:
-        return AD.ARC_SLOT[i][0]
-    return BOSS_X[i] if i < 4 else 106 + 26 * ((i - 4) % 7)
+    return AD.ARC_SLOT[i][0]
 
 
 def slot_y(i):
-    if ARCADE:
-        return AD.ARC_SLOT[i][1]
-    return 72 if i < 4 else 100 + 28 * ((i - 4) // 7)
+    return AD.ARC_SLOT[i][1]
 
 
 # A deterministic generator (the C test build uses the same): the game is the same on every device
@@ -83,28 +54,6 @@ class Rng:
         self.s = (self.s * 1103515245 + 12345) & 0x7fffffff
         return self.s
 
-    def prand(self):
-        return self.rand() >> 4
-
-
-def entry_path(i):
-    """(path, mirrored) of the fly-in of slot i."""
-    if i < 4 or 8 <= i < 12:
-        w = 2
-    elif 12 <= i < 18 or i == 22 or i == 23:
-        w = 3
-    elif i >= 24:
-        w = 4
-    else:
-        w = 1
-    if w == 1:
-        return P_C, 1 if i in (5, 7, 19, 21) else 0
-    if w == 2:
-        return P_D, 0
-    if w == 3:
-        return P_D, 1
-    return P_C, 0 if (i - 24) & 1 else 1
-
 
 class Alien:
     def __init__(self):
@@ -112,9 +61,9 @@ class Alien:
 
     def reset(self):
         self.x = self.y = self.st = self.type = self.hp = self.timer = self.dir = 0
-        self.esc = self.capdive = self.fired = 0
+        self.esc = self.capdive = 0
         self.path = self.pstep = self.mir = self.ent = self.dly = 0
-        self.dpath = self.bflags = self.btmr = 0          # arcade rules
+        self.dpath = self.bflags = self.btmr = 0
 
 
 class Bullet:
@@ -145,10 +94,9 @@ class Game:
         self.shots = self.hits = 0
         self.px, self.py = 160, 230
         self.invuln = self.dual = self.dyingQuiet = 0
-        self.formDx = self.formDir = self.formTimer = self.entering = self.diveTimer = 0
+        self.formDx = self.formDir = self.formTimer = self.entering = 0
         self.cap = self.capBoss = self.beamLen = self.beamAcc = self.beamTimer = self.rx = self.ry = 0
         self.snd = self.saveReq = 0
-        # arcade rules
         self.fclk = self.ff = self.swayPos = self.breathe = self.bstep = 0
         self.swayDir = 1
         self.clk = self.af = self.tmr2 = self.hold = self.wingm = self.bombFlags = 0
@@ -159,7 +107,6 @@ class Game:
         self.start_diff = 0
         self.start_lives = 3
         self.few = False
-        self.force_capture = False
 
     # ---- helpers ----
     def add_score(self, n):
@@ -175,27 +122,18 @@ class Game:
             self.snd |= JG_BONUS
 
     def setup_stage(self):
-        if ARCADE:
-            row = AD.ARC_STAGE[arc_stage_no(self.stage)][0]
-            self.challenge = AD.ARC_ROW[row][0]
-            self.chalVal = 100          # 100 for each enemy, 10,000 when all 40 are hit
-        else:
-            self.challenge = 1 if (self.stage & 3) == 3 else 0
-            self.chalVal = 100 * ((self.stage + 1) // 4)
-            if self.chalVal > 900:
-                self.chalVal = 900
+        row = AD.ARC_STAGE[arc_stage_no(self.stage)][0]
+        self.challenge = AD.ARC_ROW[row][0]
+        self.chalVal = 100          # 100 for each enemy, 10,000 when all 40 are hit
         self.chalHits = self.chalTimer = self.shots = self.hits = 0
-        if ARCADE:
-            self.fclk = self.ff = self.swayPos = self.breathe = self.bstep = 0
-            self.swayDir = 1
+        self.fclk = self.ff = self.swayPos = self.breathe = self.bstep = 0
+        self.swayDir = 1
         self.formDx = 0
         self.formDir = 3
         self.formTimer = 0
-        self.diveTimer = DIVE_INTERVAL[self.diff - 1]
-        if ARCADE:
-            self.clk = self.af = self.wingm = self.bombFlags = self.hold = 0
-            self.tmr2 = 120
-            self.sortie = [22, 2, 2]
+        self.clk = self.af = self.wingm = self.bombFlags = self.hold = 0
+        self.tmr2 = 120
+        self.sortie = [22, 2, 2]
         self.cap = C_NONE
         self.beamLen = 0
         for b in self.ps:
@@ -205,33 +143,19 @@ class Game:
         for i in range(NAL):
             a = self.al[i]
             a.reset()
-            if ARCADE:
-                a.type = T_BOSS if i < 4 else T_BUTTERFLY if i < 20 else T_BEE
-            elif self.challenge:
-                a.type = T_BUTTERFLY if (i >> 3) == 1 else T_BOSS if (i >> 3) == 3 else T_BEE
-            else:
-                a.type = T_BOSS if i < 4 else T_BUTTERFLY if i < 18 else T_BEE
+            a.type = T_BOSS if i < 4 else T_BUTTERFLY if i < 20 else T_BEE
             a.hp = 2 if (not self.challenge and a.type == T_BOSS) else 1
             a.st = A_ENTER
             a.y = 255
-            if ARCADE:
-                continue
-            if self.challenge:
-                a.path = P_B if (i >> 3) & 1 else P_A
-                a.mir = 1 if (i >> 3) >= 2 else 0
-            else:
-                a.path, a.mir = entry_path(i)
-                a.dly = 2 * ENTRY_DELAY[i]
-        if ARCADE:          # the launch list of the stage's row: when each slot starts, and on which path
-            r = AD.ARC_ROW[row]
-            hdr1, l = r[2], r[3]
-            for k in range(0, len(l), 3):
-                if l[k + 1] >= 0:
-                    a = self.al[l[k + 1]]
-                    a.dly = l[k]
-                    a.path = l[k + 2]
-                    a.bflags = hdr1 if AD.ARC_ENTRY_BOMB[l[k + 1]] else 0
-                    a.btmr = AD.ARC_PATH[a.path][3]
+        r = AD.ARC_ROW[row]     # the launch list of the stage's row: when each slot starts, and on which path
+        hdr1, l = r[2], r[3]
+        for k in range(0, len(l), 3):
+            if l[k + 1] >= 0:
+                a = self.al[l[k + 1]]
+                a.dly = l[k]
+                a.path = l[k + 2]
+                a.bflags = hdr1 if AD.ARC_ENTRY_BOMB[l[k + 1]] else 0
+                a.btmr = AD.ARC_PATH[a.path][3]
         if self.few:                       # debug: only three bees
             for i in range(NAL - 3):
                 self.al[i].st = A_DEAD
@@ -277,7 +201,7 @@ class Game:
             return
         self.lives -= 1
         self.state = S_DYING
-        self.stateTimer = 107 if ARCADE else 63     # the arcade waits 4 x 32 frames before the ship comes back
+        self.stateTimer = 107     # the arcade waits 4 x 32 frames before the ship comes back
         self.dyingQuiet = 0
         for b in self.eb:
             b.clear()
@@ -339,7 +263,7 @@ class Game:
                     if e.esc == i + 1 and (e.st == A_DIVE or e.st == A_RETURN):
                         n += 1
             pts = (400 << n) if dive else 150
-            if ARCADE and dive:
+            if dive:
                 self.hold = 6
         elif a.type == T_BUTTERFLY:
             pts = 160 if dive else 80
@@ -360,41 +284,34 @@ class Game:
         self.add_score(pts)
 
     def path_len(self, path):
-        return AD.ARC_PATH[path][2] if ARCADE else PATHS[path][2]
+        return AD.ARC_PATH[path][2]
 
     def slot_px(self, i):
         """Where a slot is now: the swing of the whole formation and the breathing of its columns and rows."""
         x = slot_x(i) + self.formDx
-        if ARCADE and self.breathe:
+        if self.breathe:
             c = AD.ARC_SLOT_COL[i]
             br = AD.ARC_BREATH[self.bstep]
             x += br[c] if c < 5 else -br[9 - c]
         return x
 
     def slot_py(self, i):
-        if ARCADE and self.breathe:
+        if self.breathe:
             return slot_y(i) + AD.ARC_BREATH[self.bstep][5 + AD.ARC_SLOT_ROW[i]]
         return slot_y(i)
 
     def path_step(self, a):
-        if ARCADE:      # mirrored paths are separate paths: no mirror here
-            d = AD.ARC_PATH[a.path][4]
-            k = 2 * a.pstep
-            a.x += d[k] - 128
-            a.y += d[k + 1] - 128
-            a.pstep += 1
-            return
-        p = PATHS[a.path]
-        k = a.pstep
-        a.x += -p[3][k] if a.mir else p[3][k]
-        a.y += p[4][k]
+        d = AD.ARC_PATH[a.path][4]      # mirrored paths are separate paths: no mirror here
+        k = 2 * a.pstep
+        a.x += d[k] - 128
+        a.y += d[k + 1] - 128
         a.pstep += 1
 
     def path_launch(self, a):
-        p = AD.ARC_PATH[a.path] if ARCADE else PATHS[a.path]
+        p = AD.ARC_PATH[a.path]
         a.ent = 1
         a.pstep = 0
-        a.x = MIRROR_X - p[0] if (a.mir and not ARCADE) else p[0]
+        a.x = p[0]
         a.y = p[1]
 
     def arc_form_frame(self):
@@ -423,23 +340,11 @@ class Game:
             if a.st == A_ENTER:
                 n += 1
         self.entering = n
-        if ARCADE:
-            if not self.challenge:
-                self.fclk += 6
-                while self.fclk >= 5:
-                    self.arc_form_frame()
-                    self.fclk -= 5
-            return
-        if n or self.challenge:
-            return
-        self.formTimer += 1
-        if self.formTimer >= 10 - self.diff:
-            self.formTimer = 0
-            self.formDx += self.formDir
-            if self.formDx >= 42:
-                self.formDir = -3
-            if self.formDx <= -42:
-                self.formDir = 3
+        if not self.challenge:
+            self.fclk += 6
+            while self.fclk >= 5:
+                self.arc_form_frame()
+                self.fclk -= 5
 
     def update_entry(self):
         for i in range(NAL):
@@ -447,7 +352,7 @@ class Game:
             if a.st != A_ENTER:
                 continue
             if a.ent == 0:
-                if ARCADE and self.state != S_PLAY:   # the waves wait while the ship is dead or taken
+                if self.state != S_PLAY:   # the waves wait while the ship is dead or taken
                     continue
                 a.dly -= 1
                 if a.dly <= 0:
@@ -474,7 +379,7 @@ class Game:
             if a.st != A_ENTER:
                 continue
             if a.ent == 0:
-                if self.chalTimer >= (a.dly if ARCADE else (i >> 3) * 55 + (i & 7) * 6):
+                if self.chalTimer >= a.dly:
                     self.path_launch(a)
             elif a.pstep >= self.path_len(a.path):
                 a.st = A_DEAD
@@ -488,19 +393,15 @@ class Game:
                 b.act = 1
                 b.x = a.x
                 b.y = a.y + 8
-                if ARCADE:      # aimed at the ship's place now: it needs (py - y) / 2.5 ticks to fall, so it moves dx / ticks a tick, in 16ths
-                    b.ax = 0
-                    b.dx = cdiv(16 * d, cdiv((self.py - b.y) * 2, 5) + 1)
-                    b.dx = BOMB_MAX_DX if b.dx > BOMB_MAX_DX else -BOMB_MAX_DX if b.dx < -BOMB_MAX_DX else b.dx   # the arcade's limit
-                    return
-                b.dx = 0 if abs(d) < 16 else 1 if d > 0 else -1
+                b.ax = 0        # aimed at the ship's place now: it needs (py - y) / 2.5 ticks to fall, so it moves dx / ticks a tick, in 16ths
+                b.dx = cdiv(16 * d, cdiv((self.py - b.y) * 2, 5) + 1)
+                b.dx = BOMB_MAX_DX if b.dx > BOMB_MAX_DX else -BOMB_MAX_DX if b.dx < -BOMB_MAX_DX else b.dx   # the arcade's limit
                 return
 
     def start_dive(self, i, capture, peel):
         a = self.al[i]
         a.st = A_DIVE
         a.timer = peel
-        a.fired = 0
         a.capdive = capture
         if capture:
             a.dir = 1 if a.x < self.px else -1
@@ -510,23 +411,19 @@ class Game:
         if capture:
             self.cap = C_DIVING
             self.capBoss = i
-        if ARCADE:      # a dive follows the arcade path of its kind from its slot: a boss and an escort label 2, a butterfly 1, a bee 0
-            a.pstep = 0
-            a.bflags = self.bombFlags
-            a.btmr = 30
-            if capture:
-                a.dpath = -1
-            else:
-                label = 2 if (a.esc or a.type == T_BOSS) else 1 if a.type == T_BUTTERFLY else 0
-                a.dpath = AD.ARC_DIVE[label][AD.ARC_SLOT_ROW[i]][AD.ARC_SLOT_SIDE[i]]
+        a.pstep = 0     # a dive follows the arcade path of its kind from its slot: a boss and an escort label 2, a butterfly 1, a bee 0
+        a.bflags = self.bombFlags
+        a.btmr = 30
+        if capture:
+            a.dpath = -1
+        else:
+            label = 2 if (a.esc or a.type == T_BOSS) else 1 if a.type == T_BUTTERFLY else 0
+            a.dpath = AD.ARC_DIVE[label][AD.ARC_SLOT_ROW[i]][AD.ARC_SLOT_SIDE[i]]
 
     def dive_step(self, i):
-        if not ARCADE:
-            self.dive_step_old(i)
-            return
         a = self.al[i]
         if a.capdive:
-            self.dive_step_old(i)
+            self.dive_step_capture(i)
             return
         if a.timer > 0:         # an escort waits for its boss
             a.timer -= 1
@@ -551,7 +448,7 @@ class Game:
             if a.timer < 0:
                 a.timer = 0
 
-    def dive_step_old(self, i):
+    def dive_step_capture(self, i):
         a = self.al[i]
         dy = 3 if self.diff >= 5 else 2
         if a.timer > 0:
@@ -562,20 +459,13 @@ class Game:
         a.y += dy
         if a.capdive or (self.frame & 1):
             a.x += 1 if a.x < self.px else -1 if a.x > self.px else 0
-        if not a.esc and not a.capdive:
-            mask = 1 if self.diff <= 2 else 0
-            if (a.fired == 0 and a.y >= 100) or (a.fired == 1 and DIVE_SHOTS[self.diff - 1] == 2 and a.y >= 150):
-                a.fired += 1
-                if (self.rng.prand() & mask) == 0:
-                    self.spawn_ebullet(a)
         if a.capdive and a.y >= 196:
             a.st = A_BEAM
             self.cap = C_BEAM
             self.beamLen = self.beamAcc = 0
             self.beamTimer = 180
-            if ARCADE:      # 10 x p6 arcade frames to grow (p6 = 12, 9 or 6 by stage), then 64 frames to take the ship, then the same to go
-                self.beamPh = 0
-                self.beamStep = AD.ARC_STAGE[arc_stage_no(self.stage)][1 + 6] * 10 * 5 // 6 // 4
+            self.beamPh = 0     # 10 x p6 arcade frames to grow (p6 = 12, 9 or 6 by stage), then 64 frames to take the ship, then the same to go
+            self.beamStep = AD.ARC_STAGE[arc_stage_no(self.stage)][1 + 6] * 10 * 5 // 6 // 4
         elif a.y >= 244:
             a.st = A_RETURN
             a.y = 0
@@ -588,7 +478,7 @@ class Game:
             if st == A_FORM:
                 a.x = self.slot_px(i)
                 a.y = self.slot_py(i)
-                if ARCADE and a.timer > 0:      # just home: it turns round before it can dive again
+                if a.timer > 0:      # just home: it turns round before it can dive again
                     a.timer -= 1
             elif st == A_EXPLODE:
                 a.timer -= 1
@@ -598,7 +488,7 @@ class Game:
                 self.dive_step(i)
             elif st == A_RETURN:
                 a.x = self.slot_px(i)
-                if ARCADE and a.timer > 0:
+                if a.timer > 0:
                     a.timer -= 1
                     continue
                 a.y += 2
@@ -606,8 +496,7 @@ class Game:
                     a.y = self.slot_py(i)
                     a.st = A_FORM
                     a.esc = 0
-                    if ARCADE:      # the arcade takes 54 frames (bee: 3) to settle a boss or a butterfly: 45 ticks
-                        a.timer = 3 if a.type == T_BEE else 45
+                    a.timer = 3 if a.type == T_BEE else 45      # the arcade takes 54 frames (bee: 3) to settle a boss or a butterfly: 45 ticks
 
     # ---- the arcade's dive scheduler (f_0857, f_1B65 of the model, see ARCADE.md). One call of arc_frame is one arcade frame ----
     def arc_standby(self, lo, hi):
@@ -739,66 +628,20 @@ class Game:
             self.arc_sortie_boss()
 
     def select_dive(self):
-        if ARCADE:
-            if self.challenge:
-                return
-            self.clk += 6
-            while self.clk >= 5:
-                self.arc_frame()
-                self.clk -= 5
+        if self.challenge:
             return
-        if self.entering or self.challenge:
-            return
-        self.diveTimer -= 1
-        if self.diveTimer > 0:
-            return
-        self.diveTimer = DIVE_INTERVAL[self.diff - 1]
-        away = 0
-        for a in self.al:
-            if not a.esc and (a.st == A_DIVE or a.st == A_RETURN or a.st == A_BEAM):
-                away += 1
-        if away >= DIVE_MAX[self.diff - 1]:
-            return
-        if self.force_capture and not self.cap and not self.dual and self.al[1].st == A_FORM:
-            self.start_dive(1, 1, 20)
-            return
-        pick = -1
-        rng = self.rng
-        if not self.cap and not self.dual and (rng.prand() & 1):
-            i = rng.prand() & 3
-            if self.al[i].st == A_FORM:
-                pick = i
-        tries = 0
-        while pick < 0 and tries < 8:
-            i = rng.prand() & 31
-            if self.al[i].st == A_FORM:
-                pick = i
-            tries += 1
-        if pick < 0:
-            return
-        if self.al[pick].type == T_BOSS and not self.cap and not self.dual:
-            self.start_dive(pick, 1, 20)
-            return
-        self.start_dive(pick, 0, 20)
-        if self.al[pick].type == T_BOSS and (self.cap or self.dual):
-            for k in range(2):
-                e = self.al[5 + pick + k]
-                if e.st == A_FORM:
-                    self.start_dive(5 + pick + k, 0, 32 if k else 26)
-                    e.esc = pick + 1
+        self.clk += 6
+        while self.clk >= 5:
+            self.arc_frame()
+            self.clk -= 5
 
     def update_ebullets(self):
         for b in self.eb:
             if b.act:
-                if ARCADE:
-                    b.y += 2 + (self.frame & 1)
-                    b.ax += b.dx
-                    b.x += b.ax >> 4
-                    b.ax &= 15
-                else:
-                    b.y += 3
-                    if self.frame & 1:
-                        b.x += b.dx
+                b.y += 2 + (self.frame & 1)
+                b.ax += b.dx
+                b.x += b.ax >> 4
+                b.ax &= 15
                 if b.y >= 250:
                     b.act = 0
 
@@ -852,7 +695,7 @@ class Game:
             b = self.al[self.capBoss]
             if not (self.frame & 31):
                 self.snd |= SND_SWOOP
-            if ARCADE and self.beamPh == 0:
+            if self.beamPh == 0:
                 self.beamAcc += 1
                 if self.beamAcc >= self.beamStep:
                     self.beamAcc = 0
@@ -860,7 +703,7 @@ class Game:
                     if self.beamLen >= 4:
                         self.beamPh = 1
                         self.beamTimer = 53
-            elif ARCADE and self.beamPh == 2:
+            elif self.beamPh == 2:
                 self.beamAcc += 1
                 if self.beamAcc >= self.beamStep:
                     self.beamAcc = 0
@@ -869,11 +712,6 @@ class Game:
                         self.cap = C_NONE
                         b.st = A_RETURN
                         b.y = 0
-            elif not ARCADE and self.beamLen < 4:
-                self.beamAcc += 1
-                if self.beamAcc >= 8:
-                    self.beamAcc = 0
-                    self.beamLen += 1
             elif self.state == S_PLAY and not self.invuln and b.x - 20 <= self.px <= b.x + 19:
                 self.cap = C_PULL
                 self.state = S_CAPTURED
@@ -884,13 +722,8 @@ class Game:
             else:
                 self.beamTimer -= 1
                 if self.beamTimer <= 0:
-                    if ARCADE:
-                        self.beamPh = 2
-                        self.beamAcc = 0
-                    else:
-                        self.cap = C_NONE
-                        b.st = A_RETURN
-                        b.y = 0
+                    self.beamPh = 2
+                    self.beamAcc = 0
         elif self.cap == C_RESCUE:
             tx = self.px + 16
             self.ry += 3
@@ -998,13 +831,13 @@ class Game:
                     self.game_over()
                 else:
                     self.state = S_READY
-                    self.stateTimer = 80 if ARCADE else 90      # arcade: 3 x 32 frames after the last flyer is home
+                    self.stateTimer = 80      # 3 x 32 frames after the last flyer is home
         elif st == S_READY:
             if self.challenge:
                 self.update_aliens()
             else:
                 self.move_world()
-            if ARCADE and not self.challenge:     # the ship comes back when nothing flies any more: the divers finish first, the beam too
+            if not self.challenge:     # the ship comes back when nothing flies any more: the divers finish first, the beam too
                 self.update_capture()
                 flying = 0
                 for a in self.al:
@@ -1017,10 +850,9 @@ class Game:
                 self.state = S_PLAY
                 self.px = 160
                 self.invuln = 120
-                if ARCADE:      # after a death the sorties start slowly again
-                    self.tmr2 += 30
-                    if self.tmr2 > 120:
-                        self.tmr2 = 120
+                self.tmr2 += 30     # after a death the sorties start slowly again
+                if self.tmr2 > 120:
+                    self.tmr2 = 120
         elif st == S_CAPTURED:
             self.move_world()
             self.update_capture()

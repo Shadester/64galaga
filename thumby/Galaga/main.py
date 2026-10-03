@@ -2,7 +2,7 @@
 #
 # Desktop keys (tools/run.sh): A / D move, . or , fire, Return pause, Left Shift quit to the title.
 # Thumby Color: LEFT / RIGHT move, A or B fire, MENU pause (on the title screen: leave the game), LB quit to the title.
-# Arguments (the desktop run): c64 (the rules of the C64 game, not the arcade rules) | autoplay | stage=N | lives=N | diff=N | few | forcecapture | nofire | dieat=N | pauseat=N |
+# Arguments (the desktop run): autoplay | stage=N | lives=N | diff=N | few | forcecapture | nofire | dieat=N | pauseat=N |
 # quitat=N | nosave | record=FILE:EVERY:COUNT (frames of the screen as RGB565, see tools/rawframes.py)
 import engine_main
 import sys
@@ -37,9 +37,6 @@ if not NOSAVE:
         engine_save._init_saves_dir("/Saves/Galaga")
         engine_save.set_location("galaga.save")
 
-if 'c64' in args:                         # the rules of the C64 game (32 aliens, 3 enemy bombs) instead of the arcade rules (ARCADE.md)
-    G.set_arcade(False)
-V.configure()
 game = G.Game(0 if NOSAVE else engine_save.load("hi", 0))
 if 'stage' in args:
     game.start_stage_no = int(args['stage'])
@@ -49,7 +46,6 @@ if 'diff' in args:
     game.start_diff = int(args['diff'])
 game.few = 'few' in args
 FORCECAPTURE = 'forcecapture' in args
-game.force_capture = FORCECAPTURE
 NOFIRE = 'nofire' in args
 DIEAT, PAUSEAT, QUITAT = int(args.get('dieat', -1)), int(args.get('pauseat', -1)), int(args.get('quitat', -1))
 inp = G.Input()

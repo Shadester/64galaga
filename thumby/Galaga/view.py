@@ -8,17 +8,8 @@ import sprite_ids as S
 
 W = H = 128
 HUD_H = 14
-N_SLOTS = 43                       # 32 aliens, ship, dual ship, captive, 4 player bullets, 3 enemy bullets, the lives icon
-SLOT_SHIP, SLOT_DUAL, SLOT_CAPT, SLOT_PBUL, SLOT_EBUL, SLOT_LIFE = 32, 33, 34, 35, 39, 42
-
-
-def configure():
-    """The slots follow the number of aliens (G.NAL) and of enemy bombs (G.EBN): call it after G.set_arcade and before Scene()."""
-    global N_SLOTS, SLOT_SHIP, SLOT_DUAL, SLOT_CAPT, SLOT_PBUL, SLOT_EBUL, SLOT_LIFE
-    SLOT_SHIP, SLOT_DUAL, SLOT_CAPT, SLOT_PBUL = G.NAL, G.NAL + 1, G.NAL + 2, G.NAL + 3
-    SLOT_EBUL = SLOT_PBUL + 4
-    SLOT_LIFE = SLOT_EBUL + G.EBN
-    N_SLOTS = SLOT_LIFE + 1
+N_SLOTS = 56                    # 40 aliens, ship, dual ship, captive, 4 player bullets, 8 enemy bullets, the lives icon
+SLOT_SHIP, SLOT_DUAL, SLOT_CAPT, SLOT_PBUL, SLOT_EBUL, SLOT_LIFE = 40, 41, 42, 43, 47, 55
 
 
 NUM_STARS = 12
