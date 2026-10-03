@@ -5,6 +5,13 @@
 ; enemy_flag (ent): 0 waiting, 1 on its path, 2 homing on its slot.
 
 ; d16 = a - t (16 bits): a = alo/ahi indexed by X, t = a zero page word
+.macro set_ret_y                        ; ay[X] = RET_Y0: a diver comes back from above the screen
+        lda #.lobyte(RET_Y0)
+        sta ay_lo,x
+        lda #.hibyte(RET_Y0)
+        sta ay_hi,x
+.endmacro
+
 .macro diff16 alo, ahi, t
         lda alo,x
         sec
@@ -498,7 +505,7 @@ toward_x:
         bmi @inc
         lda ax_lo,x
         sec
-        sbc #2
+        sbc #HOME_V
         sta ax_lo,x
         lda ax_hi,x
         sbc #0
@@ -506,7 +513,7 @@ toward_x:
         rts
 @inc:   lda ax_lo,x
         clc
-        adc #2
+        adc #HOME_V
         sta ax_lo,x
         lda ax_hi,x
         adc #0
@@ -522,7 +529,7 @@ toward_y:
         bmi @inc
         lda ay_lo,x
         sec
-        sbc #2
+        sbc #HOME_V
         sta ay_lo,x
         lda ay_hi,x
         sbc #0
@@ -530,27 +537,27 @@ toward_y:
         rts
 @inc:   lda ay_lo,x
         clc
-        adc #2
+        adc #HOME_V
         sta ay_lo,x
         lda ay_hi,x
         adc #0
         sta ay_hi,x
 @done:  rts
 
-; Carry set: |d16| > 3 (far); carry clear: near
+; Carry set: |d16| > HOME_NEAR (far); carry clear: near
 near3:
         lda d16+1
         beq @p
         cmp #$ff
         bne @far
         lda d16
-        cmp #$fd
-        bcs @near                       ; -3..-1
+        cmp #256-HOME_NEAR
+        bcs @near                       ; -HOME_NEAR..-1
 @far:   sec
         rts
 @p:     lda d16
-        cmp #4
-        rts                             ; carry set when >= 4
+        cmp #HOME_NEAR+1
+        rts                             ; carry set when > HOME_NEAR
 @near:  clc
         rts
 
@@ -618,11 +625,12 @@ return_step:
         rts
 @move:  lda ay_lo,x
         clc
-        adc #2
+        adc #RET_V
         sta ay_lo,x
         bcc @c
         inc ay_hi,x
-@c:     lda ay_hi,x                     ; home when y >= the slot's y
+@c:     lda ay_hi,x                     ; home when y >= the slot's y (above the screen: not yet)
+        bmi @rts
         cmp tgy+1
         bne @cmp
         lda ay_lo,x
@@ -666,7 +674,7 @@ dive_step:
 @cmp:   bcs @free
         jsr arc_step
         bra @after
-@free:  lda #3                          ; the end of the path of a butterfly: it aims at the ship
+@free:  lda #TAIL_VY                    ; the end of the path of a butterfly: it aims at the ship
         jsr move_y
         lda frame
         and #1
@@ -688,21 +696,25 @@ dive_step:
 @inc:   inc a_ps_lo,x
         bne @after
         inc a_ps_hi,x
-@after: lda ay_hi,x                     ; y >= 244: gone below the screen
-        bmi @rts
+@after: lda ay_hi,x                     ; y >= OFF_Y: gone below the screen
+        bmi @out
         bne @gone
         lda ay_lo,x
-        cmp #244
-        bcc @rts
+        cmp #OFF_Y
+        bcs @gone
+@out:   rts
 @gone:  lda #3                          ; it comes back from the top when the arcade dive would end
         sta enemy_state,x
-        lda #0
-        sta ay_lo,x
-        sta ay_hi,x
-        jsr slot_target                 ; wait = total - pstep - slot y / 2 (at least 0)
-        lda tgy+1
-        lsr
+        set_ret_y
+        jsr slot_target                 ; wait = total - pstep - (slot y - RET_Y0) / RET_V (at least 0)
         lda tgy
+        sec
+        sbc #.lobyte(RET_Y0)
+        sta t8
+        lda tgy+1
+        sbc #.hibyte(RET_Y0)
+        lsr
+        lda t8
         ror
         sta t8
         ldy a_dpath,x
@@ -749,18 +761,18 @@ dive_step_cap:
         dec enemy_timer,x
         lda enemy_dir,x
         beq @l
-        lda #2
+        lda #PEEL_VX
         bra @mx
-@l:     lda #$fe
+@l:     lda #.lobyte(-PEEL_VX)
 @mx:    jsr move_x
-        lda #1
+        lda #PEEL_VY
         jmp move_y
 @go:    lda diff
         cmp #5
         bcs @three
-        lda #2
+        lda #CDIVE_V0
         bra @dy
-@three: lda #3
+@three: lda #CDIVE_V1
 @dy:    jsr move_y
         lda player_x
         sta tgt
@@ -780,7 +792,7 @@ dive_step_cap:
         lda ay_hi,x
         bne @beam
         lda ay_lo,x
-        cmp #196
+        cmp #BEAM_Y
         bcc @rts
 @beam:  lda #5                          ; the beam
         sta enemy_state,x
@@ -991,11 +1003,16 @@ arc_frame:
         beq @shift
         lda arc_hold
         bne @shift
-        lda ay_hi,x                     ; y <= 163 (negative: yes)
+.ifdef PORTRAIT
+        lda ay_hi,x                     ; 0 <= y <= BOMB_LOW_Y (above the screen: no bomb, a bomb keeps its y in one byte)
+        bne @shift
+.else
+        lda ay_hi,x                     ; y <= BOMB_LOW_Y (negative: yes)
         bmi @drop
         bne @shift
+.endif
         lda ay_lo,x
-        cmp #164
+        cmp #BOMB_LOW_Y+1
         bcs @shift
 @drop:  jsr spawn_ebullet
 @shift: lsr a_bfl,x
@@ -1262,7 +1279,7 @@ start_dive:
         lda ax_hi,x                     ; x >= 184: peel off to the right
         bne @right
         lda ax_lo,x
-        cmp #184
+        cmp #MID_X
         bcs @right
         lda #0
         bra @sd
@@ -1355,7 +1372,7 @@ spawn_ebullet:
         sta eb_msb,y
         lda ay_lo,x
         clc
-        adc #8
+        adc #BOMB_DY
         sta eb_y,y
         lda #0
         sta eb_ax,y
@@ -1629,6 +1646,15 @@ begin_stage:
         cpx #255
         beq @skip
         sta a_path,x
+        tay
+        lda arce_bt,y                   ; the bombs of an alien that flies in
+        sta a_btm,x
+        lda arc_entry_bomb,x
+        beq @nobomb
+        ldy arc_row
+        lda arc_row_hdr1,y
+        sta a_bfl,x
+@nobomb:
         lda arc_t
         sta a_dly_lo,x
         lda arc_t+1
@@ -1670,8 +1696,8 @@ check_collisions:
         sec
         sbc pbul_y,y
         clc
-        adc #8
-        cmp #16
+        adc #HB_SHOT_Y
+        cmp #2*HB_SHOT_Y
         bcs @skip
         lda pbul_x,y                    ; the alien's x - 6 <= the shot's x < the alien's x + 12
         sec
@@ -1682,14 +1708,14 @@ check_collisions:
         sta d16+1
         lda d16
         clc
-        adc #6
+        adc #HB_SHOT_XL
         sta d16
         bcc @x1
         inc d16+1
 @x1:    lda d16+1
         bne @skip
         lda d16
-        cmp #18
+        cmp #HB_SHOT_XL+HB_SHOT_XR
         bcs @skip
         lda #0                          ; hit
         sta pbul_active,y
@@ -1776,7 +1802,7 @@ ship_x:         ; sx of ship cur_ship (0: player_x, 1: player_x + 16) -> tgt
         lda #0
         ldy cur_ship
         beq @o
-        lda #16
+        lda #DUAL_DX
 @o:     clc
         adc player_x
         sta tgt
@@ -1804,10 +1830,10 @@ ship_bombs:
         bne @done
         lda eb_active,y
         beq @bn
-        lda eb_y,y                      ; y 227..240
-        cmp #227
+        lda eb_y,y                      ; y PLAYER_Y + HB_BOMB_Y0 .. PLAYER_Y + HB_BOMB_Y1
+        cmp #PLAYER_Y+HB_BOMB_Y0
         bcc @bn
-        cmp #241
+        cmp #PLAYER_Y+HB_BOMB_Y1+1
         bcs @bn
         lda #0
         sta cur_ship
@@ -1823,14 +1849,14 @@ ship_bombs:
         sta d16+1
         lda d16
         clc
-        adc #6
+        adc #HB_BOMB_XL
         sta d16
         bcc @b1
         inc d16+1
 @b1:    lda d16+1
         bne @bsn
         lda d16
-        cmp #14
+        cmp #HB_BOMB_XL+HB_BOMB_XR+1
         bcs @bsn
         lda #0                          ; hit
         sta eb_active,y
@@ -1873,14 +1899,14 @@ ram_one:
         bne @x
         lda enemy_flag,x
         beq @x
-@rchk:  lda ay_hi,x                     ; the alien's y in the ship's y - 7 .. + 8
+@rchk:  lda ay_hi,x                     ; the alien's y in the ship's y - HB_RAM_Y0 .. + HB_RAM_Y1
         bne @x
         lda ay_lo,x
         sec
         sbc player_y
         clc
-        adc #7
-        cmp #16
+        adc #HB_RAM_Y0
+        cmp #HB_RAM_Y0+HB_RAM_Y1+1
         bcs @x
         lda #0
         sta cur_ship
@@ -1896,7 +1922,7 @@ ram_one:
         sta d16+1
         lda d16
         clc
-        adc #8
+        adc #HB_RAM_X
         sta d16
         bcc @r1
         inc d16+1
@@ -1904,7 +1930,7 @@ ram_one:
         bne @rsn
         lda d16
         beq @rsn
-        cmp #17
+        cmp #2*HB_RAM_X+1
         bcs @rsn
         lda a_cap,x                     ; a boss that rams the ship drops its captive
         beq @nocap
@@ -1948,7 +1974,7 @@ arc_player_hit:
         bne @keep
         lda player_x
         clc
-        adc #16
+        adc #DUAL_DX
         sta player_x
         bcc @keep
         inc player_x_msb
@@ -2018,14 +2044,14 @@ update_capture:
         sta d16+1
         lda d16
         clc
-        adc #20
+        adc #HB_BEAM_XL
         sta d16
         bcc @c1
         inc d16+1
 @c1:    lda d16+1
         bne @timer
         lda d16
-        cmp #40
+        cmp #HB_BEAM_XL+HB_BEAM_XR+1
         bcs @timer
         lda #GS_CAPTURED                ; caught
         sta game_state
@@ -2073,9 +2099,7 @@ update_capture:
         sta cap_state                   ; the beam is gone: the boss flies home
         lda #3
         sta enemy_state,x
-        lda #0
-        sta ay_lo,x
-        sta ay_hi,x
+        set_ret_y
         rts
 
 ; The capture boss was shot. In: X = boss.
@@ -2094,7 +2118,7 @@ boss_killed:
         sta cap_msb
         lda ay_lo,x
         sec
-        sbc #16
+        sbc #CAPT_DY
         sta cap_y
         lda #5
         sta cap_state
@@ -2111,12 +2135,12 @@ boss_killed:
 arc_captured:
         lda player_y
         sec
-        sbc #2
+        sbc #PULL_V
         sta player_y
         ldx cap_boss
         sec
         sbc ay_lo,x
-        cmp #22
+        cmp #PULL_DONE
         bcs @rts                        ; not there yet
         lda #PLAYER_Y
         sta player_y
@@ -2124,9 +2148,8 @@ arc_captured:
         sta cap_state
         lda #3
         sta enemy_state,x
+        set_ret_y
         lda #0
-        sta ay_lo,x
-        sta ay_hi,x
         sta a_cap,x
         lda #1
         sta dying_quiet                 ; no explosion for a captured ship

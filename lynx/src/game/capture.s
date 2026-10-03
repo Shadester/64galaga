@@ -7,15 +7,15 @@
 rescue_step:
     lda cap_y
     clc
-    adc #3
+    adc #RESC_VY
     cmp #PLAYER_Y
     bcc @ynot
     lda #PLAYER_Y
 @ynot:
     sta cap_y
-    lda player_x            ; Dock spot: 16px right of the player
+    lda player_x            ; Dock spot: beside the player
     clc
-    adc #16
+    adc #DUAL_DX
     sta rs_tx
     lda player_x_msb
     adc #0
@@ -29,7 +29,7 @@ rescue_step:
     bcs @left
     lda cap_x
     clc
-    adc #2
+    adc #RESC_VX
     sta cap_x
     bcc @steered
     inc cap_msb
@@ -37,7 +37,7 @@ rescue_step:
 @left:
     lda cap_x
     sec
-    sbc #2
+    sbc #RESC_VX
     sta cap_x
     bcs @steered
     dec cap_msb
@@ -52,8 +52,8 @@ rescue_step:
     sec
     sbc rs_tx
     clc
-    adc #4
-    cmp #8
+    adc #HB_DOCK_L
+    cmp #HB_DOCK_L+HB_DOCK_R+1
     bcs @rts
     lda #1
     sta dual
@@ -62,9 +62,9 @@ rescue_step:
     lda player_x_msb        ; Keep the pair on screen
     beq @docked
     lda player_x
-    cmp #<(SCREEN_RIGHT-16)
+    cmp #<(SCREEN_RIGHT-DUAL_DX)
     bcc @docked
-    lda #<(SCREEN_RIGHT-16)
+    lda #<(SCREEN_RIGHT-DUAL_DX)
     sta player_x
 @docked:
     lda #jin_resc-jin_data

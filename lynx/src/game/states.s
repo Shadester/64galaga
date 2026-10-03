@@ -74,7 +74,7 @@ start_game:
     sta diff
     sta stage
     sta fire_pressed            ; Fire held from the title must not shoot
-    lda #160
+    lda #SHIP_X0
     sta player_x
 .ifdef HALT
     lda #$5b                    ; Tests: same seed every run
@@ -391,7 +391,7 @@ st_ready:
     bcc @t2
     lda #120
 @t2:sta arc_tmr2
-    lda #160                    ; Respawn, briefly invulnerable
+    lda #SHIP_X0                ; Respawn, briefly invulnerable
     sta player_x
     lda #0
     sta player_x_msb
@@ -462,8 +462,12 @@ st_gameover:
     beq @no_save
     jsr save_hiscore
 @no_save:
+    lda joystick_state      ; Held fire must be released first (a press that starts now counts, like psp/game.c)
+    and #$10
+    bne @fire_up
     lda #1
-    sta fire_pressed        ; Held fire must be released first
+    sta fire_pressed
+@fire_up:
     print msg_press, SCREEN_RAM+14*40+15, 1
 .ifdef HALTOVER
     lda #1                      ; -DHALTOVER=1: freeze on the game over screen (tests/run.py)

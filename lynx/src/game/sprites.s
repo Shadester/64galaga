@@ -101,7 +101,7 @@ update_sprite_data:
     sta spr_f+VS_DUAL
     lda player_x
     clc
-    adc #16
+    adc #DUAL_DX
     sta spr_x+VS_DUAL
     lda player_x_msb
     adc #0
@@ -122,10 +122,10 @@ update_sprite_data:
     lda enemy_state,x
     beq @c_hide
     lda enemy_y,x
-    cmp #32
+    cmp #CAPT_DY+16
     bcc @c_hide
     sec
-    sbc #16
+    sbc #CAPT_DY
     sta spr_y+VS_CAPT
     lda enemy_x,x
     sta spr_x+VS_CAPT

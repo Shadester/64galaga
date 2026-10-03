@@ -36,6 +36,7 @@
 #define G_BEAM_Y 208        /* the capture boss starts the beam (34 units above the ship, as in the C64 field) */
 #define G_BOMB_OFF_Y 250    /* a bomb has left the bottom */
 #define G_BOMB_LOW_Y 149    /* no bombs from a diver below this y (97 of the arcade's 288 lines above the ship, 0.96 units a line) */
+#define G_BOMB_TOP_Y 0      /* no bombs from an alien above the screen (a bomb keeps y in one byte on the Lynx) */
 #define G_BOMB_DY 6         /* a bomb starts this far below the alien's y */
 #define G_MID_X 95          /* the middle of the field (the side a diver peels off to) */
 #define G_CAPT_DY 12        /* a captive rides this far above its boss */
@@ -83,6 +84,7 @@
 #define G_BEAM_Y 196
 #define G_BOMB_OFF_Y 250
 #define G_BOMB_LOW_Y 163
+#define G_BOMB_TOP_Y (-32000)
 #define G_BOMB_DY 8
 #define G_MID_X 184
 #define G_CAPT_DY 16

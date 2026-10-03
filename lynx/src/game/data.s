@@ -45,7 +45,7 @@ jin_pos:               .byte 0
 jin_dur:               .byte 0
 
 ; Player
-player_x:              .byte 160
+player_x:              .byte SHIP_X0
 player_x_msb:          .byte 0
 player_y:              .byte PLAYER_Y
 
@@ -113,7 +113,11 @@ msg_capt:       .asciiz "FIGHTER CAPTURED"
 ready_timer:    .byte 0
 entering:       .byte 0                 ; aliens still entering (arc.s)
 
+.ifdef PORTRAIT
+    .include "game/arcade_data_portrait.s"
+.else
     .include "game/arcade_data.s"
+.endif
 
 ; Per enemy type: 0 boss, 1 butterfly, 2 bee
 type_hp:        .byte 2, 1, 1

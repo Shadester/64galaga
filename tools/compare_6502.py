@@ -10,6 +10,7 @@ position, and for every alien its state and (when it is on the screen) its posit
 games must stay equal.
 The C64 runs in VICE (x64sc, the binary monitor, c64/tools/vice.py): the program stops at the label `tick_mark` after each pass of its game loop
 and the state is read at the checkpoints; the C reference is psp/game.c built with -DRULES_ARCADE32 (32 aliens, 4 bombs).
+PORTRAIT=1 (Lynx only) builds the portrait ROM (-D PORTRAIT=1) and the C reference with -DRULES_PORTRAIT.
 Needs the Lynx boot ROM (see lynx/CLAUDE.md), cc65 and Gearlynx; or acme and VICE."""
 import json
 import os
@@ -21,6 +22,7 @@ import tempfile
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 sys.path.insert(0, os.path.join(ROOT, 'lynx', 'tools'))
 sys.path.insert(0, os.path.join(ROOT, 'c64', 'tools'))
+PORTRAIT = os.environ.get('PORTRAIT') == '1'
 SKEW = int(os.environ.get('SKEW', '0'))      # the ROM is read between two ticks: its state may be that of the tick before its counter
 
 # name: (ROM flags, C flags, ticks to compare at, what is compared)
@@ -199,7 +201,7 @@ def start_tick(rom_flags):
     """The tick at which the ROM leaves the title screen (it needs a fire release and a press: the C game is told the same tick)."""
     build = os.path.join('build', 'trace_start')
     subprocess.run(['rm', '-rf', os.path.join(ROOT, 'lynx', build)])
-    flags = ' '.join(f'-D {f}' for f in rom_flags if f.split('=')[0] in ('AUTOPLAY', 'NOFIRE')) + ' -D HALT=400'
+    flags = ' '.join(f'-D {f}' for f in rom_flags if f.split('=')[0] in ('AUTOPLAY', 'NOFIRE', 'PORTRAIT')) + ' -D HALT=400'
     subprocess.run(['make', '-C', os.path.join(ROOT, 'lynx'), f'BUILD={build}', 'CAFLAGS=' + flags],
                    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     ly = Lynx(os.path.join(ROOT, 'lynx', build, 'galaga.lnx'), os.path.join(ROOT, 'lynx', build, 'galaga.lbl'))
@@ -324,6 +326,10 @@ def compare(platform, name):
         c_flags = ['-DRULES_ARCADE32'] + c_flags
     else:
         rom_flags, c_flags, ticks, what = SCENARIOS[name]
+        if PORTRAIT:                                     # PORTRAIT=1: the portrait ROM against psp/game.c -DRULES_PORTRAIT
+            rom_flags, c_flags = rom_flags + ['PORTRAIT=1'], c_flags + ['-DRULES_PORTRAIT']
+        if os.environ.get('TICKS'):
+            ticks = [int(t) for t in os.environ['TICKS'].split(',')]
         start = start_tick(rom_flags)
     ref = c_trace(c_flags, max(ticks) + 5, 'NOFIRE=1' in rom_flags, start, nb)
     if platform == 'lynx':

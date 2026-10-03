@@ -448,7 +448,7 @@ static void arc_frame(Game *g) {
 #endif
         if (--a->btmr > 0) continue;
         a->btmr = hdr0;
-        if ((a->bflags & 1) && a->y <= BOMB_LOW_Y && !g->hold) spawn_ebullet(g, a);
+        if ((a->bflags & 1) && a->y >= G_BOMB_TOP_Y && a->y <= BOMB_LOW_Y && !g->hold) spawn_ebullet(g, a);
         a->bflags >>= 1;
     }
     if (g->entering || (g->af & 15)) return;

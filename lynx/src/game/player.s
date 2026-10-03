@@ -256,12 +256,12 @@ update_player:
     lda player_x_msb
     bne @pl_left            ; X >= 256, always above left limit
     lda player_x
-    cmp #SCREEN_LEFT+2         ; Stop at SCREEN_LEFT after the 2px step
+    cmp #SCREEN_LEFT+SHIP_V    ; Stop at SCREEN_LEFT after the step
     bcc @check_right
 @pl_left:
     lda player_x
     sec
-    sbc #2
+    sbc #SHIP_V
     sta player_x
     bcs @check_right
     dec player_x_msb
@@ -270,12 +270,14 @@ update_player:
     lda joystick_state
     and #$08
     bne @check_fire
+.ifndef PORTRAIT
     lda player_x_msb
     beq @pl_right           ; X < 256, below right limit
+.endif
     lda player_x
     ldy dual
     beq @lim1
-    cmp #<(SCREEN_RIGHT-16)     ; Dual fighter is 16px wider
+    cmp #<(SCREEN_RIGHT-DUAL_DX) ; Dual fighter is wider
     jmp @lim2
 @lim1:
     cmp #<SCREEN_RIGHT
@@ -284,7 +286,7 @@ update_player:
 @pl_right:
     lda player_x
     clc
-    adc #2
+    adc #SHIP_V
     sta player_x
     bcc @check_fire
     inc player_x_msb
@@ -327,7 +329,7 @@ shoot_bullet:
     lda player_x_msb
     adc #0
     sta pbul_msb,x
-    lda #PLAYER_Y-16
+    lda #PLAYER_Y-SHOT_DY
     sta pbul_y,x
     inc shots
     bne @counted
@@ -341,7 +343,7 @@ shoot_bullet:
     bcc @ship
     rts
 
-bul_off:        .byte 3, 19
+bul_off:        .byte SHOT_DX, SHOT_DX+DUAL_DX
 
 
 update_bullets:
@@ -351,9 +353,9 @@ update_bullets:
     beq @next
     lda pbul_y,x
     sec
-    sbc #4
+    sbc #SHOT_V
     sta pbul_y,x
-    cmp #20
+    cmp #SHOT_TOP
     bcs @next
     lda #0
     sta pbul_active,x
