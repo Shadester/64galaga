@@ -37,12 +37,21 @@
     </td>
   </tr>
   <tr>
-    <td width="360"><a href="lynx/"><img src="lynx/docs/gameplay.gif" width="340" alt="Atari Lynx Landscape"></a><br><a href="lynx/"><img src="lynx/docs/gameplay-portrait.gif" width="170" alt="Atari Lynx Portrait"></a></td>
+    <td width="360"><a href="lynx/"><img src="lynx/docs/gameplay.gif" width="340" alt="Atari Lynx Landscape"></a></td>
     <td>
-      <h3><a href="lynx/">Atari Lynx</a> (landscape and portrait)</h3>
+      <h3><a href="lynx/">Atari Lynx Landscape</a></h3>
       <i>65C02 assembly (ca65)</i><br><br>
       A port of the C64 code to the Lynx: the same rules and numbers at half the size.
       The Suzy sprite engine replaces the multiplexer. The hi-score is saved in the cartridge EEPROM.
+    </td>
+  </tr>
+  <tr>
+    <td width="360"><a href="lynx/"><img src="lynx/docs/gameplay-portrait.gif" width="200" alt="Atari Lynx Portrait"></a></td>
+    <td>
+      <h3><a href="lynx/">Atari Lynx Portrait</a></h3>
+      <i>65C02 assembly (ca65)</i><br><br>
+      The same game in the arcade's own portrait shape: a second ROM with the field turned by 90 degrees and 8 x 8 pixel art.
+      Hold the Lynx on its side; the emulator turns the picture back.
     </td>
   </tr>
   <tr>
