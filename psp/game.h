@@ -4,13 +4,21 @@
 #ifndef GAME_H
 #define GAME_H
 
-/* Two sets of rules: the arcade's (the default, see ../ARCADE.md) and the C64 game's (-DRULES_C64: 32 enemies, our own fly-in and dives). */
-#ifndef RULES_C64
+/* Three sets of rules: the arcade's (the default, see ../ARCADE.md), the C64 game's (-DRULES_C64: 32 enemies, our own fly-in and dives),
+ * and -DRULES_ARCADE32: the arcade's scheduler, bombs, beam, respawn and challenge scoring on the C64 game's layout, fly-in and dives.
+ * That is what the 6502 C64 game plays (it cannot show the arcade's rows of 10). RULES_ARC means both of the arcade's. */
+#if !defined(RULES_C64) && !defined(RULES_ARCADE32)
 #define RULES_ARCADE
+#endif
+#if defined(RULES_ARCADE) || defined(RULES_ARCADE32)
+#define RULES_ARC
 #endif
 #ifdef RULES_ARCADE   /* the arcade rules: 40 enemies, see ../ARCADE.md */
 #define NAL 40
 #define EBN 8   /* enemy bombs on the screen */
+#elif defined(RULES_ARCADE32)
+#define NAL 32
+#define EBN 4
 #else
 #define NAL 32
 #define EBN 3
@@ -31,8 +39,11 @@ enum {
 typedef struct {
     int x, y, st, type, hp, timer, dir, esc, capdive, fired;
     int path, pstep, mir, ent, dly;   /* ent: 0 waiting, 1 on path, 2 homing */
+#ifdef RULES_ARC
+    int bflags, btmr;   /* bomb flags and the time to the next bomb (arcade frames) */
+#endif
 #ifdef RULES_ARCADE
-    int dpath, bflags, btmr;   /* dive path (-1: free), bomb flags and the time to the next one (arcade frames) */
+    int dpath;   /* dive path (-1: free) */
 #endif
 } Alien;
 typedef struct { int x, y, act, dx; int ax; } Bullet;   /* ax: the sideways speed of a bomb is dx / 16 pixel a tick, ax the rest */
@@ -47,10 +58,12 @@ typedef struct {
     int cap, capBoss, beamLen, beamAcc, beamTimer, rx, ry;
     int snd, saveReq;
     Alien al[NAL];
-#ifdef RULES_ARCADE   /* the dive scheduler runs on the arcade's 60 Hz clock: 6 arcade frames for every 5 ticks */
+#ifdef RULES_ARC   /* the dive scheduler runs on the arcade's 60 Hz clock: 6 arcade frames for every 5 ticks */
     int beamPh, beamStep;   /* the beam: 0 grows, 1 holds (the ship is taken), 2 shrinks; ticks for one of its 4 steps */
-    int fclk, ff, swayPos, swayDir, breathe, bstep;   /* the formation: swing while the aliens fly in, then breathe (also on the arcade clock) */
     int clk, af, tmr2, hold, sortie[3], wingm, bombFlags;   /* tmr2: counts down from 120 once in 32 frames (time since the stage began); hold: no bombs after a boss was shot while it dived */
+#endif
+#ifdef RULES_ARCADE
+    int fclk, ff, swayPos, swayDir, breathe, bstep;   /* the formation: swing while the aliens fly in, then breathe (also on the arcade clock) */
 #endif
     Bullet ps[4], eb[EBN];
 } Game;

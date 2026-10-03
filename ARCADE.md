@@ -4,6 +4,12 @@ Default: the C reference (`psp/game.c`), the PSP, Amiga, Thumby Color and PICO-8
 argument `c64` gives the C64 rules). The C64 and Lynx games (6502 assembly) still have the C64 rules: 40 enemies do not fit (8 sprites a line,
 the arcade rows have 10 bees).
 
+The C64 game (6502) cannot show the arcade's rows of 10. For it `psp/game.c` has a third set of rules, `-DRULES_ARCADE32`: the arcade's scheduler
+(sortie timers, stage table, escorts by the wingman table), aimed bombs (at most 4, no bombs from the aliens that fly in), beam by stage,
+respawn rules and challenge scoring (100 a hit, 10,000 for all 32) on the C64's layout, fly-in splines and steering dive. It is the reference
+for the C64 assembly (`psp/tests/test_arcade32.c` tests it). The Lynx plays the full arcade rules with 40 aliens, checked against `psp/game.c`
+by `tools/compare_6502.py`.
+
 Status: the entry (rows 1-6), the dive scheduler, the escorts and the bombs (rows 7-11, 13-15) are in `psp/game.c` behind
 `-DRULES_ARCADE`; the old rules are still the default. `tools/gen_arcade.py` makes the data (`psp/arcade_data.h`).
 `tools/compare_arcade.py` checks the dives against the model: for stages 1, 2, 4, 5, 8, 9 and 12 the first 10 launches (who, with
