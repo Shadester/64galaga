@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <b>One arcade shooter, six machines.</b><br>
-  Galaga clones for the Commodore 64, the PlayStation Portable, the Atari Lynx, the Thumby Color, PICO-8 and the Commodore Amiga, written from the same game design.
+  <b>One arcade shooter, six machines and a terminal.</b><br>
+  Galaga clones for the Commodore 64, the PlayStation Portable, the Atari Lynx, the Thumby Color, PICO-8, the Commodore Amiga and the terminal, written from the same game design.
 </p>
 
 <p align="center">
@@ -67,6 +67,15 @@
       <i>C and 68000 assembly (m68k-elf-gcc)</i><br><br>
       A bootable floppy that takes over the bare A500: blitter sprites, copper, Paula sound. The rules are
       <code>psp/game.c</code> itself, built without floats. A test runs it on the 68000 next to the Mac build.
+    </td>
+  </tr>
+  <tr>
+    <td width="360"><a href="tui/"><img src="tui/docs/gameplay.gif" width="340" alt="Terminal"></a></td>
+    <td>
+      <h3><a href="tui/">Terminal</a></h3>
+      <i>Rust (crossterm)</i><br><br>
+      Pixel art in half-block characters and 24-bit colour, in any terminal from 80 x 27 cells up. The rules are a
+      translation of <code>psp/game.c</code>, and a test compares every tick with the C original.
     </td>
   </tr>
 </table>

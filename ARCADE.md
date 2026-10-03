@@ -74,6 +74,7 @@ The alien art stays the art of the C64 game (`c64/src/art.asm`).
   (`c64/README.md`). 40 enemies need rows of 10 sprites, and the VIC-II draws 8 in a line. **Keep 32**; the arcade numbers are used wherever
   they cost no CPU. The **Lynx** (Suzy draws a chain of sprites, no limit of 8) plays 40 (`lynx/CLAUDE.md`).
 - **Thumby Color / PICO-8:** 40 sprites fit the screen (128 x 128). PICO-8 has a limit of 8192 tokens: the tables must be strings.
+- **Terminal (Rust):** no limit of sprites; the picture is canvas pixels in half-block characters, 80 x 27 cells at the least. The rules are `psp/game.c` translated (`tui/src/game.rs`) and compared tick by tick.
 - **Amiga:** the blitter cost of a sprite is about 0.85 ms (`amiga/CLAUDE.md`). 8 more sprites add 7 ms to the worst frames. Do the copper
   scroll first (`amiga/PLAN-scroll.md`) or accept a lower frame rate in the sway.
 

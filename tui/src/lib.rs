@@ -2,3 +2,7 @@
 pub mod arcade_data;
 pub mod art;
 pub mod game;
+pub mod hiscore;
+pub mod input;
+pub mod render;
+pub mod term;
