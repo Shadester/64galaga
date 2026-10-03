@@ -40,11 +40,9 @@ hit_enemy:
     cpy #0
     bne @std_dive
     jsr count_escorts       ; Diving boss: 400 / 800 / 1600 with 0 / 1 / 2 escorts alive
-.ifdef ARCADE
     ldx #6                  ; no bombs for a while after a diving boss was shot
     stx arc_hold
     ldx hit_idx
-.endif
     tay
     ldx esc_pts_mid,y
     lda #0
@@ -128,25 +126,6 @@ add_score:
     rts
 
 
-.ifndef ARCADE
-player_hit:
-    lda #GS_DYING
-    sta game_state
-    lda #63
-    sta dying_timer
-    dec lives
-    lda #0
-    sta eb_active
-    sta eb_active+1
-    sta eb_active+2
-    sta pbul_active
-    sta pbul_active+1
-    sta pbul_active+2
-    sta pbul_active+3
-    jsr sound_player_hit
-    jmp sound_player_die
-
-.endif
 
 ; ===============================================
 ; LEVEL PROGRESSION

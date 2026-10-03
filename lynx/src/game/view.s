@@ -34,7 +34,7 @@ draw_sprites:
         rts
 
 ; The tractor beam: beam_len rows of checkerboard cells under boss cap_boss while it is on (cap_state 2 or 3).
-; The C64 writes characters (beam_draw); here it is drawn every frame, so beam_draw / beam_erase do nothing.
+; The C64 writes characters; here it is drawn every frame.
 draw_beam:
         lda cap_state
         cmp #2

@@ -10,7 +10,6 @@ read_joystick:
     lda #$ff
     sta joystick_state
 .ifdef CAPTURE
-.ifdef ARCADE
     ; -DCAPTURE=1 with the arcade rules: the script of FORCECAPTURE in psp/game.c (tools/compare_6502.py has the same one in C): the ship
     ; sweeps, but walks under the capture boss while it dives, beams or carries the captive; it only fires to leave the title screen
     ; and game over (pulses), and at the carrier
@@ -93,42 +92,6 @@ read_joystick:
     sta joystick_state
 @a_done:
     jmp @auto_done
-.else
-    lda game_state          ; -DCAPTURE=1: pulse fire to leave title / game over,
-    cmp #GS_PLAY            ; idle while a boss beams (so it captures us), then
-    beq @cap_play           ; chase and shoot the boss once it dives with the captive
-    lda frame
-    and #$08
-    bne @auto_done
-    jmp @cap_fire
-@cap_play:
-    lda cap_state
-    cmp #4
-    bne @auto_done
-    ldx cap_boss
-    lda enemy_state,x
-    cmp #2
-    bne @auto_done
-    lda enemy_x,x
-    cmp player_x
-    bcs @cap_right
-    lda joystick_state
-    and #$fb
-    sta joystick_state
-    jmp @cap_fire
-@cap_right:
-    lda joystick_state
-    and #$f7
-    sta joystick_state
-@cap_fire:
-    lda frame
-    and #$04                ; Pulse the button so every press is a new shot
-    bne @auto_done
-    lda joystick_state
-    and #$ef
-    sta joystick_state
-    jmp @auto_done
-.endif
 .endif
     lda frame
     and #$80                ; 128 frames per direction = 256px sweep

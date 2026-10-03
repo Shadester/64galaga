@@ -8,26 +8,20 @@
         .import _lynx_eeread_93c46, _lynx_eewrite_93c46
         .export popax
         .exportzp ptr1
-        .ifdef ARCADE
         .export ax_lo, ax_hi, ay_lo, ay_hi, enemy_flag, form_pos, form_fdx, form_breathe, form_bstep, a_dly_lo, a_dly_hi
-        .endif
-        .export player_x_msb, enemy_state, enemy_timer, enemy_hp, enemy_dir, enemy_idx, enemy_path, enemy_esc, spr_x, spr_x_msb, spr_y, score, level, form_dx, form_ext, eb_x, eb_msb, eb_y, eb_dx, eb_active, eb_ax, pbul_x, pbul_msb, pbul_y
+        .export player_x_msb, enemy_state, enemy_timer, enemy_hp, enemy_dir, enemy_esc, spr_x, spr_x_msb, spr_y, score, level, eb_x, eb_msb, eb_y, eb_dx, eb_active, eb_ax, pbul_x, pbul_msb, pbul_y
         .export main, frame, game_state, msg_n, anim, paused, player_x, lives, cap_state, beam_len, go_timer, pbul_active, shots, in_chal, msg_y, msg_x, msg_lo, msg_hi
 
         .zeropage
 zp_src:         .res 2                  ; string source
 zp_dst:         .res 2                  ; destination (print_num / draw_bcd buffer); message position x, y
-zp_path:        .res 2                  ; flight path table pointers (chal_step)
-zp_col:         .res 2
 fnt:            .res 2                  ; font of draw_text
 ptr1:           .res 2                  ; scratch of cc65's eeprom.o
-.ifdef ARCADE
 sp:             .res 2                  ; the arcade rules: the bit stream of a flight path
 scur:           .res 1
 scnt:           .res 1
 tgt:            .res 2                  ; a slot: x, y
 tgy:            .res 2
-.endif
 
         .code
 ; Message macros: the C64 text positions (SCREEN_RAM + row * 40 + column) become pixel positions.
@@ -73,19 +67,11 @@ tgy:            .res 2
         .include "game/hiscore.s"
         .include "game/player.s"
         .include "game/sprites.s"
-        .include "game/combat.s"
         .include "game/progress.s"
-        .include "game/enemies.s"
-        .include "game/entry.s"
         .include "game/challenge.s"
         .include "game/capture.s"
-.ifndef ARCADE
-        .include "game/paths.s"   ; the flight paths of the old rules (the arcade rules have a bit stream)
-.endif
         .include "game/states.s"
-.ifdef ARCADE
         .include "game/arc.s"
-.endif
 
 main:   jsr render_init
         jsr load_hiscore
@@ -130,14 +116,12 @@ game_loop:
         bne @idle                   ; Paused: only keep the screen (and the frame pacing) going
         jsr snd_tick
         jsr run_state
-.ifdef ARCADE
         lda joystick_state          ; game.c keeps the state of the button in every state: a button that is held when the play starts
         and #$10                    ; (the intro, the READY) is not a press
         bne @fire_up
         lda #1
         sta fire_pressed
 @fire_up:
-.endif
 @idle:  jsr update_sprite_data
         jsr show_frame
         jmp game_loop

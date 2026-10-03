@@ -1,4 +1,4 @@
-; The arcade rules (40 aliens): a translation of psp/game.c under RULES_ARCADE. Names follow game.c.
+; The arcade rules (40 aliens): a translation of psp/game.c. Names follow game.c.
 ; Positions of the aliens are signed 16-bit numbers (ax, ay) in C64 sprite coordinates, as in game.c: paths leave the screen.
 ; update_sprite_data (sprites.s, arc_sync_aliens) turns them into the sprite tables that view.s draws.
 ; enemy_state: 0 dead, 1 formation, 2 dive, 3 return, 4 explode, 5 beam, 7 entering (or a challenge stage flight).

@@ -1,56 +1,4 @@
-; Sprite setup, formation setup and the game -> multiplexer sprite copy
-; ===============================================
-; FORMATION SETUP
-; ===============================================
-
-
-reset_formation:
-    lda #0
-    sta form_dx
-    sta form_ext
-    sta enemy_counter
-    sta eb_active
-    sta eb_active+1
-    sta eb_active+2
-    sta pbul_active
-    sta pbul_active+1
-    sta pbul_active+2
-    sta pbul_active+3
-    sta cap_state
-    sta beam_len
-    lda #1
-    sta form_dir
-    ldy diff
-    lda dive_int_tbl,y
-    sta dive_timer
-    ldx #MAX_ENEMIES-1
-@loop:
-    lda #1
-    sta enemy_state,x
-    lda #0
-    sta enemy_timer,x
-    sta enemy_flag,x
-    ldy enemy_type_tbl,x
-    lda type_hp,y
-    sta enemy_hp,x
-    lda enemy_ptr_tbl,x
-    sta enemy_ptr,x
-    clc
-    adc anim
-    sta spr_f,x
-    jsr set_slot_pos
-.ifdef FEW
-    cpx #29                     ; -DFEW=1: only 3 bees per stage (fast stage clears)
-    bcs @keep
-    lda #0
-    sta enemy_state,x
-    lda #$ff
-    sta enemy_y,x
-@keep:
-.endif
-    dex
-    bpl @loop
-    rts
+; Wing-flap frames and the game -> multiplexer sprite copy
 
 ; Point every enemy's sprite at the current wing-flap frame
 
@@ -80,24 +28,6 @@ set_explode:
     sta spr_f,x
     rts
 
-; Put enemy X at its formation slot (X and Y)
-
-set_slot_pos:
-    lda base_y,x
-    sta enemy_y,x
-; Put enemy X at its formation slot column (9-bit)
-
-set_slot_x:
-    lda base_x,x
-    clc
-    adc form_dx
-    sta enemy_x,x
-    lda form_ext                ; $00 / $ff sign extension of form_dx
-    adc base_xh,x               ; plus slot bit 8 and the carry from the low byte
-    and #1
-    sta enemy_x_msb,x
-    rts
-
 ; ===============================================
 ; UPDATE SPRITE DATA FOR MULTIPLEXER
 ; ===============================================
@@ -105,9 +35,7 @@ set_slot_x:
 
 
 update_sprite_data:
-.ifdef ARCADE
     jsr arc_sync_aliens
-.endif
     lda game_state
     beq @hide_all               ; Title: no sprites
     cmp #GS_GAMEOVER

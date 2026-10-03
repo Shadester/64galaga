@@ -7,7 +7,7 @@ The same scripted game (the AUTOPLAY input of the 6502 game, copied into a small
 The ROM runs in Gearlynx (headless, lynx/tools/gearlynx.py); at each checkpoint (a game tick) the state is read from memory by label
 (`build/trace_<scenario>/galaga.lbl`) and compared with the state of the C game after the same tick: game state, lives, score, ship
 position, and for every alien its state and (when it is on the screen) its position. The arcade rules have no random numbers, so the
-games must stay equal; the old C64 rules use a random number generator that is not the one of C: only the fly-in can be compared there.
+games must stay equal.
 Needs the Lynx boot ROM (see lynx/CLAUDE.md), cc65 and Gearlynx."""
 import json
 import os
@@ -22,22 +22,19 @@ SKEW = int(os.environ.get('SKEW', '0'))      # the ROM is read between two ticks
 
 # name: (ROM flags, C flags, ticks to compare at, what is compared)
 SCENARIOS = {
-    # A check of the tool itself: the start of the game, the intro and the ship are the same in the C64 rules (checked up to tick 130; from
-    # about tick 200 the aliens are on other flight paths than in C: the C64 paths.asm and the float paths of psp/game.c are not the same)
-    'c64start': (['RULES_C64=1', 'AUTOPLAY=1', 'NOFIRE=1'], ['-DRULES_C64'], [20, 60, 90, 130], 'start, intro and ship of the C64 rules'),
     # the arcade rules without dives, bombs and rams (the ROM has none yet: the C game gets no sorties and an invulnerable ship)
-    'arc_entry': (['ARCADE=1', 'AUTOPLAY=1', 'NOFIRE=1', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE'], [130, 300, 500, 700, 900, 1100, 1300, 1600], 'fly-in, swing and breathing'),
-    'arc_shoot': (['ARCADE=1', 'AUTOPLAY=1', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE'], [900, 1200, 1500, 2000, 2500], 'shooting the formation'),
+    'arc_entry': (['AUTOPLAY=1', 'NOFIRE=1', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE'], [130, 300, 500, 700, 900, 1100, 1300, 1600], 'fly-in, swing and breathing'),
+    'arc_shoot': (['AUTOPLAY=1', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE'], [900, 1200, 1500, 2000, 2500], 'shooting the formation'),
     # dives, bombs and rams: the ship cannot be hit (a dual fighter, so that no boss captures it: the beam is the next milestone)
-    'arc_dive': (['ARCADE=1', 'AUTOPLAY=1', 'NOFIRE=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [900, 1100, 1300, 1600, 2000, 2500, 3200], 'dives, escorts, bombs'),
-    'arc_dive2': (['ARCADE=1', 'AUTOPLAY=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [1100, 1500, 2000, 2800, 3600, 4500], 'dives while the ship shoots'),
+    'arc_dive': (['AUTOPLAY=1', 'NOFIRE=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [900, 1100, 1300, 1600, 2000, 2500, 3200], 'dives, escorts, bombs'),
+    'arc_dive2': (['AUTOPLAY=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [1100, 1500, 2000, 2800, 3600, 4500], 'dives while the ship shoots'),
     # a whole game: the ship is hit, dies, is captured, comes back (no help for the ship)
-    'arc_play': (['ARCADE=1', 'AUTOPLAY=1'], [], [1250, 1300, 1350, 1400, 1500, 1600, 1700], 'a whole game'),
+    'arc_play': (['AUTOPLAY=1'], [], [1250, 1300, 1350, 1400, 1500, 1600, 1700], 'a whole game'),
     # a capture: the ship walks under the capture boss, is taken, and shoots the carrier to get it back as a dual fighter
-    'arc_capture': (['ARCADE=1', 'AUTOPLAY=1', 'CAPTURE=1', 'GODBEAM=1'], ['-DCAPSCRIPT', '-DGODBEAM'], [1100, 1300, 1500, 1660, 1680, 1690, 1700, 1710, 1720, 1750, 2000, 2400, 3000, 4000], 'capture and rescue'),
-    'arc_rescue': (['ARCADE=1', 'AUTOPLAY=1', 'CAPTURE=1', 'GODBEAM=1', 'LIVES=9'], ['-DCAPSCRIPT', '-DGODBEAM', '-DLIVES9'],
+    'arc_capture': (['AUTOPLAY=1', 'CAPTURE=1', 'GODBEAM=1'], ['-DCAPSCRIPT', '-DGODBEAM'], [1100, 1300, 1500, 1660, 1680, 1690, 1700, 1710, 1720, 1750, 2000, 2400, 3000, 4000], 'capture and rescue'),
+    'arc_rescue': (['AUTOPLAY=1', 'CAPTURE=1', 'GODBEAM=1', 'LIVES=9'], ['-DCAPSCRIPT', '-DGODBEAM', '-DLIVES9'],
                    [2400, 3000, 3600, 4200, 4800, 5400, 6000, 7000, 8000], 'capture, rescue, dual fighter'),
-    'arc_chal': (['ARCADE=1', 'AUTOPLAY=1', 'STAGE=3', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE', '-DSTART_STAGE=3'], [150, 400, 700, 1000, 1400, 1700, 1900], 'a challenge stage'),
+    'arc_chal': (['AUTOPLAY=1', 'STAGE=3', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE', '-DSTART_STAGE=3'], [150, 400, 700, 1000, 1400, 1700, 1900], 'a challenge stage'),
 }
 
 C_DRIVER = r'''
@@ -104,7 +101,7 @@ def c_trace(cflags, ticks, nofire, start):
         if not line:
             continue
         p = line.split(' ')
-        nb = 3 if any('RULES_C64' in f for f in cflags) else 8
+        nb = 8
         al = [tuple(int(v) for v in a.split(',')) for a in p[7:-4 - nb]]
         sh = [tuple(int(v) for v in a.split(',')) for a in p[-4 - nb:-nb]]
         bm = [tuple(int(v) for v in a.split(',')) for a in p[-nb:]]
@@ -165,21 +162,17 @@ class Lynx:
         act, xl, xh, yy, dx, ax = (self.read(n, 8) for n in ('eb_active', 'eb_x', 'eb_msb', 'eb_y', 'eb_dx', 'eb_ax'))
         return [(act[i] & 1, s16(xl[i], xh[i]), yy[i], s8(dx[i]), ax[i]) for i in range(8)]
 
-    def state(self, n_aliens, arcade=False):
+    def state(self, n_aliens):
         px = self.read('player_x')[0] + 256 * (self.read('player_x_msb')[0] & 1)
-        st = [6 if v == 7 else v for v in self.read('enemy_state', n_aliens)]    # the C64 code numbers an entering alien 7, C 6
-        if arcade:                                                               # the arcade rules keep signed 16-bit positions
-            xl, xh, yl, yh = (self.read(n, n_aliens) for n in ('ax_lo', 'ax_hi', 'ay_lo', 'ay_hi'))
-            s16 = lambda lo, hi: lo + 256 * hi - (65536 if hi > 127 else 0)
-            al = [(st[i], s16(xl[i], xh[i]), s16(yl[i], yh[i])) for i in range(n_aliens)]
-        else:
-            xs, ms, ys = self.read('spr_x', n_aliens), self.read('spr_x_msb', n_aliens), self.read('spr_y', n_aliens)
-            al = [(st[i], xs[i] + 256 * (ms[i] & 1), ys[i]) for i in range(n_aliens)]
+        st = [6 if v == 7 else v for v in self.read('enemy_state', n_aliens)]    # the 6502 numbers an entering alien 7, C 6
+        xl, xh, yl, yh = (self.read(n, n_aliens) for n in ('ax_lo', 'ax_hi', 'ay_lo', 'ay_hi'))     # signed 16-bit positions
+        s16 = lambda lo, hi: lo + 256 * hi - (65536 if hi > 127 else 0)
+        al = [(st[i], s16(xl[i], xh[i]), s16(yl[i], yh[i])) for i in range(n_aliens)]
         return dict(state=self.read('game_state')[0], score=bcd(self.read('score', 3)), lives=self.read('lives')[0],
                     stage=int('%x' % self.read('level')[0]), px=px, al=al,
                     shots=[(act & 1, xl + 256 * (xh & 1), yy) for act, xl, xh, yy in zip(self.read('pbul_active', 4), self.read('pbul_x', 4), self.read('pbul_msb', 4), self.read('pbul_y', 4))],
                     esc=self.read('enemy_esc', n_aliens),
-                    bombs=self.bombs() if arcade else [])
+                    bombs=self.bombs())
 
 
 def lynx_state_at(name, rom_flags, tick, start):
@@ -193,7 +186,7 @@ def lynx_state_at(name, rom_flags, tick, start):
     try:
         ly.step(400 + tick)                              # the boot ROM, then the ticks
         t8 = ly.tick8()
-        st = ly.state(NAL, 'ARCADE=1' in rom_flags)
+        st = ly.state(NAL)
         st['t8'] = t8
         return st
     finally:
@@ -214,14 +207,12 @@ def start_tick(rom_flags):
         ly.g.p.kill()
 
 
-NAL = 32
+NAL = 40
 
 
 def compare(name):
-    global NAL
     from concurrent.futures import ThreadPoolExecutor
     rom_flags, c_flags, ticks, what = SCENARIOS[name]
-    NAL = 40 if 'ARCADE=1' in rom_flags else 32
     start = start_tick(rom_flags)
     ref = c_trace(c_flags, max(ticks) + 5, 'NOFIRE=1' in rom_flags, start)
     with ThreadPoolExecutor(4) as ex:
