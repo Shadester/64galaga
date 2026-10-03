@@ -8,6 +8,7 @@
         .import _lynx_eeread_93c46, _lynx_eewrite_93c46
         .export popax
         .exportzp ptr1
+        .export player_x_msb, enemy_state, enemy_timer, enemy_hp, enemy_dir, enemy_idx, enemy_path, enemy_esc, spr_x, spr_x_msb, spr_y, score, level, form_dx, form_ext, eb_x, eb_msb, eb_y, eb_dx, eb_active, pbul_x, pbul_y
         .export main, frame, game_state, msg_n, anim, paused, player_x, lives, cap_state, beam_len, go_timer, pbul_active, shots, in_chal, msg_y, msg_x, msg_lo, msg_hi
 
         .zeropage

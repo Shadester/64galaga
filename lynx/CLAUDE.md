@@ -19,6 +19,10 @@ python3 tools/make_gif.py # re-record docs/gameplay.gif
   to add for the boot ROM (it takes about 60: 400 is a safe margin).
 - `tools/dbg.py ROM FRAMES label[:size] ...` prints memory by label. Only exported labels are in `build/galaga.lbl`:
   add a name to the `.export` line of `src/game.s` when you need one.
+- `python3 ../tools/compare_6502.py lynx SCENARIO` runs a scripted game in the ROM (Gearlynx) and in the C reference `psp/game.c` and compares the
+  game state at checkpoints (the state is read by label: the labels it needs are exported in `src/game.s`). `list` shows the scenarios. It reads the game's
+  own tick counter (`frame`), so a slow frame does not break it. Only games without random numbers can be compared exactly (the arcade rules, and the
+  start of the C64 rules).
 - `make clean` after you change `CAFLAGS`: the Makefile does not see them.
 - Never push without the user's OK (global rule).
 
