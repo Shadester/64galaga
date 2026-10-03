@@ -3,22 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Galaga for the Atari Lynx</title>
+<title>Galaga for the Atari Lynx, portrait</title>
 <style>
   body { margin: 0; background: #111; color: #ccc; font: 14px/1.4 system-ui, sans-serif; text-align: center; }
-  #box { width: min(100vw, 640px); height: min(62.5vw, 400px); margin: 16px auto; }
+  #box { width: min(100vw, 400px); height: min(156.8vw, 627px); margin: 16px auto; }
   a { color: #8cf; }
 </style>
 </head>
 <body>
 <div id="box"><div id="game"></div></div>
-<p>Galaga for the Atari Lynx, in the browser with <a href="https://emulatorjs.org/">EmulatorJS</a>.<br>
+<p>Galaga for the Atari Lynx in portrait (the arcade's own shape), in the browser with <a href="https://emulatorjs.org/">EmulatorJS</a>.<br>
 Click Start Game (the browser needs a click before it plays sound). Arrow keys move, Z fires; the gear menu shows all keys.<br>
-<a href="https://github.com/Shadester/galagas/tree/master/lynx">Source</a> · <a href="portrait.html">Portrait version</a> · <a href="../">All versions</a></p>
+<a href="https://github.com/Shadester/galagas/tree/master/lynx">Source</a> · <a href="./">Landscape version</a> · <a href="../">All versions</a></p>
 <script>
   EJS_player = '#game';
   EJS_core = 'lynx';
-  EJS_gameUrl = 'galaga.lnx';
+  EJS_gameUrl = 'galaga-portrait.lnx';
+  EJS_defaultOptions = { 'handy_rot': 'Auto' };   // the cartridge header says: turned
   EJS_gameName = 'Galaga';
   EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
 </script>

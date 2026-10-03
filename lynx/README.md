@@ -37,7 +37,11 @@ tests/run.py       # screenshot tests, headless Gearlynx; --update after an inte
 python3 tools/make_gif.py   # record docs/gameplay.gif
 ```
 
-The web page is `../docs/lynx/index.html`, and the ROM there (`../docs/lynx/galaga.lnx`) is a copy of `build/galaga.lnx`: copy it again after a change. The `.lnx` file also runs in other Lynx emulators and on a Lynx with a flash cartridge. The hi-score is in the 93C46 EEPROM. Gearlynx writes it to `galaga.sav` when it exits.
+The web page is `../docs/lynx/index.html`, and the ROM there (`../docs/lynx/galaga.lnx`) is a copy of `build/galaga.lnx`, and `../docs/lynx/galaga-portrait.lnx` is a copy of the build of `make PORTRAIT=1`: copy them again after a change. The `.lnx` file also runs in other Lynx emulators and on a Lynx with a flash cartridge. The hi-score is in the 93C46 EEPROM. Gearlynx writes it to `galaga.sav` when it exits.
+
+## Portrait version
+
+`make PORTRAIT=1` builds a second ROM: the arcade's own portrait field. The game draws the picture turned by 90 degrees, and the cartridge header tells the emulator to turn it back (rotation byte 2). On a real Lynx, hold the Lynx on its left side, with the D-pad at the bottom. The pad's up and down move the ship. The portrait ROM has its own art (8 x 8 pixel aliens), title picture and field data (`src/portrait/`, `src/game/arcade_data_portrait.s`). The web page is `../docs/lynx/portrait.html`. `tests/run.py --portrait` runs the screenshot tests (the references are upright, 102 x 160 pixels), and `PORTRAIT=1 python3 ../tools/compare_6502.py lynx SCENARIO` compares it with `../psp/game.c` built with `-DRULES_PORTRAIT`.
 
 ## Controls
 
@@ -53,7 +57,8 @@ The web page is `../docs/lynx/index.html`, and the ROM there (`../docs/lynx/gala
 | Tool | Purpose |
 |------|---------|
 | `tools/gen_art.py` | Makes `src/art.s`, `src/art.inc` (the sprites) and `src/font.s` (the font). `--preview out.png` writes a picture of the sprites |
-| `tools/gen_title.py` | Makes `src/title.s`: the title picture, from `assets/title-source.png` |
+| `tools/gen_title.py` | Makes `src/title.s`: the title picture, from `assets/title-source.png`. `--portrait` makes `src/portrait/title.s` |
+| `tools/gen_art_portrait.py` | Makes `src/portrait/art.s`, `art.inc` and `font.s`: the art of `../psp/art.h` cut to 8 x 8 pixels and turned |
 | `tools/gearlynx.py` | Runs a ROM in headless Gearlynx (its MCP server): steps frames, presses buttons, takes screenshots |
 | `tools/dbg.py` | Prints the program counter and the values of labels after N frames |
 | `tools/make_gif.py` | Records `docs/gameplay.gif` |
