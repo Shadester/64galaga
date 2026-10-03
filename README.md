@@ -30,7 +30,7 @@
     <td>
       <h3><a href="psp/">PlayStation Portable</a></h3>
       <i>C (PSPSDK)</i><br><br>
-      A port of the C64 rules in C, with pixel-art sprites, a glow and particle renderer and synthesised sound.
+      The reference of the rules, in C: the arcade rules, or the C64 rules with <code>-DRULES_C64</code>. It has pixel-art sprites, a glow and particle renderer and synthesised sound.
     </td>
   </tr>
   <tr>
@@ -71,7 +71,9 @@
   </tr>
 </table>
 
-All of them have the same game: 32 aliens that fly in and dive, bosses that take two hits and capture your ship, a dual fighter when you rescue it, challenge stages with a perfect-clear bonus, and difficulty that rises every stage.
+All of them have the same game: aliens that fly in and dive, bosses that take two hits and capture your ship, a dual fighter when you rescue it, challenge stages with a perfect-clear bonus, and difficulty that rises every stage.
 
-The C64 source is the reference for how the game must behave. The PSP, Lynx, Thumby Color, PICO-8 and Amiga games follow its rules.
+The PSP, Thumby Color, PICO-8 and Amiga games play by the rules of the arcade Galaga: 40 aliens, the arcade fly-in waves and flight paths, the dive scheduler with escorts, aimed bombs, a formation that swings and then breathes, and challenge stages of five waves. The Atari Lynx and the C64 keep the rules of the C64 game, with 32 aliens: their 8 hardware sprites cannot show the arcade's rows of 10. The graphics and the sound are our own. The numbers (paths, wave lists, timers) come from a model of the arcade program ([tomcoolpxl/cool8-cpu](https://github.com/tomcoolpxl/cool8-cpu), MIT licence); [ARCADE.md](ARCADE.md) compares our rules with the arcade, rule by rule. Each game can also play by the rules of the C64 game (`-DRULES_C64`, or the start argument `c64`).
+
+`psp/game.c` is the reference for the rules of the PSP, Thumby Color, PICO-8 and Amiga games: the other versions run next to it in a test, tick by tick. The C64 source is the reference for the rules of the C64 game.
 Each directory has its own README with build instructions.

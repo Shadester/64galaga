@@ -6,7 +6,7 @@ A port of the Galaga clone to the Commodore Amiga 500 (68000, OCS chipset, PAL).
 
 ![Gameplay: the title screen, then the autoplay build with stage intro, fly-in, a tractor beam and a capture](docs/gameplay.gif)
 
-The rules are the rules of the PSP game: the game uses `../psp/game.c` itself (the reference, which follows the C64 game). It is compiled without floating point, and the flight paths come from a table. A test runs the 68000 build in an emulator and compares the whole game state with the build on the Mac, for 15000 ticks.
+The rules are the rules of the PSP game, the arcade rules: the game uses `../psp/game.c` itself (the reference, which follows the C64 game). It is compiled without floating point, and the flight paths come from a table. A test runs the 68000 build in an emulator and compares the whole game state with the build on the Mac, for 15000 ticks.
 
 ## Status
 
@@ -14,7 +14,7 @@ It runs in vAmigaWeb. The rules, the pictures and the keyboard are tested there.
 
 ## Features
 
-The same features as the other versions: 32-alien formation with fly-in waves and dives, bosses that take two hits, tractor beam capture, rescue and dual fighter, challenge stages with a 10,000 bonus, a shots / hits / ratio screen after each stage, bonus ships, title picture, jingles and sound effects.
+The same features as the other versions: 40-alien formation (32 with the C64 rules) with fly-in waves and dives, bosses that take two hits, tractor beam capture, rescue and dual fighter, challenge stages with a 10,000 bonus, a shots / hits / ratio screen after each stage, bonus ships, title picture, jingles and sound effects.
 
 What is different:
 

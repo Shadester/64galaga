@@ -36,14 +36,14 @@ On macOS: `tools/run.sh` (builds, then starts PPSSPP; `PPSSPP=...` overrides the
 
 The high score is saved to `PSP/SAVEDATA/PSPGALAGA/HISCORE.DAT` on the memory stick.
 
-## Features (same rules as 64galaga)
+## Features (the arcade rules; `-DRULES_C64` gives the rules of 64galaga, with 32 aliens)
 
-- 32 aliens in 5 rows (4 bosses, 14 butterflies, 14 bees) with wing-flap animation and formation sway
-- Four-wave fly-in on the same spline paths as the C64 game
-- Dives that peel off and steer to the player, enemy fire (max 3 shots), 8 difficulty levels
+- 40 aliens in 5 rows (4 bosses, 16 butterflies, 20 bees) with wing-flap animation; the formation swings while the aliens fly in, then breathes
+- Five-wave fly-in on the arcade flight paths (see `../ARCADE.md`)
+- Dives with escorts from the arcade's sortie timers, aimed bombs (up to 8; they move sideways at most 0.6 of their fall speed), difficulty by stage
 - Bosses take two hits (turn purple), escorts pay 400 / 800 / 1600 while a capture or dual fighter is active
 - Tractor beam capture, captive fighter, rescue by shooting the diving boss, dual fighter
-- Challenge stages 3, 7, 11, ...: four flight-path waves, points per hit, 10,000 for a perfect clear
+- Challenge stages 3, 7, 11, ...: five flight-path waves, 100 points per hit, 10,000 for a perfect clear
 - Stage intro, READY, invulnerable respawn, bonus ships at 20,000 and 70,000 (then every 70,000), game over
 - Result screen (shots, hits, ratio), pause
 

@@ -16,7 +16,7 @@ It runs in PICO-8 0.2.6b. The lockstep test passes in 6 scenarios with the arcad
 
 ## Features
 
-The same features as the other versions: 32-alien formation with fly-in waves and dives, bosses that take two hits, tractor beam capture, rescue and dual fighter, challenge stages with a 10,000 bonus, a shots / hits / ratio screen after each stage, bonus ships, title picture, jingles and sound effects, and the hi-score (saved with `cartdata`).
+The same features as the other versions: 40-alien formation (32 with the C64 rules) with fly-in waves and dives, bosses that take two hits, tractor beam capture, rescue and dual fighter, challenge stages with a 10,000 bonus, a shots / hits / ratio screen after each stage, bonus ships, title picture, jingles and sound effects, and the hi-score (saved with `cartdata`).
 
 What is different:
 
