@@ -6,14 +6,22 @@ BUF1        = $c000
 BUF_FLIP    = (BUF0 ^ BUF1) >> 8
 SCB_SIZE    = 15                ; control, flags, collision, next, data, x, y, hsize, vsize
 BG_SIZE     = 23                ; background SCB: the same plus the 8-byte pen map
+.ifdef ALIENS40
+MAX_SCB     = 140               ; 40 aliens (the arcade formation) need 8 more
+.else
 MAX_SCB     = 120
+.endif
 NUM_STARS   = 12
 
         .include "art.inc"
 
 ; ---- Game constants (C64 values: the rules run in C64 sprite coordinates, x 24..343, y 50..249) ----
+.ifdef ALIENS40
+MAX_ENEMIES     = 40            ; the arcade formation: 4 bosses, 16 butterflies, 20 bees (tools/gen_arcade.py)
+.else
 MAX_ENEMIES     = 32
-MAX_SPRITES     = 44            ; ship + 32 enemies + 4 player bullets + 3 enemy bullets + extras
+.endif
+MAX_SPRITES     = MAX_ENEMIES+12 ; ship + enemies + 4 player bullets + 3 enemy bullets + extras
 VS_PLAYER       = MAX_ENEMIES
 VS_PBUL         = VS_PLAYER+1   ; 4 slots
 VS_EBUL         = VS_PBUL+4     ; 3 slots

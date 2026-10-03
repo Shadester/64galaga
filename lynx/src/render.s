@@ -6,6 +6,9 @@
         .import sprite_lo, sprite_hi, sprite_dx, sprite_dy, title_pal_g, title_pal_br
         .exportzp dr_d, dr_x, dr_y, rnd
         .export scbs
+.ifdef PROFILE
+        .export late_frames, scb_peak, scb_over
+.endif
 
         .zeropage
 wp:     .res 2                  ; next free SCB
@@ -17,6 +20,13 @@ rnd:    .res 1
 
         .bss
 scbs:   .res BG_SIZE + SCB_SIZE * MAX_SCB
+scbs_end:
+.ifdef PROFILE
+late_frames: .res 2             ; -DPROFILE: frames that were not finished at the vertical blank (the game runs slower then)
+scb_peak:    .res 1             ; most sprites in one frame (without the background)
+scb_cnt:     .res 1
+scb_over:    .res 2             ; sprites that did not fit in the SCB pool
+.endif
 
         .code
 ; Palette, 50 Hz timing, display DMA, Suzy.
@@ -80,6 +90,9 @@ rand:   lda rnd
 
 ; Start a frame: the first SCB fills the screen with pen 0 (and loads the pen map).
 frame_begin:
+.ifdef PROFILE
+        stz scb_cnt
+.endif
         ldx #BG_SIZE - 1
 @cp:    lda bgscb,x
         sta scbs,x
@@ -93,6 +106,24 @@ frame_begin:
 
 ; Append a sprite: dr_d (literal 4 bpp data), dr_x, dr_y. Pen map is kept from the background SCB.
 add_sprite:
+        lda wp+1                ; the pool is full: drop the sprite (it would overwrite what follows the SCBs)
+        cmp #>scbs_end
+        bcc @room
+        bne @full
+        lda wp
+        cmp #<scbs_end
+        bcc @room
+@full:
+.ifdef PROFILE
+        inc scb_over
+        bne @rts
+        inc scb_over+1
+.endif
+@rts:   rts
+@room:
+.ifdef PROFILE
+        inc scb_cnt
+.endif
         ldy #0
         lda #$c4                ; 4 bpp, normal sprite (pen 0 transparent)
         sta (wp),y
@@ -193,6 +224,20 @@ frame_end:
 
 ; Wait for the vertical blank, show the finished buffer, draw into the other one next.
 flip:
+.ifdef PROFILE
+        lda TIM2CTLB            ; the frame was finished late if the vertical blank has come already
+        and #$08
+        beq @on_time
+        inc late_frames
+        bne @on_time
+        inc late_frames+1
+@on_time:
+        lda scb_cnt
+        cmp scb_peak
+        bcc @no_peak
+        sta scb_peak
+@no_peak:
+.endif
 @vbl:   lda TIM2CTLB            ; bit 3: timer done (set at the end of every frame)
         and #$08
         beq @vbl

@@ -28,6 +28,14 @@ python3 tools/make_gif.py # re-record docs/gameplay.gif
 
 ## Hardware facts that bit us
 
+- **Frame time is the number of sprites (SCBs):** a frame with about 90 or more SCBs (each is a Suzy job of its own) is not finished in 20 ms: the
+  loop then runs at 25 Hz. The HUD was 38 glyph sprites; it is now one 160 x 11 picture (`hud_buf`, built again only when a number changes), so a
+  frame has about 60-70 SCBs and 40 aliens fit (the static 40-alien test build: 70). `-DPROFILE=1` counts late frames, the most sprites of a frame and
+  the sprites that did not fit (`late_frames`, `scb_peak`, `scb_over`, read with `tools/dbg.py`). `add_sprite` drops a sprite when the SCB pool
+  (`MAX_SCB`) is full.
+- `-DALIENS40=1` is the build with 40 aliens in the arcade formation (slot tables from `src/game/arcade_data.s`, made by `tools/gen_arcade.py`
+  from `../psp/arcade_data.h`). It has no fly-in yet: the aliens stand in their slots.
+
 - **Suzy and the CPU:** poll `SPRSYS` for "sprite engine busy" only after `stz CPUSLEEP`: the emulator advances the
   engine while the CPU sleeps. Then `stz SDONEACK`, or the next frame's sleep never ends (`frame_end`).
 - **No interrupts:** the CPU keeps I set. A pending timer interrupt wakes the CPU from `CPUSLEEP` while Suzy draws

@@ -135,6 +135,9 @@ pause_key:      .byte 0
 msg_capt:       .asciiz "FIGHTER CAPTURED"
 ready_timer:    .byte 0
 
+.ifdef ALIENS40
+    .include "game/arcade_data.s"
+.else
 base_x: ; formation slot X low byte (left edge): 4 bosses, then 4 rows of 7
     .byte 145,171,197,223,106,132,158,184
     .byte 210,236,6,106,132,158,184,210
@@ -165,6 +168,8 @@ enemy_ptr_tbl: ; sprite id, frame A
     .byte SPR_BFLY,SPR_BFLY,SPR_BFLY,SPR_BFLY,SPR_BFLY,SPR_BFLY
     .byte SPR_BEE,SPR_BEE,SPR_BEE,SPR_BEE,SPR_BEE,SPR_BEE,SPR_BEE,SPR_BEE
     .byte SPR_BEE,SPR_BEE,SPR_BEE,SPR_BEE,SPR_BEE,SPR_BEE
+
+.endif
 
 ; Per enemy type: 0 boss, 1 butterfly, 2 bee
 type_hp:        .byte 2, 1, 1

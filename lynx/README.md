@@ -76,6 +76,8 @@ Pass them to ca65: `make CAFLAGS="-D AUTOPLAY=1 -D HALT=300"`. They are the flag
 | `PAUSEAT=n`, `QUITAT=n`, `DIEAT=n` | With `HALT`: press pause / quit, or hit the ship, at frame n |
 | `LIVES=n`, `DIFF=n`, `STAGE=n`, `DUAL` | Start with n lives, at difficulty n, at stage n, with a dual fighter |
 | `FEW`, `BOSSDIVE`, `CAPTURE`, `FORCEPERFECT` | Test helpers: few aliens, a boss that always dives, a scripted capture, a perfect challenge stage |
+| `PROFILE` | Count late frames, the most sprites in a frame and the sprites that did not fit (labels `late_frames`, `scb_peak`, `scb_over`) |
+| `ALIENS40` | 40 aliens in the arcade formation, standing in their slots (work in progress: no fly-in yet) |
 
 ## Source layout
 

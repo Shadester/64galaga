@@ -10,11 +10,17 @@ entry_delay_tbl:
     .byte 56,60,64,68,80,84,88,92
     .byte 96,100,16,20,24,28,104,108
     .byte 120,124,128,132,136,140,144,148
+.ifdef ALIENS40
+    .res 8
+.endif
 entry_path_tbl:
     .byte $03,$03,$03,$03,$02,$82,$02,$82
     .byte $03,$03,$03,$03,$83,$83,$83,$83
     .byte $83,$83,$02,$82,$02,$82,$83,$83
     .byte $82,$02,$82,$02,$82,$02,$82,$02
+.ifdef ALIENS40
+    .res 8                      ; the 40-alien build has no fly-in yet (the aliens stand in their slots)
+.endif
 
 entering:       .byte 0                 ; Aliens still entering
 tgt_x:          .byte 0

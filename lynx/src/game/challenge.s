@@ -39,7 +39,11 @@ begin_stage:
     lda #0
     sta in_chal
     jsr reset_formation
+.ifdef ALIENS40
+    rts                         ; no fly-in yet in the 40-alien build: the aliens stand in their slots
+.else
     jmp setup_entry             ; Aliens fly in
+.endif
 
 ; Every alien waits (hidden) for its turn to fly in
 
