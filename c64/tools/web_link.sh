@@ -5,5 +5,5 @@
 cd "$(dirname "$0")/../.." || exit 1
 SHA=$(git log -1 --format=%H -- c64/docs/galaga.prg)
 [ -n "$SHA" ] || { echo "docs/galaga.prg is not committed yet" >&2; exit 1; }
-sed -i '' -E "s#raw.githubusercontent.com/Shadester/galagas/[0-9a-z]+/c64/docs/galaga.prg#raw.githubusercontent.com/Shadester/galagas/$SHA/c64/docs/galaga.prg#" README.md c64/README.md
-git diff --stat -- README.md c64/README.md
+sed -i '' -E "s#raw.githubusercontent.com/Shadester/galagas/[0-9a-z]+/c64/docs/galaga.prg#raw.githubusercontent.com/Shadester/galagas/$SHA/c64/docs/galaga.prg#" README.md c64/README.md docs/index.html
+git diff --stat -- README.md c64/README.md docs/index.html

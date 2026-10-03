@@ -17,6 +17,10 @@ cargo test --release
 - The generated files are committed (`src/arcade_data.rs`, `src/art.rs`): run `tools/gen_arcade_rs.py` when `../psp/arcade_data.h` changes.
 - To look at the screen without a terminal window, run the binary in a pseudo-terminal, read it with `pyte` and draw the cells (`tools/make_gif.py`
   has the code). A pseudo-terminal child that you kill must have its master closed first (`os.close(fd)`), or the kill does not end it.
+- The browser version: `src/web.rs` has plain `extern "C"` exports (no wasm-bindgen), `tools/build_web.sh` builds `docs/tui/galaga.wasm` (committed), `docs/tui/index.html`
+  draws the cells on a canvas. Build the library with `--no-default-features` (the feature `terminal` is `crossterm`). `tests/test_web.py` needs playwright
+  (the scratchpad venv has it). The page picks the biggest cells (up to 12 x 24 CSS pixels) that still give the biggest picture (160 x 52 cells).
+  After a change of the rules or the renderer: `tools/build_web.sh`, run the tests, commit `docs/tui/galaga.wasm` too.
 - Never push without the user's OK (global rule).
 
 ## How it works

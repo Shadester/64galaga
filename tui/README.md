@@ -8,7 +8,8 @@ beam, and challenge stages. The picture is pixel art made of half-block characte
 
 ## Build and run
 
-You need [Rust](https://rustup.rs/). The only crate is `crossterm`.
+You need [Rust](https://rustup.rs/). The only crate is `crossterm`. The same rules and renderer also run in the browser
+(**[▶ play it here](https://shadester.github.io/galagas/tui/)**): Rust compiled to WebAssembly, drawn on a canvas as terminal cells.
 
 ```sh
 cargo run --release            # or tools/run.sh
@@ -50,6 +51,8 @@ The hi-score is saved in `~/.local/share/galaga-tui/hiscore`.
 ```sh
 python3 tests/test_lockstep.py [ticks] [scenario ...]   # src/game.rs against psp/game.c: the same state after every tick, 8 scenarios
 python3 tests/test_terminal.py                          # the program in a pseudo-terminal: start, leave, resize, key releases
+tools/build_web.sh                                      # the browser version: ../docs/tui/galaga.wasm (rustup target add wasm32-unknown-unknown)
+python3 tests/test_web.py                               # the browser version in headless Chromium (playwright): draws, keys, hi-score, same game as native
 cargo test --release                                    # layout, drawing of every state, palette
 python3 tools/gen_arcade_rs.py                          # src/arcade_data.rs from ../psp/arcade_data.h
 python3 tools/gen_art_rs.py                             # src/art.rs from ../psp/art.h
@@ -66,4 +69,5 @@ python3 tools/make_gif.py [cols rows seconds]           # docs/gameplay.gif (nee
 | `src/term.rs` | Raw mode, the alternate screen, writing only the cells that changed |
 | `src/input.rs` | Keys to the input of the game |
 | `src/hiscore.rs`, `src/main.rs` | The hi-score file; the loop at 50 ticks a second |
+| `src/web.rs`, `../docs/tui/index.html` | The browser version: exported functions of the WebAssembly module, and the page (keys, canvas, 50 ticks a second, hi-score in `localStorage`) |
 | `examples/trace.rs` | Prints the state after every tick (for the lockstep test) |

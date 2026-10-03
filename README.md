@@ -12,7 +12,8 @@
   <a href="https://vc64web.github.io/#openROMS=true#https://raw.githubusercontent.com/Shadester/galagas/12119bb5e0a705750db8a54e6f21cf0ca70cfa11/c64/docs/galaga.prg"><b>▶ C64</b></a> ·
   <a href="https://shadester.github.io/galagas/pico8/"><b>▶ PICO-8</b></a> ·
   <a href="https://shadester.github.io/galagas/lynx/"><b>▶ Atari Lynx</b></a> ·
-  <a href="https://vamigaweb.github.io/#AROS=true#https://raw.githubusercontent.com/Shadester/galagas/master/amiga/docs/galaga.adz"><b>▶ Amiga</b></a>
+  <a href="https://vamigaweb.github.io/#AROS=true#https://raw.githubusercontent.com/Shadester/galagas/master/amiga/docs/galaga.adz"><b>▶ Amiga</b></a> ·
+  <a href="https://shadester.github.io/galagas/tui/"><b>▶ Terminal</b></a>
 </p>
 
 <table>

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galaga for the terminal</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #ccc; overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  #wrap { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { display: block; }
+  #foot { padding: 6px 12px; font: 12px/1.4 system-ui, sans-serif; text-align: center; }
+  a { color: #8cf; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<div id="foot">Galaga for the terminal: Rust, compiled to WebAssembly, drawn as terminal cells. The window size sets the picture size (80 x 27 cells at the least).
+Arrow keys or A / D move, Space fires, P pauses. <a href="https://github.com/Shadester/galagas/tree/master/tui">Source</a> · <a href="../">All versions</a></div>
+<script>
+(async () => {
+  let CW = 8, CH = 16;                                     // a cell in CSS pixels (set by measure)
+  const K_LEFT = 1, K_RIGHT = 2, K_FIRE = 4, K_PAUSE = 8, K_QUIT = 16;
+  const q = new URLSearchParams(location.search);          // ?autoplay  ?god  ?stage=3
+  const wrap = document.getElementById('wrap'), cv = document.getElementById('c'), g = cv.getContext('2d');
+  let x;
+  try {
+    x = (await WebAssembly.instantiate(await (await fetch('galaga.wasm')).arrayBuffer(), {})).instance.exports;
+  } catch (e) {
+    wrap.textContent = 'This browser cannot run the game (WebAssembly): ' + e;
+    return;
+  }
+  let hi = 0;
+  try { hi = parseInt(localStorage.getItem('galaga-tui-hi'), 10) || 0; } catch (e) {}
+  const saveHi = () => { try { localStorage.setItem('galaga-tui-hi', String(x.web_hi())); } catch (e) {} };
+
+  let cols = 0, rows = 0, dpr = 1, prev = null;
+  function measure() {                                     // the biggest cells that still give the biggest picture (160 x 52 cells), else 8 x 16
+    dpr = window.devicePixelRatio || 1;
+    CW = 8; CH = 16;
+    for (let s = 12; s >= 5; s--) {
+      if (Math.floor(wrap.clientWidth / s) >= 160 && Math.floor(wrap.clientHeight / (2 * s)) >= 52) { CW = s; CH = 2 * s; break; }
+    }
+    cols = Math.max(1, Math.floor(wrap.clientWidth / CW));
+    rows = Math.max(1, Math.floor(wrap.clientHeight / CH));
+    cv.style.width = cols * CW + 'px';
+    cv.style.height = rows * CH + 'px';
+    cv.width = Math.round(cols * CW * dpr);
+    cv.height = Math.round(rows * CH * dpr);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.font = Math.round(CH * 0.8) + 'px Menlo, Consolas, "DejaVu Sans Mono", monospace';
+    g.textBaseline = 'alphabetic';
+    prev = null;                                           // draw everything again
+  }
+  measure();
+  x.web_init(hi, parseInt(q.get('stage'), 10) || 0, q.has('god') ? 1 : 0, q.has('autoplay') ? 1 : 0, cols, rows);
+  window.addEventListener('resize', () => { measure(); x.web_resize(cols, rows); });
+
+  const hex = (b, o) => 'rgb(' + b[o] + ',' + b[o + 1] + ',' + b[o + 2] + ')';
+  function draw() {
+    const n = x.web_cells(), p = x.web_draw();
+    const b = new Uint8Array(x.memory.buffer, p, n * 12), dv = new DataView(x.memory.buffer, p, n * 12);
+    const full = !prev || prev.length !== b.length;
+    for (let i = 0; i < n; i++) {
+      const o = i * 12;
+      if (!full && prev[o] === b[o] && prev[o + 1] === b[o + 1] && prev[o + 2] === b[o + 2] && prev[o + 3] === b[o + 3] && prev[o + 4] === b[o + 4] &&
+          prev[o + 5] === b[o + 5] && prev[o + 6] === b[o + 6] && prev[o + 7] === b[o + 7] && prev[o + 8] === b[o + 8] && prev[o + 9] === b[o + 9]) continue;
+      const ch = dv.getUint32(o, true), cx = (i % cols) * CW, cy = Math.floor(i / cols) * CH;
+      if (ch === 0x2580) {                                 // the upper half block: the upper pixel and the lower one
+        g.fillStyle = hex(b, o + 4); g.fillRect(cx, cy, CW, CH / 2);
+        g.fillStyle = hex(b, o + 7); g.fillRect(cx, cy + CH / 2, CW, CH / 2);
+      } else {
+        g.fillStyle = hex(b, o + 7); g.fillRect(cx, cy, CW, CH);
+        if (ch !== 32) { g.fillStyle = hex(b, o + 4); g.fillText(String.fromCodePoint(ch), cx, cy + CH - Math.round(CH / 5)); }
+      }
+    }
+    prev = new Uint8Array(b);
+  }
+
+  // keys: held ones (left, right) and pulses (one tick for every press, repeats too)
+  const HELD = { ArrowLeft: K_LEFT, KeyA: K_LEFT, ArrowRight: K_RIGHT, KeyD: K_RIGHT };
+  const PULSE = { Space: K_FIRE, KeyK: K_FIRE, Enter: K_FIRE, ArrowUp: K_FIRE, KeyP: K_PAUSE, KeyQ: K_QUIT, Escape: K_QUIT };
+  let held = 0, pulse = 0;
+  window.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.code in HELD) { held |= HELD[e.code]; e.preventDefault(); }
+    else if (e.code in PULSE) { if (!(PULSE[e.code] !== K_FIRE && e.repeat)) pulse |= PULSE[e.code]; e.preventDefault(); }
+  });
+  window.addEventListener('keyup', e => { if (e.code in HELD) { held &= ~HELD[e.code]; e.preventDefault(); } });
+  window.addEventListener('blur', () => { held = 0; });
+  window.addEventListener('pagehide', saveHi);
+
+  // 50 ticks a second
+  let last = performance.now(), acc = 0;
+  window.__galaga = { x, ticks: 0 };                        // for the tests
+  function frame(now) {
+    acc = Math.min(acc + now - last, 100);
+    last = now;
+    let ran = false;
+    while (acc >= 20) {
+      const flags = x.web_tick(held | pulse);
+      pulse = 0;
+      if (flags & 1) saveHi();
+      acc -= 20;
+      ran = true;
+      window.__galaga.ticks++;
+    }
+    if (ran || !prev) draw();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
