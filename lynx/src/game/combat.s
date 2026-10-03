@@ -30,6 +30,7 @@ x_overlap:
     rts
 
 
+.ifndef ARCADE
 check_collisions:
     ; --- Player bullets vs enemies ---
     lda #6                  ; Bullet art centre is 3px left of enemy centre
@@ -123,6 +124,7 @@ check_collisions:
 @done:
     rts
 
+.endif
 ; Hit test of ship cur_ship (0 = player_x, 1 = player_x+16) against divers and
 ; enemy bullets. Carry set = hit (the enemy / bullet is already dealt with).
 

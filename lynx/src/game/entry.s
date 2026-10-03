@@ -10,7 +10,7 @@ entry_delay_tbl:
     .byte 56,60,64,68,80,84,88,92
     .byte 96,100,16,20,24,28,104,108
     .byte 120,124,128,132,136,140,144,148
-.ifdef ALIENS40
+.ifdef ARCADE
     .res 8
 .endif
 entry_path_tbl:
@@ -18,7 +18,7 @@ entry_path_tbl:
     .byte $03,$03,$03,$03,$83,$83,$83,$83
     .byte $83,$83,$02,$82,$02,$82,$83,$83
     .byte $82,$02,$82,$02,$82,$02,$82,$02
-.ifdef ALIENS40
+.ifdef ARCADE
     .res 8                      ; the 40-alien build has no fly-in yet (the aliens stand in their slots)
 .endif
 
@@ -28,6 +28,7 @@ tgt_xh:         .byte 0
 d_lo:           .byte 0
 moved:          .byte 0
 
+.ifndef ARCADE
 ; Turn the aliens of a freshly reset formation into waiting entrants
 
 setup_entry:
@@ -181,3 +182,4 @@ home_step:
     jmp set_slot_pos
 @rts:
     rts
+.endif

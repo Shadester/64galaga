@@ -135,7 +135,7 @@ pause_key:      .byte 0
 msg_capt:       .asciiz "FIGHTER CAPTURED"
 ready_timer:    .byte 0
 
-.ifdef ALIENS40
+.ifdef ARCADE
     .include "game/arcade_data.s"
 .else
 base_x: ; formation slot X low byte (left edge): 4 bosses, then 4 rows of 7

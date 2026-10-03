@@ -105,6 +105,9 @@ set_slot_x:
 
 
 update_sprite_data:
+.ifdef ARCADE
+    jsr arc_sync_aliens
+.endif
     lda game_state
     beq @hide_all               ; Title: no sprites
     cmp #GS_GAMEOVER

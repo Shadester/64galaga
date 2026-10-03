@@ -33,7 +33,7 @@ python3 tools/make_gif.py # re-record docs/gameplay.gif
   frame has about 60-70 SCBs and 40 aliens fit (the static 40-alien test build: 70). `-DPROFILE=1` counts late frames, the most sprites of a frame and
   the sprites that did not fit (`late_frames`, `scb_peak`, `scb_over`, read with `tools/dbg.py`). `add_sprite` drops a sprite when the SCB pool
   (`MAX_SCB`) is full.
-- `-DALIENS40=1` is the build with 40 aliens in the arcade formation (slot tables from `src/game/arcade_data.s`, made by `tools/gen_arcade.py`
+- `-DARCADE=1` is the build with 40 aliens in the arcade formation (slot tables from `src/game/arcade_data.s`, made by `tools/gen_arcade.py`
   from `../psp/arcade_data.h`). It has no fly-in yet: the aliens stand in their slots.
 
 - **Suzy and the CPU:** poll `SPRSYS` for "sprite engine busy" only after `stz CPUSLEEP`: the emulator advances the

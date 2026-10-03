@@ -16,6 +16,7 @@ chal_ptr_tbl:   .byte SPR_BEE, SPR_BFLY, SPR_BEE, SPR_BOSS    ; sprite per wave
 ; Slot s belongs to wave s>>3. Waves 0/2 fly path A, waves 1/3 path B, and
 ; waves 2/3 are mirrored left-right (chal_path_tbl).
 
+.ifndef ARCADE
 ; Is this a challenge stage? Stages 3, 7, 11, ... are. Sets up the stage.
 
 begin_stage:
@@ -39,7 +40,7 @@ begin_stage:
     lda #0
     sta in_chal
     jsr reset_formation
-.ifdef ALIENS40
+.ifdef ARCADE
     rts                         ; no fly-in yet in the 40-alien build: the aliens stand in their slots
 .else
     jmp setup_entry             ; Aliens fly in
@@ -206,6 +207,7 @@ chal_step:
 @rts:
     rts
 
+.endif
 ; Result screen of a challenge stage: number of hits and the perfect bonus
 
 chal_result:

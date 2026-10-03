@@ -18,12 +18,17 @@ import tempfile
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 sys.path.insert(0, os.path.join(ROOT, 'lynx', 'tools'))
+SKEW = int(os.environ.get('SKEW', '0'))      # the ROM is read between two ticks: its state may be that of the tick before its counter
 
 # name: (ROM flags, C flags, ticks to compare at, what is compared)
 SCENARIOS = {
     # A check of the tool itself: the start of the game, the intro and the ship are the same in the C64 rules (checked up to tick 130; from
     # about tick 200 the aliens are on other flight paths than in C: the C64 paths.asm and the float paths of psp/game.c are not the same)
     'c64start': (['AUTOPLAY=1', 'NOFIRE=1'], ['-DRULES_C64'], [20, 60, 90, 130], 'start, intro and ship of the C64 rules'),
+    # the arcade rules without dives, bombs and rams (the ROM has none yet: the C game gets no sorties and an invulnerable ship)
+    'arc_entry': (['ARCADE=1', 'AUTOPLAY=1', 'NOFIRE=1'], ['-DNODIVE'], [130, 300, 500, 700, 900, 1100, 1300, 1600], 'fly-in, swing and breathing'),
+    'arc_shoot': (['ARCADE=1', 'AUTOPLAY=1'], ['-DNODIVE'], [900, 1200, 1500, 2000, 2500], 'shooting the formation'),
+    'arc_chal': (['ARCADE=1', 'AUTOPLAY=1', 'STAGE=3'], ['-DNODIVE', '-DSTART_STAGE=3'], [150, 400, 700, 1000, 1400, 1700, 1900], 'a challenge stage'),
 }
 
 C_DRIVER = r'''
@@ -44,9 +49,13 @@ int main(void) {
         if (g.state == S_PLAY) in.fire = 0;
 #endif
         if (g.state == S_TITLE) in.fire = t + 1 == START;   /* the 6502 title needs a release and a press: the game starts at the tick the ROM started */
+#ifdef NODIVE
+        g.sortie[0] = g.sortie[1] = g.sortie[2] = 1 << 30; g.invuln = 100;
+#endif
         game_tick(&g, &in);
         printf("%d %d %d %d %d %d %d", t + 1, g.state, g.score, g.lives, g.stage, g.px, g.py);
         for (i = 0; i < NAL; ++i) printf(" %d,%d,%d,%d", g.al[i].st, g.al[i].x, g.al[i].y, g.al[i].ent);
+        for (i = 0; i < 4; ++i) printf(" %d,%d,%d", g.ps[i].act, g.ps[i].x, g.ps[i].y);
         printf("\n");
         g.snd = g.saveReq = 0;
     }
@@ -68,8 +77,9 @@ def c_trace(cflags, ticks, nofire, start):
         if not line:
             continue
         p = line.split(' ')
-        al = [tuple(int(v) for v in a.split(',')) for a in p[7:]]
-        rows[int(p[0])] = dict(state=int(p[1]), score=int(p[2]), lives=int(p[3]), stage=int(p[4]), px=int(p[5]), py=int(p[6]), al=al)
+        al = [tuple(int(v) for v in a.split(',')) for a in p[7:-4]]
+        sh = [tuple(int(v) for v in a.split(',')) for a in p[-4:]]
+        rows[int(p[0])] = dict(state=int(p[1]), score=int(p[2]), lives=int(p[3]), stage=int(p[4]), px=int(p[5]), py=int(p[6]), al=al, shots=sh)
     return rows
 
 
@@ -120,43 +130,86 @@ class Lynx:
             return n + (t8 - n + 128) % 256 - 128
         return n
 
-    def state(self, n_aliens):
+    def state(self, n_aliens, arcade=False):
         px = self.read('player_x')[0] + 256 * (self.read('player_x_msb')[0] & 1)
-        xs, ms, ys = self.read('spr_x', n_aliens), self.read('spr_x_msb', n_aliens), self.read('spr_y', n_aliens)
         st = [6 if v == 7 else v for v in self.read('enemy_state', n_aliens)]    # the C64 code numbers an entering alien 7, C 6
+        if arcade:                                                               # the arcade rules keep signed 16-bit positions
+            xl, xh, yl, yh = (self.read(n, n_aliens) for n in ('ax_lo', 'ax_hi', 'ay_lo', 'ay_hi'))
+            s16 = lambda lo, hi: lo + 256 * hi - (65536 if hi > 127 else 0)
+            al = [(st[i], s16(xl[i], xh[i]), s16(yl[i], yh[i])) for i in range(n_aliens)]
+        else:
+            xs, ms, ys = self.read('spr_x', n_aliens), self.read('spr_x_msb', n_aliens), self.read('spr_y', n_aliens)
+            al = [(st[i], xs[i] + 256 * (ms[i] & 1), ys[i]) for i in range(n_aliens)]
         return dict(state=self.read('game_state')[0], score=bcd(self.read('score', 3)), lives=self.read('lives')[0],
-                    stage=int('%x' % self.read('level')[0]), px=px,
-                    al=[(st[i], xs[i] + 256 * (ms[i] & 1), ys[i]) for i in range(n_aliens)])
+                    stage=int('%x' % self.read('level')[0]), px=px, al=al,
+                    shots=[(act & 1, xl + 256 * (xh & 1), yy) for act, xl, xh, yy in zip(self.read('pbul_active', 4), self.read('pbul_x', 4), self.read('pbul_msb', 4), self.read('pbul_y', 4))])
+
+
+def lynx_state_at(name, rom_flags, tick, start):
+    """Build the ROM with -DHALT: the game stops after `tick` ticks at the start of the next one, so the state is exact."""
+    build = os.path.join('build', 'trace_%s_%d' % (name, tick))
+    subprocess.run(['rm', '-rf', os.path.join(ROOT, 'lynx', build)])
+    flags = ' '.join(f'-D {f}' for f in rom_flags) + f' -D HALT={tick + 1}'
+    subprocess.run(['make', '-C', os.path.join(ROOT, 'lynx'), f'BUILD={build}', 'CAFLAGS=' + flags],
+                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    ly = Lynx(os.path.join(ROOT, 'lynx', build, 'galaga.lnx'), os.path.join(ROOT, 'lynx', build, 'galaga.lbl'))
+    try:
+        ly.step(400 + tick)                              # the boot ROM, then the ticks
+        t8 = ly.tick8()
+        st = ly.state(NAL, 'ARCADE=1' in rom_flags)
+        st['t8'] = t8
+        return st
+    finally:
+        ly.g.p.kill()
+
+
+def start_tick(rom_flags):
+    """The tick at which the ROM leaves the title screen (it needs a fire release and a press: the C game is told the same tick)."""
+    build = os.path.join('build', 'trace_start')
+    subprocess.run(['rm', '-rf', os.path.join(ROOT, 'lynx', build)])
+    flags = ' '.join(f'-D {f}' for f in rom_flags if f.split('=')[0] in ('AUTOPLAY', 'NOFIRE')) + ' -D HALT=400'
+    subprocess.run(['make', '-C', os.path.join(ROOT, 'lynx'), f'BUILD={build}', 'CAFLAGS=' + flags],
+                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    ly = Lynx(os.path.join(ROOT, 'lynx', build, 'galaga.lnx'), os.path.join(ROOT, 'lynx', build, 'galaga.lbl'))
+    try:
+        return ly.sync()
+    finally:
+        ly.g.p.kill()
+
+
+NAL = 32
 
 
 def compare(name):
+    global NAL
+    from concurrent.futures import ThreadPoolExecutor
     rom_flags, c_flags, ticks, what = SCENARIOS[name]
-    top = max(ticks) + 300
-    build = os.path.join('build', 'trace_' + name)
-    subprocess.run(['rm', '-rf', os.path.join(ROOT, 'lynx', build)])
-    subprocess.run(['make', '-C', os.path.join(ROOT, 'lynx'), f'BUILD={build}', 'CAFLAGS=' + ' '.join(f'-D {f}' for f in rom_flags)],
-                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-    ly = Lynx(os.path.join(ROOT, 'lynx', build, 'galaga.lnx'), os.path.join(ROOT, 'lynx', build, 'galaga.lbl'))
-    start = ly.sync()
-    ref = c_trace(c_flags, top, 'NOFIRE=1' in rom_flags, start)
+    NAL = 40 if 'ARCADE=1' in rom_flags else 32
+    start = start_tick(rom_flags)
+    ref = c_trace(c_flags, max(ticks) + 5, 'NOFIRE=1' in rom_flags, start)
+    with ThreadPoolExecutor(4) as ex:
+        roms = list(ex.map(lambda n: lynx_state_at(name, rom_flags, n, start), ticks))
     bad = 0
-    n_al = len(ref[1]['al'])
-    for n in ticks:
-        t = ly.goto(n)
-        a, c = ly.state(n_al), ref[t]
+    for n, a in zip(ticks, roms):
+        c = ref[n]
         diffs = []
+        if a['t8'] != n & 255:
+            diffs.append(f'the ROM stopped at tick {a["t8"]}, not {n & 255} (mod 256): late frames or not enough boot frames')
         for key in ('state', 'score', 'lives', 'stage', 'px'):
             if a[key] != c[key]:
                 diffs.append(f'{key}: rom {a[key]} c {c[key]}')
-        for i in range(n_al):
+        for i in range(4):                        # a shot that is not in flight has no position
+            sa, sc = a['shots'][i], c['shots'][i]
+            if sa[0] != sc[0] or (sc[0] and sa != sc):
+                diffs.append(f'shot {i}: rom {sa} c {sc}')
+        for i in range(len(c['al'])):
             (rs, rx, ry), (cs, cx, cy, ce) = a['al'][i], c['al'][i]
             on = cs != 0 and not (cs == 6 and ce == 0)
             if rs != cs:
                 diffs.append(f'alien {i} state: rom {rs} c {cs}')
             elif on and (rx != cx or ry != cy):
                 diffs.append(f'alien {i} position: rom ({rx},{ry}) c ({cx},{cy})')
-        print(f'  tick {t}{" (asked " + str(n) + ")" if t != n else ""}: ' +
-              ('same' if not diffs else f'{len(diffs)} differences, first: ' + '; '.join(diffs[:3])))
+        print(f'  tick {n}: ' + ('same' if not diffs else f'{len(diffs)} differences, first: ' + '; '.join(diffs[:3])))
         bad += bool(diffs)
     print(f'{name} ({what}): ' + ('OK' if not bad else f'{bad} checkpoints differ'))
     return bad

@@ -1,3 +1,4 @@
+.ifndef ARCADE
 ; Formation sway, enemy movement, dives and enemy bullets
 ; ===============================================
 ; FORMATION SWAY
@@ -503,3 +504,4 @@ update_ebullets:
     dex
     bpl @loop
     rts
+.endif
