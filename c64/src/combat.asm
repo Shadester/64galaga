@@ -181,7 +181,13 @@ check_ship:
     jsr set_explode         ; Enemy explodes with the ship
     cpx cap_boss
     bne .ram_done
-    lda #0                  ; A capture boss rammed the ship: its captive is lost
+    lda cap_state           ; A capture boss rammed the ship: its capture is cancelled. A carrier: the captive is lost
+    cmp #1
+    beq .ram_clear
+    cmp #4
+    bne .ram_done
+.ram_clear:
+    lda #0
     sta cap_state
 .ram_done:
     sec

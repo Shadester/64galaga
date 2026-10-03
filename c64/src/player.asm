@@ -9,42 +9,6 @@ read_joystick:
     ; Synthetic input: sweep the screen left/right, fire in bursts
     lda #$ff
     sta joystick_state
-!ifdef CAPTURE {
-    lda game_state          ; -DCAPTURE=1: pulse fire to leave title / game over,
-    cmp #GS_PLAY            ; idle while a boss beams (so it captures us), then
-    beq .cap_play           ; chase and shoot the boss once it dives with the captive
-    lda frame
-    and #$08
-    bne .auto_done
-    jmp .cap_fire
-.cap_play:
-    lda cap_state
-    cmp #4
-    bne .auto_done
-    ldx cap_boss
-    lda enemy_state,x
-    cmp #2
-    bne .auto_done
-    lda enemy_x,x
-    cmp player_x
-    bcs .cap_right
-    lda joystick_state
-    and #$fb
-    sta joystick_state
-    jmp .cap_fire
-.cap_right:
-    lda joystick_state
-    and #$f7
-    sta joystick_state
-.cap_fire:
-    lda frame
-    and #$04                ; Pulse the button so every press is a new shot
-    bne .auto_done
-    lda joystick_state
-    and #$ef
-    sta joystick_state
-    jmp .auto_done
-}
     lda frame
     and #$80                ; 128 frames per direction = 256px sweep
     beq .auto_right
@@ -81,6 +45,81 @@ read_joystick:
     and #$ef
     sta joystick_state
 .auto_done:
+!ifdef CAPTURE {
+    ; -DCAPTURE=1: the ship walks under the capture boss, is taken, and shoots the carrier (the C driver's CAPSCRIPT,
+    ; tools/compare_6502.py): no fire in play, left and right follow the boss while it dives, beams or carries, fire when it carries
+    lda game_state
+    cmp #GS_PLAY
+    beq .cs_nofire
+    cmp #GS_RESULT
+    bne .cs_chase
+.cs_nofire:
+    lda joystick_state
+    ora #$10
+    sta joystick_state
+.cs_chase:
+    lda cap_state
+    cmp #1
+    beq .cs_on
+    cmp #2
+    beq .cs_on
+    cmp #4
+    beq .cs_on
+    jmp .cs_done
+.cs_on:
+    lda joystick_state
+    ora #$0c                    ; neither left nor right ...
+    sta joystick_state
+    ldx cap_boss
+    lda enemy_x,x               ; ... left when px > boss x + 2
+    clc
+    adc #2
+    sta temp
+    lda enemy_x_msb,x
+    adc #0
+    sta hit_idx
+    lda temp
+    cmp player_x
+    lda hit_idx
+    sbc player_x_msb
+    bcs .cs_r
+    lda joystick_state
+    and #$fb
+    sta joystick_state
+.cs_r:
+    lda enemy_x,x               ; right when px < boss x - 2
+    sec
+    sbc #2
+    sta temp
+    lda enemy_x_msb,x
+    sbc #0
+    sta hit_idx
+    lda player_x
+    cmp temp
+    lda player_x_msb
+    sbc hit_idx
+    bcs .cs_f
+    lda joystick_state
+    and #$f7
+    sta joystick_state
+.cs_f:
+    lda cap_state
+    cmp #4
+    bne .cs_done
+    lda frame                   ; the carrier is shot at in bursts
+    and #3
+    cmp #2
+    bcs .cs_nf
+    lda joystick_state
+    and #$ef
+    sta joystick_state
+    jmp .cs_done
+.cs_nf:
+    lda joystick_state
+    ora #$10
+    sta joystick_state
+.cs_done:
+}
 } else {
     lda CIA1_PRA
     sta joystick_state

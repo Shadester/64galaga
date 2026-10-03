@@ -34,6 +34,9 @@ arc_slot:       !byte 0
 arc_ne:         !byte 0
 arc_nesc:       !byte 0
 arc_esc:        !byte 0, 0
+arc_beamph:     !byte 0         ; the beam: 0 grows, 1 holds (the ship is taken), 2 shrinks
+arc_beamacc:    !byte 0
+arc_bstep:      !byte 0         ; ticks for one of its 4 steps
 q16:            !word 0
 r16:            !byte 0
 dv8:            !byte 0
@@ -296,6 +299,31 @@ arc_bombs:
     inx
     cpx #MAX_ENEMIES
     bne .bl
+    rts
+
+; Is something in the air? (a diver, a returning alien, a beam, an alien that flies in) A = 0, Z set: no
+!zone arc_flying
+arc_flying:
+    ldx #MAX_ENEMIES-1
+.l:
+    lda enemy_state,x
+    cmp #2
+    beq .yes
+    cmp #3
+    beq .yes
+    cmp #5
+    beq .yes
+    cmp #7
+    bne .n
+    lda enemy_flag,x
+    bne .yes
+.n:
+    dex
+    bpl .l
+    lda #0
+    rts
+.yes:
+    lda #1
     rts
 
 ; The first alien from st_from to st_to-1 that is home and has settled: A (N flag set: none)

@@ -12,7 +12,7 @@
 ;         -DFORCEPERFECT=1 challenge stages count as perfect,
 ;         -DDIFF=n start at difficulty n, -DLIVES=n start with n lives, -DPAUSEAT=n press pause at frame n (needs HALT),
 ;         -DQUITAT=n RUN/STOP at frame n (needs HALT),
-;         -DGODMODE=1 the ship cannot be hit, -DNODIVE=1 no dives (tools/compare_6502.py),
+;         -DGODMODE=1 the ship cannot be hit, -DGODBEAM=1 only the beam takes it, -DNODIVE=1 no dives (tools/compare_6502.py),
 ;         -DHALT=n freeze after n frames, -DHALTOVER=1 freeze at game over,
 ;         -DDIEAT=n the ship is hit at frame n (needs HALT) (tests/run.sh)
 ; ===============================================

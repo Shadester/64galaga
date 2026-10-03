@@ -54,16 +54,13 @@ update_capture:
 .none:
     rts
 .beam:
-    lda beam_len
-    cmp #4
-    bcs .full
-    lda frame
-    and #7
-    bne .draw
-    inc beam_len
-    jmp .draw
-.full:
-    lda game_state
+    lda arc_beamph
+    beq .grow
+    cmp #2
+    bne .hold
+    jmp .shrink
+.hold:
+    lda game_state              ; Hold: the ship under the beam is taken
     cmp #GS_PLAY
     bne .timer
     lda invuln
@@ -96,8 +93,43 @@ update_capture:
 .timer:
     dec beam_timer
     bne .draw
-    jsr beam_erase          ; Missed: the boss gives up and flies home
-    ldx cap_boss
+    lda #2                  ; Missed: the beam shrinks again
+    sta arc_beamph
+    lda #0
+    sta arc_beamacc
+    jmp .draw
+.grow:
+    inc arc_beamacc         ; A row every arc_bstep ticks
+    lda arc_beamacc
+    cmp arc_bstep
+    bcc .draw
+    lda #0
+    sta arc_beamacc
+    inc beam_len
+    lda beam_len
+    cmp #4
+    bcc .draw
+    lda #1                  ; Full length: it holds for 53 ticks
+    sta arc_beamph
+    lda #53
+    sta beam_timer
+    jmp .draw
+.shrink:
+    inc arc_beamacc
+    lda arc_beamacc
+    cmp arc_bstep
+    bcc .draw
+    lda #0
+    sta arc_beamacc
+    lda #$20                ; One row less
+    jsr beam_draw
+    dec beam_len
+    beq .gone
+    lda #$66
+    jsr beam_draw
+    jmp .draw
+.gone:
+    ldx cap_boss            ; The boss gives up and flies home
     lda #3
     sta enemy_state,x
     lda #0
@@ -241,6 +273,7 @@ rescue_step:
     bne .cmp
     lda cap_x
     cmp rs_tx
+    beq .steered                ; level: stays
 .cmp:
     bcs .left
     lda cap_x

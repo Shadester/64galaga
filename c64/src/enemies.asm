@@ -212,8 +212,13 @@ dive_step:
     sta cap_state
     lda #0
     sta beam_len
+    sta arc_beamph
+    sta arc_beamacc
     lda #180
     sta beam_timer
+    ldy arc_sidx                ; ticks of one beam step, by stage
+    lda arc_beamstep,y
+    sta arc_bstep
     rts
 .not_cap:
     lda enemy_y,x

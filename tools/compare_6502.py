@@ -32,7 +32,7 @@ SCENARIOS = {
     'arc_dive': (['AUTOPLAY=1', 'NOFIRE=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [900, 1100, 1300, 1600, 2000, 2500, 3200], 'dives, escorts, bombs'),
     'arc_dive2': (['AUTOPLAY=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [1100, 1500, 2000, 2800, 3600, 4500], 'dives while the ship shoots'),
     # a whole game: the ship is hit, dies, is captured, comes back (no help for the ship)
-    'arc_play': (['AUTOPLAY=1'], [], [1250, 1300, 1350, 1400, 1500, 1600, 1700], 'a whole game'),
+    'arc_play': (['AUTOPLAY=1'], [], [1000, 1250, 1300, 1350, 1400, 1500, 1600, 1700, 1750, 1800, 2000, 2250, 2500, 2800, 2900], 'a whole game'),
     # a capture: the ship walks under the capture boss, is taken, and shoots the carrier to get it back as a dual fighter
     'arc_capture': (['AUTOPLAY=1', 'CAPTURE=1', 'GODBEAM=1'], ['-DCAPSCRIPT', '-DGODBEAM'], [1100, 1300, 1500, 1660, 1680, 1690, 1700, 1710, 1720, 1750, 2000, 2400, 3000, 4000], 'capture and rescue'),
     'arc_rescue': (['AUTOPLAY=1', 'CAPTURE=1', 'GODBEAM=1', 'LIVES=9'], ['-DCAPSCRIPT', '-DGODBEAM', '-DLIVES9'],
@@ -218,6 +218,12 @@ SCENARIOS_C64 = {
     # dives, escorts and bombs: the ship cannot be hit (a dual fighter, so that no boss captures it: the beam is the next milestone)
     'a32_dive': (['AUTOPLAY=1', 'NOFIRE=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [900, 1100, 1300, 1600, 2000, 2500, 3200], 'dives, escorts, bombs'),
     'a32_dive2': (['AUTOPLAY=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [1100, 1500, 2000, 2800, 3600, 4500], 'dives while the ship shoots'),
+    # a whole game: the ship is hit, dies, is captured, comes back (no help for the ship)
+    'a32_play': (['AUTOPLAY=1'], [], [1000, 1250, 1300, 1350, 1400, 1500, 1600, 1700, 1750, 1800, 2000, 2250, 2500, 2800, 2900], 'a whole game'),
+    # a capture: the ship walks under the capture boss, is taken, and shoots the carrier to get it back as a dual fighter
+    'a32_capture': (['AUTOPLAY=1', 'CAPTURE=1', 'GODBEAM=1'], ['-DCAPSCRIPT', '-DGODBEAM'], [1100, 1300, 1500, 1700, 2000, 2400, 3000, 4000], 'capture and rescue'),
+    'a32_rescue': (['AUTOPLAY=1', 'CAPTURE=1', 'GODBEAM=1', 'LIVES=9'], ['-DCAPSCRIPT', '-DGODBEAM', '-DLIVES9'],
+                   [2400, 3000, 3600, 4200, 4800, 5400, 6000, 7000, 8000], 'capture, rescue, dual fighter'),
     # a long run: several stages of dives with and without shooting
     'a32_long': (['AUTOPLAY=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [6000, 8000, 10000, 12000, 15000], 'dives over several stages'),
     'a32_chal': (['AUTOPLAY=1', 'STAGE=3', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE', '-DSTART_STAGE=3'], [150, 400, 700, 1000, 1400, 1700, 1900], 'a challenge stage'),

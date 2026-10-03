@@ -165,7 +165,8 @@ update_sprite_data:
     lsr
     lsr
     lsr
-    sta temp                    ; 3..0: four explosion frames of 16 game frames
+    lsr
+    sta temp                    ; 3..0: four explosion frames of 32 game frames
     lda #SPR_PEXP+3
     sec
     sbc temp

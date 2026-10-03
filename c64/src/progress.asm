@@ -125,7 +125,7 @@ add_score:
 player_hit:
     lda #GS_DYING
     sta game_state
-    lda #63
+    lda #106                    ; 107 ticks until the ship may come back (st_dying counts one more)
     sta dying_timer
     dec lives
     lda #0

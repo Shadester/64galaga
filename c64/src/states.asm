@@ -435,6 +435,15 @@ st_play:
     lda #100                    ; -DGODMODE=1: the ship cannot be hit (tools/compare_6502.py)
     sta invuln
 }
+!ifdef GODBEAM {
+    lda #100                    ; -DGODBEAM=1: it cannot be hit, only the beam takes it
+    ldx cap_state
+    cpx #2
+    bne .god_beam
+    lda #0
+.god_beam:
+    sta invuln
+}
     lda invuln
     beq .no_invuln
     dec invuln
@@ -478,7 +487,7 @@ st_dying:
     beq .game_over
     jsr clear_stage_row
     +print msg_ready, SCREEN_RAM+20*40+17, 1
-    lda #90
+    lda #80                     ; 3 x 32 arcade frames after the last flyer is home
     sta ready_timer
     lda #GS_READY
     sta game_state
@@ -492,6 +501,12 @@ st_ready:
     jsr update_formation
     jsr update_entry
     jsr update_enemies
+    lda in_chal
+    bne .count
+    jsr update_capture
+    jsr arc_flying              ; the ship comes back when nothing flies any more: the divers finish first, the beam too
+    bne .rts
+.count:
     dec ready_timer
     bne .rts
     jsr clear_stage_row
@@ -502,6 +517,14 @@ st_ready:
     sta dying_quiet
     lda #120
     sta invuln
+    lda arc_tmr2                ; after a death the sorties start slowly again
+    clc
+    adc #30
+    cmp #121
+    bcc .tmr
+    lda #120
+.tmr:
+    sta arc_tmr2
     lda #GS_PLAY
     sta game_state
 .rts:
@@ -541,7 +564,7 @@ st_captured:
     beq .last
     lda #GS_DYING
     sta game_state
-    lda #100
+    lda #99
     sta dying_timer
     +print msg_capt, SCREEN_RAM+20*40+12, 2
 .rts:
