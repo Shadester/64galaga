@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galaga for the PSP</title>
+<style>
+  body { margin: 0; background: #111; color: #ccc; font: 14px/1.4 system-ui, sans-serif; text-align: center; }
+  #box { width: min(100vw, 720px); height: min(56.9vw, 410px); margin: 16px auto; }
+  a { color: #8cf; }
+</style>
+</head>
+<body>
+<div id="box"><div id="game"></div></div>
+<p>Galaga for the PSP, in the browser with <a href="https://emulatorjs.org/">EmulatorJS</a> (the PPSSPP core).<br>
+Click Start Game (the browser needs a click before it plays sound). Arrow keys move, Z fires; the gear menu shows all keys.<br>
+<a href="https://github.com/Shadester/galagas/tree/master/psp">Source</a> · <a href="../">All versions</a></p>
+<script src="coi-serviceworker.js"></script>
+<script>
+  EJS_player = '#game';
+  EJS_core = 'psp';
+  EJS_gameUrl = 'EBOOT.PBP';
+  EJS_gameName = 'Galaga';
+  EJS_threads = true;
+  EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+</script>
+<script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
+</body>
+</html>

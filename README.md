@@ -13,6 +13,7 @@
   <a href="https://shadester.github.io/galagas/pico8/"><b>▶ PICO-8</b></a> ·
   <a href="https://shadester.github.io/galagas/lynx/"><b>▶ Atari Lynx</b></a> ·
   <a href="https://shadester.github.io/galagas/lynx/portrait.html"><b>▶ Lynx portrait</b></a> ·
+  <a href="https://shadester.github.io/galagas/psp/"><b>▶ PSP</b></a> ·
   <a href="https://vamigaweb.github.io/#AROS=true#https://raw.githubusercontent.com/Shadester/galagas/master/amiga/docs/galaga.adz"><b>▶ Amiga</b></a> ·
   <a href="https://shadester.github.io/galagas/tui/"><b>▶ Terminal</b></a>
 </p>

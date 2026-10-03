@@ -5,6 +5,8 @@ a glow and particle renderer and a synthesised sound track.
 
 ![PSP Galaga gameplay](docs/gameplay.gif)
 
+[**▶ Play it in your browser**](https://shadester.github.io/galagas/psp/) (EmulatorJS with the PPSSPP core; `../docs/psp/EBOOT.PBP` is a copy of `EBOOT.PBP`: copy it again after a change). The page needs threads, so it loads `coi-serviceworker.js` (MIT), which makes the page cross-origin isolated: the first visit reloads once. It needs WebGL2.
+
 ## Build
 
 ### Requirements
