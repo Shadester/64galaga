@@ -12,6 +12,8 @@ tools/run.sh                          # build and run it in FS-UAE (brew install
 make web                              # docs/galaga.adz for the play link in the READMEs
 python3 tests/test_table.py           # float paths vs the path table, on the Mac
 python3 tests/test_selftest.py [n]    # the 68000 in vAmigaWeb vs the Mac, 4 scenarios (about 10 s)
+python3 tests/test_selftest.py 3000 arcade   # the same for the arcade rules (see ../ARCADE.md)
+make EXTRA_CFLAGS=-DRULES_ARCADE               # the game with the arcade rules: 40 enemies, arcade paths and dive scheduler
 python3 tests/shots.py [--update] [case ...]   # screenshots in vAmigaWeb; look at new refs before you commit them
 ```
 

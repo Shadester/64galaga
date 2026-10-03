@@ -14,7 +14,11 @@
 #define GUARD 32
 #define BITMAP_BYTES (ROWB * SCREEN_H)
 #define MAX_RECTS 96
+#ifdef RULES_ARCADE
+#define MAX_OBJ 56                                /* sprite slots (main.c): 40 aliens, ship, dual, captive, 4 + 8 bullets */
+#else
 #define MAX_OBJ 42                                /* sprite slots (main.c): aliens, ship, captive, bullets */
+#endif
 #define MAX_TEXTS 8
 
 typedef struct { s16 xw, wd, y, h; } Rect;       /* words from the left of the bitmap, width in words, lines */

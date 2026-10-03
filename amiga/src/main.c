@@ -57,8 +57,8 @@ static char *put_num(char *p, int n, int digits) {
 static int str_len(const char *s) { int n = 0; while (s[n]) ++n; return n; }
 static void centre(const char *s, int y, int colour) { video_text(s, (SCREEN_W - 8 * str_len(s)) / 2, y, colour); }
 
-/* sprite slots (video.c): the aliens are 0..31 */
-enum { SLOT_SHIP = 32, SLOT_DUAL, SLOT_CAPTIVE, SLOT_PBUL, SLOT_EBUL = SLOT_PBUL + 4 };
+/* sprite slots (video.c): the aliens are 0..NAL-1 */
+enum { SLOT_SHIP = NAL, SLOT_DUAL, SLOT_CAPTIVE, SLOT_PBUL, SLOT_EBUL = SLOT_PBUL + 4 };
 
 /* C64 position of a sprite box -> screen */
 #define SX(x) ((x) - 24)
@@ -162,7 +162,7 @@ static void draw(const Game *g) {
             video_bob(SLOT_CAPTIVE, SPR_CAPTIVE, SX(g->rx + 3), SY(g->ry - 2));
         }
         for (i = 0; i < 4; ++i) if (g->ps[i].act) video_bob(SLOT_PBUL + i, SPR_PBUL, SX(g->ps[i].x + 8), SY(g->ps[i].y + 1));
-        for (i = 0; i < 3; ++i) if (g->eb[i].act) video_bob(SLOT_EBUL + i, SPR_EBUL, SX(g->eb[i].x + 10), SY(g->eb[i].y - 2));
+        for (i = 0; i < EBN; ++i) if (g->eb[i].act) video_bob(SLOT_EBUL + i, SPR_EBUL, SX(g->eb[i].x + 10), SY(g->eb[i].y - 2));
     }
     draw_messages(g);
 #if defined(PROFILE) && defined(HALT)

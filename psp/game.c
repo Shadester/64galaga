@@ -707,7 +707,7 @@ void game_tick(Game *g, const Input *in) {
         if (!g->challenge) {
             int k, flying = 0;
             update_capture(g);
-            for (k = 0; k < NAL; ++k) flying += g->al[k].st == A_DIVE || g->al[k].st == A_RETURN || g->al[k].st == A_BEAM || g->al[k].st == A_ENTER && g->al[k].ent;
+            for (k = 0; k < NAL; ++k) flying += g->al[k].st == A_DIVE || g->al[k].st == A_RETURN || g->al[k].st == A_BEAM || (g->al[k].st == A_ENTER && g->al[k].ent);
             if (flying) break;
         }
 #endif
