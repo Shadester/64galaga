@@ -42,3 +42,142 @@ out += lines('arc_bomb_tab', 'bomb flags (rows of 4) and boss sortie reloads (fr
 out += lines('arc_red_reload', 'sortie timer reloads of the butterflies (3 for each row)', nums(block('arc_red_reload')))
 out += lines('arc_bee_reload', 'sortie timer reloads of the bees (3 for each row)', nums(block('arc_bee_reload')))
 open(os.path.join(ROOT, 'src', 'arcade_data.asm'), 'w').write('\n'.join(out))
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# The entry paths and wave lists of the arcade on the 32 slots of the C64: src/arcade_paths.asm (for the 6502) and ../psp/paths32.h (for
+# psp/game.c, RULES_ARCADE32). Both come from the same lists, so the two games fly the same paths.
+#
+# Slots: the arcade has 40 (4 bosses, 2 rows of 8 butterflies, 2 rows of 10 bees), the C64 32 (4, 2 x 7, 2 x 7). The columns 1..7 of the
+# arcade rows become the columns 0..6 of the C64 rows; the 4 bosses go by x. The enemies of the other columns (and the "transients"
+# that do not join the formation) do not fly in. In a challenge stage the first 32 launches (the first 4 groups of 8) fly.
+# A path is cut where its enemy would pass y 248: the C64 keeps y in 8 bits.
+# ---------------------------------------------------------------------------------------------------------------------------------
+Y_MAX = 248
+
+
+def count(name):
+    return int(re.search(r'#define %s (\d+)' % name, H).group(1))
+
+
+def arr_ints(prefix, n):
+    return [nums(re.search(r'\b%s%d\[\](?:\[3\])?\s*=\s*\{(.*?)\};' % (prefix, i), H, re.S).group(1)) for i in range(n)]
+
+
+def build_paths():
+    rows_meta = [re.findall(r'-?\d+', l) for l in block('arc_row').strip().split('\n')]
+    challenge = [int(m[0]) for m in rows_meta]
+    waves = [[tuple(w[i:i + 3]) for i in range(0, len(w), 3)] for w in arr_ints('arc_w', count('ARC_NROW'))]
+    path_meta = [nums(l)[:3] for l in block('arc_path').strip().split('\n')]      # sx, sy, n
+    path_steps = [[tuple(p[i:i + 2]) for i in range(0, len(p), 2)] for p in arr_ints('arc_p', count('ARC_NPATH'))]
+    slot_x = [nums(l)[0] for l in block('arc_slot').strip().split('\n')]
+    slot_row, slot_col = nums(block('arc_slot_row')), nums(block('arc_slot_col'))
+    assert nums(block('arc_slot_side'))  # (exists)
+    boss_c64 = {s: k for k, s in enumerate(sorted(range(4), key=lambda s: slot_x[s]))}
+
+    def c64_slot(s):
+        """Arcade slot -> C64 slot, or None (the enemy of a column the C64 does not have)."""
+        if s < 0:
+            return None
+        if s < 4:
+            return boss_c64[s]
+        if not 1 <= slot_col[s] <= 7:
+            return None
+        return 4 + (slot_row[s] - 1) * 7 + slot_col[s] - 1
+
+    def kind(s):                                   # 0 boss, 1 butterfly, 2 bee
+        return 0 if s < 4 else 1 if s < 20 else 2
+
+    lists, chal_type = [], None
+    for r, wl in enumerate(waves):
+        wl = sorted(wl, key=lambda w: w[0])        # (tick, arcade slot, path); stable
+        if challenge[r]:
+            first = wl[:32]
+            types = [kind(w[1]) for w in first]
+            assert chal_type in (None, types), 'the challenge rows differ'
+            chal_type = types
+            lists.append([(t, k, p) for k, (t, s, p) in enumerate(first)])
+        else:
+            lst = [(t, c64_slot(s), p) for t, s, p in wl if c64_slot(s) is not None]
+            assert len(lst) == 32 and sorted(c for _, c, _ in lst) == list(range(32)), (r, len(lst))
+            lists.append(lst)
+    # the paths the lists use, cut at Y_MAX, in order of first use
+    order, cut = [], {}
+    for lst in lists:
+        for _, _, p in lst:
+            if p not in cut:
+                sx, sy, n = path_meta[p]
+                st = path_steps[p]
+                assert len(st) == n and 0 <= sy <= Y_MAX
+                y, keep = sy, 0
+                for dx, dy in st:
+                    if y + dy > Y_MAX:
+                        break
+                    y += dy
+                    assert y >= 0, ('path %d goes above the screen' % p)
+                    keep += 1
+                cut[p] = len(order)
+                order.append((sx, sy, st[:keep]))
+    new_lists = [[(t, c, cut[p]) for t, c, p in lst] for lst in lists]
+    rowof = [int(re.findall(r'-?\d+', l)[0]) for l in block('arc_stage').strip().split('\n')]   # arc_stage[stage][0]
+    return order, new_lists, chal_type, challenge, rowof
+
+
+def write_paths():
+    order, lists, chal_type, challenge, rowof = build_paths()
+    for st in range(1, 27):                        # the challenge stages are 3, 7, 11, ... (the C64's rule)
+        assert bool(challenge[rowof[st - 1]]) == ((st & 3) == 3), st
+    pairs = sorted({d for _, _, st in order for d in st})
+    assert len(pairs) < 255, len(pairs)
+    pid = {d: i for i, d in enumerate(pairs)}
+    # ---- the C side
+    h = ['/* The flight paths and wave lists of the C64 layout (-DRULES_ARCADE32): the arcade\'s entry paths on the 32 slots.',
+         ' * Generated by c64/tools/gen_arcade.py from arcade_data.h: do not edit. */',
+         '#define NPATH32 %d' % len(order),
+         'static const Path paths[NPATH32] = {']
+    for sx, sy, st in order:
+        h.append('    {%d, %d, %d,\n     {%s},\n     {%s}},' % (sx, sy, len(st), ','.join(str(d[0]) for d in st), ','.join(str(d[1]) for d in st)))
+    h.append('};')
+    h.append('/* launches of a stage row: tick, slot, path (sorted by tick) */')
+    h.append('static const short wave32[%d][32][3] = {' % len(lists))
+    for lst in lists:
+        h.append('    {' + ','.join('{%d,%d,%d}' % w for w in lst) + '},')
+    h.append('};')
+    h.append('static const unsigned char chal_type32[32] = {%s};   /* 0 boss, 1 butterfly, 2 bee */' % ','.join(str(t) for t in chal_type))
+    open(os.path.join(ROOT, '..', 'psp', 'paths32.h'), 'w').write('\n'.join(h) + '\n')
+    # ---- the 6502 side
+    a = ['; The arcade\'s entry paths and wave lists on the 32 slots of the C64. Generated by tools/gen_arcade.py: do not edit.',
+         '; A path is a list of bytes, one for each tick: an index in the pair tables (the step dx, dy), $ff ends it.', '']
+    a.append('NPATH = %d' % len(order))
+    a.append('pair_dx:')
+    a += ['    !byte ' + ','.join(str(d[0] & 255) for d in pairs[i:i + 16]) for i in range(0, len(pairs), 16)]
+    a.append('    !align 255, 0')
+    a.append('pair_dy:')
+    a += ['    !byte ' + ','.join(str(d[1] & 255) for d in pairs[i:i + 16]) for i in range(0, len(pairs), 16)]
+    a.append('')
+    a.append('path_sx_lo: !byte ' + ','.join(str(sx & 255) for sx, _, _ in order))
+    a.append('path_sx_hi: !byte ' + ','.join(str((sx >> 8) & 1) for sx, _, _ in order))
+    a.append('path_sy:    !byte ' + ','.join(str(sy) for _, sy, _ in order))
+    a.append('path_lo:    !byte ' + ','.join('<ap%d' % i for i in range(len(order))))
+    a.append('path_hi:    !byte ' + ','.join('>ap%d' % i for i in range(len(order))))
+    a.append('')
+    a.append('; launches of the %d stage rows, 32 each, sorted by tick: 4 bytes each (tick low, tick high, C64 slot, path); a row is 128 bytes' % len(lists))
+    flat = [w for lst in lists for w in lst]
+    a.append('    !align 255, 0')
+    a.append('arc_wl:')
+    a += ['    !byte %d,%d,%d,%d' % (t & 255, t >> 8, c, p) for t, c, p in flat]
+    a += lines('chal_type', 'kind of the enemy in a challenge stage (0 boss, 1 butterfly, 2 bee), by slot', chal_type)
+    a += lines('arc_rowof', 'row of the launch lists, by stage index', rowof)
+    open(os.path.join(ROOT, 'src', 'arcade_wave.asm'), 'w').write('\n'.join(a) + '\n')
+    # the streams go to $7f40 (src/arcade_paths.asm): too big for the first 32 KB
+    s = ['; The paths of arcade_wave.asm, one byte a step. Generated by tools/gen_arcade.py: do not edit.', '']
+    for i, (_, _, st) in enumerate(order):
+        s.append('ap%d:' % i)
+        vals = [pid[d] for d in st] + [255]
+        s += ['    !byte ' + ','.join(str(v) for v in vals[j:j + 24]) for j in range(0, len(vals), 24)]
+    open(os.path.join(ROOT, 'src', 'arcade_paths.asm'), 'w').write('\n'.join(s) + '\n')
+    total = sum(len(st) + 1 for _, _, st in order)
+    print('%d paths, %d pairs, %d stream bytes, %d launch bytes' % (len(order), len(pairs), total, len(flat) * 4))
+
+
+write_paths()

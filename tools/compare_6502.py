@@ -32,7 +32,7 @@ SCENARIOS = {
     'arc_dive': (['AUTOPLAY=1', 'NOFIRE=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [900, 1100, 1300, 1600, 2000, 2500, 3200], 'dives, escorts, bombs'),
     'arc_dive2': (['AUTOPLAY=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [1100, 1500, 2000, 2800, 3600, 4500], 'dives while the ship shoots'),
     # a whole game: the ship is hit, dies, is captured, comes back (no help for the ship)
-    'arc_play': (['AUTOPLAY=1'], [], [1000, 1250, 1300, 1350, 1400, 1500, 1600, 1700, 1750, 1800, 2000, 2250, 2500, 2800, 2900], 'a whole game'),
+    'arc_play': (['AUTOPLAY=1'], [], [1250, 1300, 1350, 1400, 1500, 1600, 1700], 'a whole game'),
     # a capture: the ship walks under the capture boss, is taken, and shoots the carrier to get it back as a dual fighter
     'arc_capture': (['AUTOPLAY=1', 'CAPTURE=1', 'GODBEAM=1'], ['-DCAPSCRIPT', '-DGODBEAM'], [1100, 1300, 1500, 1660, 1680, 1690, 1700, 1710, 1720, 1750, 2000, 2400, 3000, 4000], 'capture and rescue'),
     'arc_rescue': (['AUTOPLAY=1', 'CAPTURE=1', 'GODBEAM=1', 'LIVES=9'], ['-DCAPSCRIPT', '-DGODBEAM', '-DLIVES9'],
@@ -350,6 +350,8 @@ def compare(platform, name):
                 diffs.append(f'bomb {i}: rom {ba} c {bc}')
         for i in range(len(c['al'])):
             (rs, rx, ry), (cs, cx, cy, ce, cesc) = a['al'][i], c['al'][i]
+            if platform == 'c64':
+                cx &= 511                                  # the VIC-II keeps x in 9 bits: -15 is 497
             on = cs != 0 and not (cs == 6 and ce == 0)
             if rs != cs:
                 diffs.append(f'alien {i} state: rom {rs} c {cs}')

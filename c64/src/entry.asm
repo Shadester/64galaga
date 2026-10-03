@@ -1,28 +1,14 @@
-; Fly-in at the start of a normal stage: the aliens enter along curved paths
-; in four waves, then home in on their formation slots.
-; An entering alien has enemy_state 7. enemy_flag: 0 waiting (enemy_timer
-; counts down to its launch), 1 flying its path, 2 homing on its slot.
+; Fly-in at the start of a normal stage: the aliens enter along the arcade's paths
+; in five groups, then home in on their formation slots.
+; An entering alien has enemy_state 7. enemy_flag: 0 waiting for its launch (wave_launch,
+; challenge.asm), 1 flying its path, 2 homing on its slot.
 ; The path stepper (chal_step) is shared with the challenge stages.
 ; `entering` counts the aliens in state 7: setup_entry sets it, an alien that is home
 ; (home_step) or shot (set_explode) takes itself off. ent_start is its value at the
 ; start of the game loop's formation update: what the dive scheduler may look at.
 
-; Launch delay (in 2-tick units: one alien every 8 ticks) and path (id | $80 = mirrored) per formation slot
-entry_delay_tbl:
-    !byte 40,44,48,52,0,4,8,12
-    !byte 56,60,64,68,80,84,88,92
-    !byte 96,100,16,20,24,28,104,108
-    !byte 120,124,128,132,136,140,144,148
-entry_path_tbl:
-    !byte $03,$03,$03,$03,$02,$82,$02,$82
-    !byte $03,$03,$03,$03,$83,$83,$83,$83
-    !byte $83,$83,$02,$82,$02,$82,$83,$83
-    !byte $82,$02,$82,$02,$82,$02,$82,$02
-
 entering:       !byte 0                 ; Aliens still entering
 ent_start:      !byte 0
-entry_par:      !byte 0                 ; Odd / even tick of the entry (the delays count every 2nd tick)
-entry_wait:     !byte 0
 tgt_x:          !byte 0
 tgt_xh:         !byte 0
 d_lo:           !byte 0
@@ -33,7 +19,6 @@ moved:          !byte 0
 setup_entry:
     lda #0
     sta entering
-    sta entry_par
     ldx #MAX_ENEMIES-1
 .loop:
     lda enemy_state,x
@@ -43,65 +28,40 @@ setup_entry:
     sta enemy_state,x
     lda #0
     sta enemy_flag,x
-    sta enemy_idx,x
-    lda entry_delay_tbl,x
-    sta enemy_timer,x
-    lda entry_path_tbl,x
-    sta enemy_path,x
     lda #$ff
     sta enemy_y,x               ; Hidden until launched
     inc entering
 .next:
     dex
     bpl .loop
-    rts
+    jmp wave_reset
 
-; Per tick: launch waiting aliens, move flying ones, steer homing ones. The waiting ones
-; wait while the ship is not in play (only the ones in the air go on).
+; Per tick: move flying aliens, steer homing ones, then launch the ones whose time has come. The waiting
+; ones wait while the ship is not in play (only the ones in the air go on).
 !zone update_entry
 update_entry:
     lda entering
     beq .rts
-    lda #$ff
-    sta entry_wait              ; $ff: the waiting aliens do not count
-    lda game_state
-    cmp #GS_PLAY
-    bne .count
-    lda entry_par
-    eor #1
-    sta entry_par
-    sta entry_wait              ; 1: odd tick (the delays do not count down), 0: even tick
-.count:
     ldx #MAX_ENEMIES-1
 .loop:
     lda enemy_state,x
     cmp #7
     bne .next
     lda enemy_flag,x
-    beq .wait
+    beq .next
     cmp #1
     bne .home
     jsr chal_step
     jmp .next
 .home:
     jsr home_step
-    jmp .next
-.wait:
-    lda entry_wait
-    bmi .next
-    lda enemy_timer,x
-    beq .launch
-    lda entry_wait
-    bne .next
-    dec enemy_timer,x
-    bne .next
-.launch:
-    lda #1
-    sta enemy_flag,x
-    jsr place_start
 .next:
     dex
     bpl .loop
+    lda game_state
+    cmp #GS_PLAY
+    bne .rts
+    jmp wave_launch
 .rts:
     rts
 

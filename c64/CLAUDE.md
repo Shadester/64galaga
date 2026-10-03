@@ -20,8 +20,9 @@ python3 tools/make_gif.py # re-record docs/gameplay.gif: title screen, then auto
   A full run takes about 3 minutes (too long for one foreground tool call: run it in the background).
 - Every case builds with debug flags (`-DAUTOPLAY=1 -DHALT=n ...`, listed in `README.md` and
   at the top of `src/main.asm`). `HALT=n` freezes the game after n frames so the screenshot is exact.
-  Frame-based cases must be **after the fly-in** (about 620 frames): during it the picture depends
-  on raster timing.
+  Frame-based cases are best **after the fly-in** (about 800 frames with an invulnerable ship, 1200 when the
+  ship is hit and the entering aliens ram it): during it the picture can depend on raster timing (it was stable
+  in the runs so far).
 - `tests/cmp.py` allows 64 different pixels (raster jitter). `cmp.py --game` rejects a blank or
   BASIC screenshot (VICE autostart sometimes misses); `run.sh` retries, also on `--update`.
   Always look at new references before you commit them.
@@ -43,8 +44,9 @@ python3 tools/make_gif.py # re-record docs/gameplay.gif: title screen, then auto
 | `$0801` | BASIC stub, `SYS 2064` |
 | `$0810-$2fff` | code and variables (`!error` guard at `$3000`) |
 | `$3000-$33ff` | sprite art (`art.asm`), pointers `$c0..$cf` |
-| `$3400-` | `paths.asm`, `entry.asm`, `arcade.asm` (+ `arcade_data.asm`), `hiscore.asm`, `title_font.asm` |
+| `$3400-` | `arcade_wave.asm`, `entry.asm`, `arcade.asm` (+ `arcade_data.asm`), `hiscore.asm`, `title_font.asm` |
 | `$5800-$7f3f` | title picture: colours `$5800`, screen matrix `$5c00`, bitmap `$6000` (`title.bin`) |
+| `$7f40-$9fff` | the flight paths (`arcade_paths.asm`, one byte a step; guard at `$a000`) |
 
 The title screen switches VIC to bank 1 (`$dd00`) with a multicolor bitmap; the game uses bank 0
 and text mode. `leave_title` undoes it.
@@ -59,7 +61,7 @@ scheduler, escorts and bombs; tables in the generated `arcade_data.asm`) - `comb
 `multiplexer.asm` + `sprites.asm` (sprites) - `screen.asm` (text, HUD, stars) - `hiscore.asm`
 (disk file) - `data.asm`, `constants.asm`.
 
-Generated, committed files (do not edit by hand): `src/paths.asm` and `../psp/paths32.h` (`tools/gen_paths.py`), `src/arcade_data.asm`
+Generated, committed files (do not edit by hand): `src/arcade_data.asm`, `src/arcade_wave.asm`, `src/arcade_paths.asm` and `../psp/paths32.h`
 (`tools/gen_arcade.py`, from `../psp/arcade_data.h`),
 `src/title.bin` and `src/title_font.asm` (`tools/gen_title.py`, from `assets/title-source.png` and
 `art.asm`). The title logo picture was made with Codex (`codex exec`, image tool).

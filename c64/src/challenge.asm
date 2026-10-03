@@ -1,21 +1,82 @@
-; Challenge (bonus) stages: 32 aliens fly through set paths in four waves,
+; Challenge (bonus) stages: 32 aliens fly the arcade's paths in four groups of 8,
 ; never shoot, and pay points for every hit.
 
-; Flight path data (src/paths.asm), indexed by path: 0 = A, 1 = B (challenge
-; stages), 2 = C, 3 = D (fly-in). enemy_path = path | $80 when mirrored.
-path_x0:        !byte <PATHA_X0, <PATHB_X0, <PATHC_X0, <PATHD_X0
-path_x0h:       !byte >PATHA_X0, >PATHB_X0, >PATHC_X0, >PATHD_X0
-path_y0:        !byte PATHA_Y0, PATHB_Y0, PATHC_Y0, PATHD_Y0
-path_len:       !byte PATHA_LEN, PATHB_LEN, PATHC_LEN, PATHD_LEN
-chal_path_tbl:  !byte 0, 1, $80, $81            ; path per wave
+; Entry and challenge stage flights: the arcade's paths on the 32 slots (arcade_wave.asm, arcade_paths.asm,
+; made by tools/gen_arcade.py). A path is a list of bytes, one for each tick: an index in pair_dx / pair_dy, $ff ends it.
+; enemy_path = the path of an alien, enemy_pl / enemy_ph = where it is in the list.
+; The launches of a stage are a list of 32 (tick, slot, path), sorted by tick, for the row of the stage (arc_rowof):
+; wave_clk counts the ticks in which the ship is in play, wave_off is the place in the list.
 
-wave_delay:     !byte 0, 55, 110, 165           ; frames before a wave starts
-pos_delay:      !byte 0, 6, 12, 18, 24, 30, 36, 42  ; ... and between its aliens
-chal_ptr_tbl:   !byte SPR_BEE, SPR_BFLY, SPR_BEE, SPR_BOSS    ; sprite per wave
-chal_col_tbl:   !byte 14, 2, 14, 5
+type_ptr:       !byte SPR_BOSS, SPR_BFLY, SPR_BEE    ; sprite of a challenge alien, by kind (chal_type)
+type_col:       !byte 5, 2, 14
 
-; Slot s belongs to wave s>>3. Waves 0/2 fly path A, waves 1/3 path B, and
-; waves 2/3 are mirrored left-right (chal_path_tbl).
+wave_clk:       !word 0
+wave_off:       !byte 0
+wave_row_lo:    !byte 0
+wave_row_hi:    !byte 0
+
+; A new stage: the clock and the list of its row
+!zone wave_reset
+wave_reset:
+    lda #0
+    sta wave_clk
+    sta wave_clk+1
+    sta wave_off
+    ldy arc_sidx
+    lda arc_rowof,y
+    lsr
+    pha
+    lda #0
+    ror                         ; $80 for an odd row: a row is 128 bytes
+    sta wave_row_lo
+    pla
+    clc
+    adc #>arc_wl
+    sta wave_row_hi
+    rts
+
+; One tick has passed in which the ship is in play: launch every alien whose time has come
+!zone wave_launch
+wave_launch:
+    inc wave_clk
+    bne .c
+    inc wave_clk+1
+.c:
+    lda wave_row_lo
+    sta zp_col
+    lda wave_row_hi
+    sta zp_col+1
+.next:
+    ldy wave_off
+    cpy #128
+    bcs .rts
+    lda wave_clk
+    sec
+    sbc (zp_col),y              ; clock - tick (16 bits)
+    iny
+    lda wave_clk+1
+    sbc (zp_col),y
+    bcc .rts                    ; not yet
+    iny
+    lda (zp_col),y
+    tax
+    iny
+    lda (zp_col),y
+    sta enemy_path,x
+    iny
+    sty wave_off
+    lda enemy_state,x
+    cmp #6
+    beq .go
+    cmp #7
+    bne .next                   ; not there (FEW)
+.go:
+    lda #1
+    sta enemy_flag,x
+    jsr place_start
+    jmp .next
+.rts:
+    rts
 
 ; Is this a challenge stage? Stages 3, 7, 11, ... are. Sets up the stage.
 !zone begin_stage
@@ -43,43 +104,27 @@ reset_challenge:
     sta ch_hits
     ldx #MAX_ENEMIES-1
 .loop:
-    txa
-    and #7
-    tay
-    lda pos_delay,y
-    sta temp
-    txa
-    lsr
-    lsr
-    lsr
-    tay
-    lda wave_delay,y
-    clc
-    adc temp
-    sta enemy_timer,x           ; Launch delay
-    lda chal_path_tbl,y
-    sta enemy_path,x
     lda #6
     sta enemy_state,x
     lda #0
-    sta enemy_flag,x            ; 0 = waiting, 1 = flying
-    sta enemy_idx,x
+    sta enemy_flag,x
     lda #1
     sta enemy_hp,x
-    lda chal_ptr_tbl,y
+    ldy chal_type,x
+    lda type_ptr,y
     sta enemy_ptr,x
     clc
     adc anim
     sta spr_f,x
-    lda chal_col_tbl,y
+    lda type_col,y
     sta spr_c,x
     lda #$ff
     sta enemy_y,x               ; Hidden
     dex
     bpl .loop
-    rts
+    jmp wave_reset
 
-; Per-frame: launch waiting aliens and move flying ones along their path
+; Per tick: move the flying aliens along their paths, then launch the ones whose time has come
 !zone update_challenge
 update_challenge:
     ldx #MAX_ENEMIES-1
@@ -93,83 +138,47 @@ update_challenge:
     jmp .next
 .flying:
     lda enemy_flag,x
-    bne .fly
-    lda enemy_timer,x
-    beq .launch
-    dec enemy_timer,x
-    jmp .next
-.launch:
-    lda #1
-    sta enemy_flag,x
-    jsr place_start
-    jmp .next
-.fly:
+    beq .next                   ; waiting
     jsr chal_step
 .next:
     dex
     bpl .loop
-    rts
+    jmp wave_launch
 
 ; Put alien X at the start of its path
 !zone place_start
 place_start:
-    lda enemy_path,x
-    and #3
-    tay
-    lda path_y0,y
+    ldy enemy_path,x
+    lda path_sy,y
     sta enemy_y,x
-    lda path_x0,y
+    lda path_sx_lo,y
     sta enemy_x,x
-    lda path_x0h,y
+    lda path_sx_hi,y
     sta enemy_x_msb,x
-    lda enemy_path,x
-    bpl .rts                    ; Not mirrored
-    lda #<344                   ; Mirror x -> 344 - x
-    sec
-    sbc enemy_x,x
-    sta enemy_x,x
-    lda #>344
-    sbc enemy_x_msb,x
-    sta enemy_x_msb,x
-.rts:
+    lda path_lo,y
+    sta enemy_pl,x
+    lda path_hi,y
+    sta enemy_ph,x
     rts
 
 ; One step of alien X along its path. At the end of the path a challenge
-; alien (state 6) leaves; an entering alien (state 7) starts homing.
+; alien (state 6) leaves; an entering alien (state 7) starts homing (one tick later).
 !zone chal_step
 chal_step:
-    lda enemy_path,x
-    and #3
-    sta path_id
-    tay
-    lda enemy_idx,x
-    cmp path_len,y
-    bcs .over                   ; The step after the last one ends the path (as in psp/game.c)
-    lda path_id
-    asl                         ; The tables sit on their own pages: dx A, dy A, dx B, ...
-    adc #>pathA_dx              ; (carry is clear)
-    sta zp_path+1
-    adc #1
-    sta zp_col+1                ; (the colour pointer is free here)
-    lda #0
+    lda enemy_pl,x
     sta zp_path
-    sta zp_col
-    ldy enemy_idx,x
+    lda enemy_ph,x
+    sta zp_path+1
+    ldy #0
     lda (zp_path),y
-    sta step_dx
-    lda (zp_col),y
+    cmp #$ff
+    beq .over                   ; The step after the last one ends the path (as in psp/game.c)
+    tay
+    lda pair_dy,y
     clc
     adc enemy_y,x
     sta enemy_y,x
-    lda enemy_path,x
-    bpl .dx                     ; Not mirrored
-    lda step_dx                 ; Mirrored: negate dx
-    eor #$ff
-    clc
-    adc #1
-    sta step_dx
-.dx:
-    lda step_dx
+    lda pair_dx,y
     bmi .neg
     clc
     adc enemy_x,x
@@ -184,7 +193,10 @@ chal_step:
     bcs .moved
     dec enemy_x_msb,x
 .moved:
-    inc enemy_idx,x
+    inc enemy_pl,x
+    bne .rts
+    inc enemy_ph,x
+.rts:
     rts
 .over:
     lda enemy_state,x

@@ -2,15 +2,13 @@
 #include <string.h>
 #include "game.h"
 
-#define PMAX 256
-#define MIRROR_X 344
-enum { P_A, P_B, P_C, P_D };
+#define PMAX 300
 typedef struct { int sx, sy, n; signed char dx[PMAX], dy[PMAX]; } Path;
 #include "arcade_data.h"   /* the arcade's numbers: stage table, timers, and (RULES_ARCADE) paths, slots and wave lists; made by tools/gen_arcade.py */
 #ifdef RULES_ARCADE
 #define PATH_LEN(i) (arc_path[i].n)
 static void paths_init(void) {}
-#else   /* the C64 layout: the flight paths of the C64 game (made by c64/tools/gen_paths.py) */
+#else   /* the C64 layout: the arcade's paths and wave lists on its 32 slots (made by c64/tools/gen_arcade.py) */
 #include "paths32.h"
 #define PATH_LEN(i) (paths[i].n)
 static void paths_init(void) {}
@@ -37,20 +35,6 @@ static int slot_py(const Game *g, int i) { return slot_y(i) + (g->breathe ? arc_
 #define slot_py(g, i) slot_y(i)
 #endif
 
-#ifndef RULES_ARCADE
-/* Fly-in: launch delay (frames) and path per slot. Bit 4 of the path code = mirrored. */
-static const unsigned char entryDelay[NAL] = {
-    40,44,48,52, 0,4,8,12, 56,60,64,68, 80,84,88,92,
-    96,100, 16,20,24,28, 104,108, 120,124,128,132,136,140,144,148
-};
-static void entry_path(int i, int *path, int *mir) {
-    int w = i < 4 || (i >= 8 && i < 12) ? 2 : i >= 12 && i < 18 ? 3 : i == 22 || i == 23 ? 3 : i >= 24 ? 4 : 1;
-    if (w == 1) { *path = P_C; *mir = (i == 5 || i == 7 || i == 19 || i == 21); }
-    else if (w == 2) { *path = P_D; *mir = 0; }
-    else if (w == 3) { *path = P_D; *mir = 1; }
-    else { *path = P_C; *mir = !((i - 24) & 1); }
-}
-#endif
 
 /* the arcade repeats stages 23..26 (its tables stop there) */
 static int arc_stage_no(int stage) { if (stage > ARC_NSTAGE) stage = ARC_NSTAGE - 3 + ((stage - (ARC_NSTAGE - 3)) & 3); return stage - 1; }
@@ -69,8 +53,8 @@ static void add_score(Game *g, int n) {
 static void setup_stage(Game *g) {
     int i;
     paths_init();
-#ifdef RULES_ARCADE
     int row = arc_stage[arc_stage_no(g->stage)][0];
+#ifdef RULES_ARCADE
     g->challenge = arc_row[row].challenge;
 #else
     g->challenge = (g->stage & 3) == 3;
@@ -90,16 +74,15 @@ static void setup_stage(Game *g) {
 #ifdef RULES_ARCADE
         a->type = i < 4 ? T_BOSS : i < 20 ? T_BUTTERFLY : T_BEE;
 #else
-        a->type = g->challenge ? (i >> 3 == 1 ? T_BUTTERFLY : i >> 3 == 3 ? T_BOSS : T_BEE)
+        a->type = g->challenge ? (chal_type32[i] == 0 ? T_BOSS : chal_type32[i] == 1 ? T_BUTTERFLY : T_BEE)
                                : (i < 4 ? T_BOSS : i < 18 ? T_BUTTERFLY : T_BEE);
 #endif
         a->hp = !g->challenge && a->type == T_BOSS ? 2 : 1;
         a->st = A_ENTER; a->y = 255;
-#ifndef RULES_ARCADE
-        if (g->challenge) { a->path = (i >> 3) & 1 ? P_B : P_A; a->mir = (i >> 3) >= 2; }
-        else { entry_path(i, &a->path, &a->mir); a->dly = 2 * entryDelay[i]; }
-#endif
     }
+#ifdef RULES_ARCADE32   /* the launch list of the stage's row: when each slot starts, and on which path */
+    for (i = 0; i < 32; ++i) { Alien *a = &g->al[wave32[row][i][1]]; a->dly = wave32[row][i][0]; a->path = wave32[row][i][2]; }
+#endif
 #ifdef RULES_ARCADE   /* the launch list of the stage's row: when each slot starts, and on which path (slot -1: an extra enemy, not used yet) */
     for (i = 0; i < arc_row[row].n; ++i) {
         const short *l = arc_row[row].l[i];
@@ -203,13 +186,12 @@ static void path_launch(Alien *a) {
 #else
 static void path_step(Alien *a) {
     const Path *p = &paths[a->path];
-    a->x += a->mir ? -p->dx[a->pstep] : p->dx[a->pstep];
-    a->y += p->dy[a->pstep];
+    a->x += p->dx[a->pstep]; a->y += p->dy[a->pstep];
     ++a->pstep;
 }
 static void path_launch(Alien *a) {
     const Path *p = &paths[a->path];
-    a->ent = 1; a->pstep = 0; a->x = a->mir ? MIRROR_X - p->sx : p->sx; a->y = p->sy;
+    a->ent = 1; a->pstep = 0; a->x = p->sx; a->y = p->sy;
 }
 #endif
 #ifdef RULES_ARCADE
@@ -276,11 +258,7 @@ static void update_challenge(Game *g) {
     for (i = 0; i < NAL; ++i) {
         Alien *a = &g->al[i];
         if (a->st != A_ENTER) continue;
-#ifdef RULES_ARCADE
         if (a->ent == 0) { if (g->chalTimer >= a->dly) path_launch(a); }
-#else
-        if (a->ent == 0) { if (g->chalTimer > (i >> 3) * 55 + (i & 7) * 6) path_launch(a); }   /* (the C64's delay counts down to 0, then launches) */
-#endif
         else if (a->pstep >= PATH_LEN(a->path)) a->st = A_DEAD;
         else path_step(a);
     }

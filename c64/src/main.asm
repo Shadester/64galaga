@@ -154,7 +154,7 @@ run_state:
 !src "src/art.asm"
 
 * = $3400                     ; Free memory up to $9fff for more code
-!src "src/paths.asm"
+!src "src/arcade_wave.asm"
 !src "src/entry.asm"
 !src "src/arcade.asm"
 !src "src/hiscore.asm"
@@ -165,3 +165,8 @@ run_state:
 }
 * = TITLE_COLORS                ; Title picture: colours, screen matrix, bitmap
 !binary "src/title.bin"
+!src "src/arcade_paths.asm"     ; The flight paths follow the picture, up to $9fff
+
+!if * > $a000 {
+    !error "The flight paths have grown into the BASIC ROM area at $a000"
+}
