@@ -1,10 +1,10 @@
 # Our rules against the arcade Galaga
 
-Default: the C reference (`psp/game.c`), the PSP, Amiga, Thumby Color and PICO-8 play by the arcade rules (`-DRULES_C64` or the start
-argument `c64` gives the C64 rules). The C64 and Lynx games (6502 assembly) still have the C64 rules: 40 enemies do not fit (8 sprites a line,
-the arcade rows have 10 bees).
+The C reference (`psp/game.c`), the PSP, Amiga, Thumby Color, PICO-8 and Lynx play by the arcade rules. The old rules of the C64 game are gone from
+the code. The C64 game (6502 assembly) still has them until it is rewritten (see below): 40 enemies do not fit there (8 sprites a line, the arcade
+rows have 10 bees).
 
-The C64 game (6502) cannot show the arcade's rows of 10. For it `psp/game.c` has a third set of rules, `-DRULES_ARCADE32`: the arcade's scheduler
+The C64 game (6502) cannot show the arcade's rows of 10. For it `psp/game.c` has a second layout, `-DRULES_ARCADE32`: the arcade's scheduler
 (sortie timers, stage table, escorts by the wingman table), aimed bombs (at most 4, no bombs from the aliens that fly in), beam by stage,
 respawn rules and challenge scoring (100 a hit, 10,000 for all 32) on the C64's layout, fly-in splines and steering dive. It is the reference
 for the C64 assembly (`psp/tests/test_arcade32.c` tests it). The Lynx plays the full arcade rules with 40 aliens, checked against `psp/game.c`
