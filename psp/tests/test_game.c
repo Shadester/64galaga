@@ -54,6 +54,17 @@ int main(void) {
     g.al[0].x = 300; g.al[0].y = 200; spawn_ebullet(&g, &g.al[0]); assert(g.eb[1].dx == 0);
     g.al[0].x = 100; g.al[0].y = 120; g.px = 60; spawn_ebullet(&g, &g.al[0]); assert(g.eb[2].dx == -BOMB_MAX_DX + 0 || (g.eb[2].dx < 0 && g.eb[2].dx >= -BOMB_MAX_DX));
 
+    /* the fly-in waits while the ship is dead: aliens that have not started do not start */
+    begin(1); g.lives = 3;
+    for (i = 0; i < 5; ++i) game_tick(&g, &none);
+    assert(g.al[8].st == A_ENTER && g.al[8].ent == 0);
+    {
+        int dly = g.al[8].dly;
+        player_hit(&g, 0);
+        for (i = 0; i < 40; ++i) game_tick(&g, &none);
+        assert(g.state == S_DYING && g.al[8].ent == 0 && g.al[8].dly == dly);
+    }
+
     /* bonus lives: 20k, 70k, 140k */
     begin(1); g.lives = 3;
     add_score(&g, 20000); assert(g.lives == 4);

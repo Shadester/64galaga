@@ -326,7 +326,12 @@ static void update_entry(Game *g) {
     for (i = 0; i < NAL; ++i) {
         Alien *a = &g->al[i];
         if (a->st != A_ENTER) continue;
-        if (a->ent == 0) { if (--a->dly <= 0) path_launch(a); }
+        if (a->ent == 0) {
+#ifdef RULES_ARCADE   /* the waves wait while the ship is dead or taken: the aliens in the air finish, the others do not start */
+            if (g->state != S_PLAY) continue;
+#endif
+            if (--a->dly <= 0) path_launch(a);
+        }
         else if (a->ent == 1) { if (a->pstep >= PATH_LEN(a->path)) a->ent = 2; else path_step(a); }
         else {
             int tx = slot_px(g, i), ty = slot_py(g, i);

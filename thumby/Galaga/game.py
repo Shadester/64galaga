@@ -447,6 +447,8 @@ class Game:
             if a.st != A_ENTER:
                 continue
             if a.ent == 0:
+                if ARCADE and self.state != S_PLAY:   # the waves wait while the ship is dead or taken
+                    continue
                 a.dly -= 1
                 if a.dly <= 0:
                     self.path_launch(a)

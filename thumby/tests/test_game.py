@@ -72,6 +72,17 @@ g.al[0].x = 40; g.al[0].y = 200; g.spawn_ebullet(g.al[0]); assert g.eb[0].dx == 
 g.al[0].x = 300; g.al[0].y = 200; g.spawn_ebullet(g.al[0]); assert g.eb[1].dx == 0
 g.al[0].x = 100; g.al[0].y = 120; g.px = 60; g.spawn_ebullet(g.al[0]); assert -G.BOMB_MAX_DX <= g.eb[2].dx < 0
 
+# the fly-in waits while the ship is dead: aliens that have not started do not start
+begin(1); g.lives = 3
+for _ in range(5):
+    g.tick(none)
+assert g.al[8].st == A_ENTER and g.al[8].ent == 0
+dly = g.al[8].dly
+g.player_hit(0)
+for _ in range(40):
+    g.tick(none)
+assert g.state == S_DYING and g.al[8].ent == 0 and g.al[8].dly == dly
+
 # bonus lives: 20k, 70k, 140k
 begin(1); g.lives = 3
 g.add_score(20000); assert g.lives == 4

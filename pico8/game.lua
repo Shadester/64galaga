@@ -459,8 +459,10 @@ function update_entry()
   local a=al[i]
   if a.st==A_ENTER then
    if a.ent==0 then
-    a.dly-=1
-    if a.dly<=0 then path_launch(a) end
+    if state==S_PLAY or not arcade then -- the waves wait while the ship is dead or taken
+     a.dly-=1
+     if a.dly<=0 then path_launch(a) end
+    end
    elseif a.ent==1 then
     if a.pstep>=plen(a) then a.ent=2 else path_step(a) end
    else

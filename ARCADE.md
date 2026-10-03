@@ -9,7 +9,7 @@ Status: the entry (rows 1-6), the dive scheduler, the escorts and the bombs (row
 `tools/compare_arcade.py` checks the dives against the model: for stages 1, 2, 4, 5, 8, 9 and 12 the first 10 launches (who, with
 whom) are the same, and the times differ by less than 45 frames. The formation swing and breathing (row 6), the challenge stages (17: five groups of 8 on the arcade paths, 100 for each enemy,
 10,000 for all 40), the beam (12: it grows for 10 x p6 frames, takes the ship during 64 frames, and goes) and the respawn (24: the
-ship comes back when nothing flies any more) are done too. The hit boxes (22) stay as they are: they are made for our sprite sizes
+ship comes back when nothing flies any more, and entry waves that have not started wait for it) are done too. The hit boxes (22) stay as they are: they are made for our sprite sizes
 and are within a pixel or two of the arcade boxes scaled to our screen. Not done: the bonus bee (16) and the extra flyers of the stage 4+
 entry waves (the model's "transients": 6 to 20 enemies that fly a path, leave and do not join the formation; they are in
 `arc_w*` with slot -1). They need up to 20 more sprites, and the transformed enemies need the art in `c64/src/art_transform.asm`.
