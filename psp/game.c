@@ -211,7 +211,12 @@ static void player_hit(Game *g, int side) {
         g->invuln = 90; g->snd |= SND_HIT; return;
     }
     --g->lives;
-    g->state = S_DYING; g->stateTimer = 63; g->dyingQuiet = 0;
+    g->state = S_DYING; g->dyingQuiet = 0;
+#ifdef RULES_ARCADE
+    g->stateTimer = 107;   /* the arcade waits 4 x 32 frames before the ship comes back */
+#else
+    g->stateTimer = 63;
+#endif
     memset(g->eb, 0, sizeof g->eb); memset(g->ps, 0, sizeof g->ps);
     g->snd |= SND_HIT | SND_DEATH;
 }
@@ -391,6 +396,9 @@ static void dive_step(Game *g, int i) {
     }
     if (a->capdive && a->y >= 196) {
         a->st = A_BEAM; g->cap = C_BEAM; g->beamLen = g->beamAcc = 0; g->beamTimer = 180;
+#ifdef RULES_ARCADE   /* 10 x p6 arcade frames to grow (p6 = 12, 9 or 6 by stage), then 64 frames to take the ship, then the same to go */
+        g->beamPh = 0; g->beamStep = arc_stage[arc_stage_no(g->stage)][1 + 6] * 10 * 5 / 6 / 4;
+#endif
     } else if (a->y >= 244) { a->st = A_RETURN; a->y = 0; a->capdive = 0; }
 }
 #ifdef RULES_ARCADE
@@ -604,11 +612,25 @@ static void update_capture(Game *g) {
     if (g->cap == C_BEAM) {
         Alien *b = &g->al[g->capBoss];
         if (!(g->frame & 31)) g->snd |= SND_SWOOP;
+#ifdef RULES_ARCADE
+        if (g->beamPh == 0) { if (++g->beamAcc >= g->beamStep) { g->beamAcc = 0; if (++g->beamLen >= 4) { g->beamPh = 1; g->beamTimer = 53; } } }
+        else if (g->beamPh == 2) {
+            if (++g->beamAcc >= g->beamStep) { g->beamAcc = 0; if (--g->beamLen <= 0) { g->cap = C_NONE; b->st = A_RETURN; b->y = 0; } }
+        } else
+#else
         if (g->beamLen < 4) { if (++g->beamAcc >= 8) { g->beamAcc = 0; ++g->beamLen; } }
-        else if (g->state == S_PLAY && !g->invuln && g->px >= b->x - 20 && g->px <= b->x + 19) {
+        else
+#endif
+        if (g->state == S_PLAY && !g->invuln && g->px >= b->x - 20 && g->px <= b->x + 19) {
             g->cap = C_PULL; g->state = S_CAPTURED; g->dual = 0;
             memset(g->ps, 0, sizeof g->ps); g->snd |= JG_CAPTURE;
-        } else if (--g->beamTimer <= 0) { g->cap = C_NONE; b->st = A_RETURN; b->y = 0; }
+        } else if (--g->beamTimer <= 0) {
+#ifdef RULES_ARCADE
+            g->beamPh = 2; g->beamAcc = 0;
+#else
+            g->cap = C_NONE; b->st = A_RETURN; b->y = 0;
+#endif
+        }
     } else if (g->cap == C_RESCUE) {
         int tx = g->px + 16;
         if ((g->ry += 3) > 230) g->ry = 230;
@@ -668,12 +690,27 @@ void game_tick(Game *g, const Input *in) {
         else { move_world(g); update_ebullets(g); update_capture(g); }
         if (--g->stateTimer <= 0) {
             if (g->lives <= 0) game_over(g);
-            else { g->state = S_READY; g->stateTimer = 90; }
+            else {
+                g->state = S_READY;
+#ifdef RULES_ARCADE
+                g->stateTimer = 80;   /* 3 x 32 frames after the last flyer is home */
+#else
+                g->stateTimer = 90;
+#endif
+            }
         }
         break;
     case S_READY:
         if (g->challenge) update_aliens(g);
         else move_world(g);
+#ifdef RULES_ARCADE   /* the ship comes back when nothing flies any more: the divers finish first, the beam too */
+        if (!g->challenge) {
+            int k, flying = 0;
+            update_capture(g);
+            for (k = 0; k < NAL; ++k) flying += g->al[k].st == A_DIVE || g->al[k].st == A_RETURN || g->al[k].st == A_BEAM || g->al[k].st == A_ENTER && g->al[k].ent;
+            if (flying) break;
+        }
+#endif
         if (--g->stateTimer <= 0) {
             g->state = S_PLAY; g->px = 160; g->invuln = 120;
 #ifdef RULES_ARCADE   /* after a death the sorties start slowly again */
