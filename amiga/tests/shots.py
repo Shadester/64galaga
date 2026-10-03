@@ -17,17 +17,21 @@ from vamiga import Session  # noqa: E402
 
 LIMIT = 50                      # different pixels allowed
 AUTO = '-DAUTOPLAY -DTITLE_HOLD=0'      # no wait on the title screen: the ticks count from the start
-CAPTURE = AUTO + ' -DFORCECAPTURE'
+C64 = AUTO + ' -DRULES_C64'            # the C64 rules (the default is the arcade rules)
+CAPTURE = C64 + ' -DFORCECAPTURE'
 # name: (flags, ticks until the game freezes; 0 = no freeze)
 CASES = {
     'title': ('', 0),
-    'entry': (AUTO, 230),
-    'play': (AUTO, 900),
-    'challenge': (AUTO + ' -DSTART_STAGE=3', 500),
-    'chalresult': (AUTO + ' -DSTART_STAGE=3', 700),
-    'beam': (CAPTURE, 846),
-    'captured': (CAPTURE, 950),
-    'dual': (CAPTURE, 2700),
+    'entry': (AUTO, 300),                              # the arcade rules (the default)
+    'formation': (AUTO, 1100),
+    'challenge': (AUTO + ' -DSTART_STAGE=3', 600),
+    'c64_entry': (C64, 230),                           # the rules of the C64 game
+    'c64_play': (C64, 900),
+    'c64_challenge': (C64 + ' -DSTART_STAGE=3', 500),
+    'c64_chalresult': (C64 + ' -DSTART_STAGE=3', 700),
+    'c64_beam': (CAPTURE, 846),
+    'c64_captured': (CAPTURE, 950),
+    'c64_dual': (CAPTURE, 2700),
 }
 update = '--update' in sys.argv
 names = [a for a in sys.argv[1:] if a in CASES] or list(CASES)

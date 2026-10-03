@@ -1,5 +1,6 @@
 #include "video.h"
 #include "assets.h"
+#include "game.h"                                  /* NAL and EBN: the arcade rules have 40 aliens and 8 bombs, the C64 rules 32 and 3 */
 
 #define CUSTOM ((volatile u16 *)0xdff000)
 #define W(reg) (CUSTOM[(reg) / 2])
@@ -14,11 +15,7 @@
 #define GUARD 32
 #define BITMAP_BYTES (ROWB * SCREEN_H)
 #define MAX_RECTS 96
-#ifdef RULES_ARCADE
-#define MAX_OBJ 56                                /* sprite slots (main.c): 40 aliens, ship, dual, captive, 4 + 8 bullets */
-#else
-#define MAX_OBJ 42                                /* sprite slots (main.c): aliens, ship, captive, bullets */
-#endif
+#define MAX_OBJ (NAL + 3 + 4 + EBN)                /* sprite slots (main.c): aliens, ship, dual, captive, player shots, bombs */
 #define MAX_TEXTS 8
 
 typedef struct { s16 xw, wd, y, h; } Rect;       /* words from the left of the bitmap, width in words, lines */

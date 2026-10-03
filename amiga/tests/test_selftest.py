@@ -14,7 +14,7 @@ sys.path.insert(0, HERE)
 from vamiga import Session  # noqa: E402
 
 TICKS = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 3000
-ARCADE = ['-DRULES_ARCADE'] if 'arcade' in sys.argv[1:] else []     # the arcade rules instead of the C64 rules
+ARCADE = ['-DRULES_C64'] if 'c64' in sys.argv[1:] else []          # the C64 rules instead of the arcade rules
 SCENARIOS = {'stage1': [], 'challenge': ['-DSTART_STAGE=3'], 'capture': ['-DFORCECAPTURE'], 'late': ['-DSTART_STAGE=11']}
 NAMES = [a for a in sys.argv[1:] if a in SCENARIOS] or list(SCENARIOS)
 

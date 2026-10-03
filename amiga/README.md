@@ -56,6 +56,8 @@ python3 tests/test_selftest.py   # the 68000 against the Mac: 4 scenarios, 3000 
 python3 tests/shots.py           # screenshot tests (--update after a change you want)
 ```
 
+The game plays by the rules of the arcade Galaga (40 enemies, the arcade flight paths, dive scheduler and bombs; see `../ARCADE.md`). The rules of the C64 game (32 enemies) are a build option: `make EXTRA_CFLAGS=-DRULES_C64`. `python3 tests/test_selftest.py 3000 c64` runs the selftest with them.
+
 Debug flags (`make EXTRA_CFLAGS="-DAUTOPLAY -DHALT=900"`): `AUTOPLAY` (the game plays itself), `HALT=n` (freeze after n ticks), `TITLE_HOLD=n` (ticks of the title screen in an autoplay build), `START_STAGE=n`, `FORCECAPTURE`, `SELFTEST=n`, `PROFILE` (with `HALT`: shows the loops of the main loop and the vertical blanks for the ticks: fewer loops = a slower picture).
 
 ## Source layout
