@@ -4,10 +4,12 @@ tomcoolpxl/cool8-cpu (MIT), a model of the arcade program, through tools/gen_arc
 The flight paths are packed: one byte for each step, an index in a table of the (dx, dy) pairs that occur.
 Usage: python3 tools/gen_arcade.py"""
 import os
+import sys
 import re
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
-H = open(os.path.join(ROOT, '..', 'psp', 'arcade_data.h')).read()
+PORTRAIT = 'portrait' in sys.argv[1:]            # the portrait field: ../psp/arcade_data_portrait.h -> src/game/arcade_data_portrait.s
+H = open(os.path.join(ROOT, '..', 'psp', 'arcade_data_portrait.h' if PORTRAIT else 'arcade_data.h')).read()
 
 
 def block(name):
@@ -119,8 +121,8 @@ out += lines('arc_entry_bomb', 'the slots that may drop bombs while they fly in'
 out += lines('arc_wingmen', 'the six butterflies that escort a boss, in the order of the arcade table', wingmen, 6)
 for k in range(12):                       # one array for each column, so that a stage index (0..25) is an 8-bit offset
     out += lines('arc_st%d' % k, 'stage table column %d: %s' % (k, 'the row of waves' if k == 0 else 'parameter p%d' % (k - 1)), [r[k] for r in stage], 26)
-out += lines('arc_fdx', 'the shift of the formation (in C64 pixels) for a swing position -32..32: pos + pos * 3 / 7, rounded towards zero',
-             [(lambda q: q + int(q * 3 / 7))(q) for q in range(-32, 33)], 13)
+out += lines('arc_fdx', 'the shift of the formation (in game units) for a swing position -32..32: %s, rounded towards zero' % ('pos * 88 / 100' if PORTRAIT else 'pos + pos * 3 / 7'),
+             [(lambda q: int(q * 88 / 100) if PORTRAIT else q + int(q * 3 / 7))(q) for q in range(-32, 33)], 13)
 out += lines('arc_red_reload', 'sortie timer reloads of the butterflies', red_reload, 15)
 out += lines('arc_bee_reload', 'sortie timer reloads of the bees', bee_reload, 15)
 out += lines('arc_bomb_tab', 'bomb flags and boss sortie timer reloads', bomb_tab, 16)
@@ -161,5 +163,6 @@ out += lines('arcd_totlo', 'dive paths: ticks of the whole dive', [m[1] & 255 fo
 out += lines('arcd_tothi', '', [m[1] >> 8 for m in dmeta], 16)
 out += lines('arc_dive_map', 'the dive path of [label 0 bee, 1 butterfly, 2 boss and wingmen][row 0..4][side]: 255 none', [v if v >= 0 else 255 for v in dive_map], 10)
 size = sum(l.count(',') + 1 for l in out if l.startswith('    .byte'))
-open(os.path.join(ROOT, 'src', 'game', 'arcade_data.s'), 'w').write('\n'.join(out) + '\n')
-print('src/game/arcade_data.s: about %d bytes (paths %d), %d entry paths, %d dive paths' % (size, len(stream), len(paths), len(dives)))
+OUT = 'arcade_data_portrait.s' if PORTRAIT else 'arcade_data.s'
+open(os.path.join(ROOT, 'src', 'game', OUT), 'w').write('\n'.join(out) + '\n')
+print('src/game/' + OUT + ': about %d bytes (paths %d), %d entry paths, %d dive paths' % (size, len(stream), len(paths), len(dives)))

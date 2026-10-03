@@ -1,10 +1,19 @@
-/* Host-side rule checks of the arcade rules (the default). Build: make test */
+/* Host-side rule checks of the arcade rules (the default; with -DRULES_PORTRAIT the portrait field). Build: make test */
 #include <stdio.h>
 #include <assert.h>
 #include "../game.c"
 
 static Game g;
 static Input none, press = {0, 0, 1, 0, 0};
+#ifdef RULES_PORTRAIT
+#define FIELD_L 8       /* paths start left of this x, right of FIELD_R, or above FIELD_TOP */
+#define FIELD_R 195
+#define FIELD_TOP 0
+#else
+#define FIELD_L 32
+#define FIELD_R 335
+#define FIELD_TOP 50
+#endif
 
 static void begin(int stage) {
     game_init(&g, 0);
@@ -20,7 +29,7 @@ static void formation(void) {   /* everybody in slot */
     g.entering = 0;
 }
 static void shoot(int i) {   /* bullet that hits alien i next collision pass */
-    g.ps[0].act = 1; g.ps[0].x = g.al[i].x + 6; g.ps[0].y = g.al[i].y;
+    g.ps[0].act = 1; g.ps[0].x = g.al[i].x + G_HB_SHOT_XL; g.ps[0].y = g.al[i].y;
     update_collisions(&g);
 }
 static void expect_score(int s) { if (g.score != s) { printf("score %d, want %d\n", g.score, s); assert(0); } }
@@ -31,7 +40,7 @@ int main(void) {
     assert(NAL == 40 && EBN == 8);
     for (i = 0; i < ARC_NPATH; ++i) {   /* every path is long enough and starts at the edge of the 24..343 x 50..249 play area */
         int x = arc_path[i].sx, y = arc_path[i].sy;
-        assert(arc_path[i].n > 50 && (x < 32 || x > 335 || y < 50));
+        assert(arc_path[i].n > 50 && (x < FIELD_L || x > FIELD_R || y < FIELD_TOP));
     }
 
     /* scoring table */
@@ -49,10 +58,10 @@ int main(void) {
     begin(1); formation(); g.al[1].st = A_DIVE; g.al[6].st = A_DIVE; g.al[6].esc = 2; g.al[7].st = A_DIVE; g.al[7].esc = 2; shoot(1); shoot(1); expect_score(1600);
 
     /* a bomb is aimed at the ship, but moves sideways at most 0.6 of its fall speed (the arcade's limit) */
-    begin(1); formation(); g.px = 300; g.py = 230;
-    g.al[0].x = 40; g.al[0].y = 200; spawn_ebullet(&g, &g.al[0]); assert(g.eb[0].dx == BOMB_MAX_DX);
-    g.al[0].x = 300; g.al[0].y = 200; spawn_ebullet(&g, &g.al[0]); assert(g.eb[1].dx == 0);
-    g.al[0].x = 100; g.al[0].y = 120; g.px = 60; spawn_ebullet(&g, &g.al[0]); assert(g.eb[2].dx == -BOMB_MAX_DX + 0 || (g.eb[2].dx < 0 && g.eb[2].dx >= -BOMB_MAX_DX));
+    begin(1); formation(); g.px = G_SHIP_XMAX - 20; g.py = G_SHIP_Y;
+    g.al[0].x = G_LEFT + 16; g.al[0].y = G_SHIP_Y - 30; spawn_ebullet(&g, &g.al[0]); assert(g.eb[0].dx == BOMB_MAX_DX);
+    g.al[0].x = G_SHIP_XMAX - 20; g.al[0].y = G_SHIP_Y - 30; spawn_ebullet(&g, &g.al[0]); assert(g.eb[1].dx == 0);
+    g.al[0].x = G_LEFT + 76; g.al[0].y = G_SHIP_Y - 110; g.px = G_LEFT + 36; spawn_ebullet(&g, &g.al[0]); assert(g.eb[2].dx == -BOMB_MAX_DX + 0 || (g.eb[2].dx < 0 && g.eb[2].dx >= -BOMB_MAX_DX));
 
     /* the fly-in waits while the ship is dead: aliens that have not started do not start */
     begin(1); g.lives = 3;
@@ -107,17 +116,17 @@ int main(void) {
     for (steps = 0; steps < 300 && g.cap == C_RESCUE; ++steps) game_tick(&g, &none);
     assert(g.dual == 1 && g.cap == C_NONE);
     /* dual hit: lose a half, keep the life */
-    g.invuln = 0; i = g.lives; g.eb[0] = (Bullet){g.px + 16, 230, 1, 0, 0}; update_collisions(&g);
+    g.invuln = 0; i = g.lives; g.eb[0] = (Bullet){g.px + G_DUAL_DX, G_SHIP_Y, 1, 0, 0}; update_collisions(&g);
     assert(g.dual == 0 && g.lives == i && g.state == S_PLAY);
 
     /* shooting a carrier in formation loses the captive */
     begin(1); formation(); g.cap = C_CARRY; g.capBoss = 1; shoot(1); shoot(1); assert(g.cap == C_NONE);
 
     /* a challenge stage plays out to its result screen, and its aliens never hurt the ship */
-    begin(3); g.lives = 3; g.px = 160;
+    begin(3); g.lives = 3; g.px = G_SHIP_X0;
     for (steps = 0; steps < 3000 && g.state == S_PLAY; ++steps) {
         Input in = {0, 0, (steps & 15) < 2, 0, 0};
-        in.left = g.px > 60 && (steps / 100) & 1; in.right = !in.left;
+        in.left = g.px > G_LEFT + 36 && (steps / 100) & 1; in.right = !in.left;
         game_tick(&g, &in);
     }
     assert(g.state == S_RESULT && g.lives == 3);
@@ -135,8 +144,13 @@ int main(void) {
     for (steps = 0; steps < 500000; ++steps) {
         Input in; game_autoplay(&g, &in); in.pause = in.quit = 0;
         game_tick(&g, &in);
-        assert(g.px >= 24 && g.px <= 320 && g.lives >= 0 && g.lives <= 9);
+        assert(g.px >= G_LEFT && g.px <= G_SHIP_XMAX && g.lives >= 0 && g.lives <= 9);
         for (i = 0; i < NAL; ++i) assert(g.al[i].x > -400 && g.al[i].x < 800 && g.al[i].y > -100 && g.al[i].y < 400);
+#ifdef RULES_PORTRAIT   /* the Lynx keeps these in one byte, 255 = hidden */
+        assert(g.py <= 254 && g.px <= 254);
+        for (i = 0; i < 4; ++i) assert(!g.ps[i].act || (g.ps[i].y >= 0 && g.ps[i].y <= 254 && g.ps[i].x >= 0 && g.ps[i].x <= 254));
+        for (i = 0; i < EBN; ++i) assert(!g.eb[i].act || (g.eb[i].y >= 0 && g.eb[i].y <= 254 && g.eb[i].x >= -16 && g.eb[i].x <= 254));
+#endif
     }
     printf("ok (final stage %d, hi %d)\n", g.stage, g.hi);
     return 0;

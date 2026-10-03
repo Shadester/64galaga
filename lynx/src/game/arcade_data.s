@@ -89,7 +89,7 @@ arc_st10: ; stage table column 10: parameter p9
 arc_st11: ; stage table column 11: parameter p10
     .byte 0,0,0,10,10,10,0,10,10,10,0,10,10,10,0,10,10,10,0,10,10,10,0,10,10,10
 
-arc_fdx: ; the shift of the formation (in C64 pixels) for a swing position -32..32: pos + pos * 3 / 7, rounded towards zero
+arc_fdx: ; the shift of the formation (in game units) for a swing position -32..32: pos + pos * 3 / 7, rounded towards zero
     .byte 211,212,214,215,216,218,219,221,222,224,225,226,228
     .byte 229,231,232,234,235,236,238,239,241,242,244,245,246
     .byte 248,249,251,252,254,255,0,1,2,4,5,7,8

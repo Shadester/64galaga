@@ -4,7 +4,11 @@
 
 #define PMAX 300
 typedef struct { int sx, sy, n; signed char dx[PMAX], dy[PMAX]; } Path;
+#ifdef RULES_PORTRAIT
+#include "arcade_data_portrait.h"   /* the arcade's numbers in the portrait field (tools/gen_arcade.py portrait) */
+#else
 #include "arcade_data.h"   /* the arcade's numbers: stage table, timers, and (RULES_ARCADE) paths, slots and wave lists; made by tools/gen_arcade.py */
+#endif
 #ifdef RULES_ARCADE
 #define PATH_LEN(i) (arc_path[i].n)
 static void paths_init(void) {}

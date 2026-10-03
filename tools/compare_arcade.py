@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compare the dives of psp/game.c (-DRULES_ARCADE) with the arcade model, launch by launch.
 
-    ARCADE_REF=/path/to/cool8-cpu python3 tools/compare_arcade.py [stage ...]     (default: 1 2 4 5 8 9 12)
+    ARCADE_REF=/path/to/cool8-cpu python3 tools/compare_arcade.py [stage ...]     (default: 1 2 4 5 8 9 12; PORTRAIT=1: the portrait field)
 
 Our game runs with an invulnerable ship that does not shoot, so nothing but the scheduler decides who dives. The model runs the same
 stage (rank 3, ship fixed in the middle). Both print the first launches: time in arcade frames (60 Hz) from the end of the entry,
@@ -38,10 +38,10 @@ def ours(stage, tmp):
     trace = trace.replace('in->pause = 1;', 'in->pause = 0;').replace('script(&g, t, &in);', 'script(&g, t, &in); g.invuln = 100;')
     for name, text in (('game.c', game), ('trace.c', trace)):
         open(os.path.join(tmp, name), 'w').write(text)
-    for h in ('game.h', 'arcade_data.h'):
+    for h in ('game.h', 'arcade_data.h', 'arcade_data_portrait.h'):
         open(os.path.join(tmp, h), 'w').write(open(os.path.join(ROOT, 'psp', h)).read())
     exe = os.path.join(tmp, 'trace')
-    subprocess.run(['cc', '-w', '-O1', '-DRULES_ARCADE', '-DSTART_STAGE=%d' % stage, '-DTICKS=%d' % TICKS, '-o', exe,
+    subprocess.run(['cc', '-w', '-O1', '-DRULES_ARCADE', *(['-DRULES_PORTRAIT'] if os.environ.get('PORTRAIT') else []), '-DSTART_STAGE=%d' % stage, '-DTICKS=%d' % TICKS, '-o', exe,
                     os.path.join(tmp, 'trace.c'), '-lm'], check=True)
     err = subprocess.run([exe], capture_output=True, text=True, check=True).stderr
     start, out = None, []

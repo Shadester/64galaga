@@ -12,7 +12,8 @@ What is made (rank 3, the normal arcade setting):
   - the 40 formation slots (x, y) in our coordinates;
   - the attack parameters of each stage (`stage_parms`) and the three timer tables;
   - the first 26 stages: which row, and whether it is a challenge stage.
-Our coordinates: C64 sprite coordinates (x 24..343, y 50..249), the top left corner of a 24 x 21 sprite.
+Our coordinates: C64 sprite coordinates (x 24..343, y 50..249), the top left corner of a 24 x 21 sprite; with the argument `portrait` the portrait field
+(see GEOMS) is written to psp/arcade_data_portrait.h instead.
 The arcade screen (224 x 288, sprites 16 x 16) is scaled in X by 320 / 224; Y is bent so that the formation rows are 28 px apart (`warp_y`).
 No picture or sound of the arcade is used.
 """
@@ -29,16 +30,21 @@ import galaga_dives as gd          # noqa: E402
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 RANK = 3
 STAGES = 26
-SX = 320 / 224
 TICK = 5 / 6                       # arcade frames (60 Hz) -> game ticks (50 Hz)
-SPRITE_W, SPRITE_H = 24, 21        # C64 sprite; the arcade one is 16 x 16
 
-
-# The arcade rows are 12..16 px apart, our sprites are 21 px high: the formation rows must be 28 px apart. So Y is not scaled
-# by one factor: it is bent between these knots (arcade Y of the five rows -> our Y), above and below them with their own slope.
-Y_KNOTS = [(76, 72), (92, 100), (104, 128), (116, 156), (128, 184)]
-Y_ABOVE, Y_BELOW = 1.0, 0.4
-BREATH_Y = 0.8                   # the rows breathe 0.8 px for each arcade px (they are 28 px apart already, and the ship is below)
+# Two fields. Landscape (the default): the C64 field, x 24..343, y 50..249, 24 x 21 sprites; X is scaled by 320 / 224. The arcade rows are 12..16 px apart and
+# our sprites are 21 px high: the formation rows must be 28 px apart. So Y is not scaled by one factor: it is bent between the knots (arcade Y of the five rows
+# -> our Y), above and below them with their own slope.
+# Portrait (`portrait` as an argument): the arcade's own portrait field at 0.88 units per arcade pixel (a unit is half a Lynx pixel), x 0..203, y 0..253,
+# 16 x 16 sprites, rows 16 units apart (sprites are 16 units high), the ship at y 242, enemies enter above y 0 and leave below y 250 (the arcade's bottom); written to psp/arcade_data_portrait.h (psp/game.h RULES_PORTRAIT).
+GEOMS = {
+    'landscape': dict(SX=320 / 224, X0=24, SPRITE_W=24, SPRITE_H=21, KNOTS=[(76, 72), (92, 100), (104, 128), (116, 156), (128, 184)],
+                      ABOVE=1.0, BELOW=0.4, BREATH_Y=0.8, OFF_Y=255, out='arcade_data.h', ORIG=(24, 50), SIZE=(320, 200)),
+    'portrait': dict(SX=0.88, X0=5, SPRITE_W=16, SPRITE_H=16, KNOTS=[(76, 16), (92, 32), (104, 48), (116, 64), (128, 80)],
+                     ABOVE=0.88, BELOW=0.96, BREATH_Y=1.0, OFF_Y=250, out='arcade_data_portrait.h', ORIG=(0, 0), SIZE=(204, 260)),
+}
+GEOM = GEOMS['portrait' if 'portrait' in sys.argv[1:] else 'landscape']
+SX, X0, SPRITE_W, SPRITE_H, Y_KNOTS, Y_ABOVE, Y_BELOW, BREATH_Y = (GEOM[k] for k in ('SX', 'X0', 'SPRITE_W', 'SPRITE_H', 'KNOTS', 'ABOVE', 'BELOW', 'BREATH_Y'))
 
 
 def warp_y(y):
@@ -52,7 +58,7 @@ def warp_y(y):
 
 def to_ours(x, y):
     """Sprite register (x, y) of the arcade -> top left corner of our sprite."""
-    return (24 + (x - 17 + 8) * SX - SPRITE_W / 2, warp_y(y))
+    return (X0 + (x - 17 + 8) * SX - SPRITE_W / 2, warp_y(y))
 
 
 # --- slots: our index -> arcade object. 0..3 boss, 4..19 butterfly, 20..39 bee
@@ -109,7 +115,7 @@ def steps(pts):
 # and the game steers. The bee and boss dives do not depend on the ship.
 DIVES = [('db_flv_atk_yllw', (3, 4), None), ('db_flv_atk_red', (1, 2), 105), ('db_flv_0411', (0, 1, 2), None)]
 ROW_Y = [76, 92, 104, 116, 128]
-OFF_Y = 255                     # our y where a diver has left the screen
+OFF_Y = GEOM['OFF_Y']           # our y where a diver has left the screen
 
 
 def dive_tracks():
@@ -228,25 +234,27 @@ def main():
     for name, tab in (('arc_red_reload', gd.D_08CD), ('arc_bee_reload', gd.D_08EB), ('arc_bomb_tab', gd.D_0909)):
         out.append('static const unsigned char %s[] = {%s};' % (name, ','.join(str(v) for v in tab)))
     text = '\n'.join(out) + '\n'
-    open(os.path.join(ROOT, 'psp', 'arcade_data.h'), 'w').write(text)
-    print('psp/arcade_data.h', len(text), 'bytes;', len(paths), 'paths,', len(waves), 'rows')
-    if len(sys.argv) > 1:
-        preview(sys.argv[1], paths, waves)
+    open(os.path.join(ROOT, 'psp', GEOM['out']), 'w').write(text)
+    print('psp/' + GEOM['out'], len(text), 'bytes;', len(paths), 'paths,', len(waves), 'rows')
+    pics = [a for a in sys.argv[1:] if a != 'portrait']
+    if pics:
+        preview(pics[0], paths, waves)
 
 
 def preview(fn, paths, waves):
     from PIL import Image, ImageDraw
     S = 2
-    img = Image.new('RGB', (320 * S, 200 * S), (8, 8, 24))
+    (ox, oy), (W, H) = GEOM['ORIG'], GEOM['SIZE']
+    img = Image.new('RGB', (W * S, H * S), (8, 8, 24))
     d = ImageDraw.Draw(img)
     for tok, (x, y), st_ in paths:
         pts = [(x, y)]
         for dx, dy in st_:
             pts.append((pts[-1][0] + dx, pts[-1][1] + dy))
-        d.line([((px - 24) * S, (py - 50) * S) for px, py in pts], fill=(120 + tok * 37 % 135, 90 + tok * 71 % 165, 200))
+        d.line([((px - ox) * S, (py - oy) * S) for px, py in pts], fill=(120 + tok * 37 % 135, 90 + tok * 71 % 165, 200))
     for o in SLOT_OBJ:
         x, y = home(o)
-        d.rectangle([(x - 24) * S, (y - 50) * S, (x - 24 + SPRITE_W) * S, (y - 50 + SPRITE_H) * S], outline=(90, 90, 90))
+        d.rectangle([(x - ox) * S, (y - oy) * S, (x - ox + SPRITE_W) * S, (y - oy + SPRITE_H) * S], outline=(90, 90, 90))
     img.save(fn)
 
 

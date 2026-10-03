@@ -21,9 +21,9 @@
  * 24 x 21 sprites. -DRULES_PORTRAIT is the arcade's own portrait field at 0.88 units per arcade pixel (see tools/gen_arcade.py portrait): 16 x 16 sprites. */
 #ifdef RULES_PORTRAIT
 #define G_LEFT 4            /* the ship's smallest x */
-#define G_SHIP_XMAX 184     /* its biggest x (a dual fighter: less one ship) */
-#define G_SHIP_X0 94        /* where it starts and comes back */
-#define G_SHIP_Y 224        /* its y */
+#define G_SHIP_XMAX 186     /* its biggest x (a dual fighter: less one ship) */
+#define G_SHIP_X0 95        /* where it starts and comes back */
+#define G_SHIP_Y 242        /* its y (the arcade's fighter, y 297, in the bent field of tools/gen_arcade.py) */
 #define G_DUAL_DX 16        /* the second ship of a dual fighter, and a captive docked beside it */
 #define G_SHIP_V 1
 #define G_SHOT_DX 7         /* a shot leaves the ship this far from its x ... */
@@ -33,23 +33,23 @@
 #define G_HIDE_Y 255        /* an enemy that waits to fly in */
 #define G_RET_Y0 (-16)      /* a diver that comes back from the top starts here */
 #define G_OFF_Y 250         /* a diver has left the bottom */
-#define G_BEAM_Y 176        /* the capture boss starts the beam */
-#define G_BOMB_OFF_Y 253    /* a bomb has left the bottom */
-#define G_BOMB_LOW_Y 140    /* no bombs from a diver below this y */
+#define G_BEAM_Y 208        /* the capture boss starts the beam (34 units above the ship, as in the C64 field) */
+#define G_BOMB_OFF_Y 250    /* a bomb has left the bottom */
+#define G_BOMB_LOW_Y 149    /* no bombs from a diver below this y (97 of the arcade's 288 lines above the ship, 0.96 units a line) */
 #define G_BOMB_DY 6         /* a bomb starts this far below the alien's y */
-#define G_MID_X 90          /* the middle of the field (the side a diver peels off to) */
+#define G_MID_X 95          /* the middle of the field (the side a diver peels off to) */
 #define G_CAPT_DY 12        /* a captive rides this far above its boss */
-#define G_HOME_V 1          /* speeds in units a tick: flying home ... */
+#define G_HOME_V 2          /* speeds in units a tick: flying home ... */
 #define G_HOME_NEAR 2       /* ... it is home within this distance */
-#define G_RET_V 1           /* a diver returning from the top */
+#define G_RET_V 2           /* a diver returning from the top */
 #define G_PEEL_VX 1         /* a capture dive peels off sideways ... */
 #define G_PEEL_VY 1
-#define G_CDIVE_V0 1        /* ... and dives (stage 1-4, later) */
-#define G_CDIVE_V1 2
+#define G_CDIVE_V0 2        /* ... and dives (stage 1-4, later) */
+#define G_CDIVE_V1 3
 #define G_TAIL_VY 2         /* the end of a butterfly's dive path */
-#define G_RESC_VY 2         /* a rescued ship flies down ... */
-#define G_RESC_VX 1         /* ... and sideways */
-#define G_PULL_V 1          /* the captured ship is pulled up */
+#define G_RESC_VY 3         /* a rescued ship flies down ... */
+#define G_RESC_VX 2         /* ... and sideways */
+#define G_PULL_V 2          /* the captured ship is pulled up */
 #define G_PULL_DONE 14      /* ... until it is this close to the boss */
 #define G_HB_SHOT_Y 5       /* hit boxes: a shot hits an alien when ... */
 #define G_HB_SHOT_XL 4
