@@ -78,7 +78,7 @@ static void setup_stage(Game *g) {
                                : (i < 4 ? T_BOSS : i < 18 ? T_BUTTERFLY : T_BEE);
 #endif
         a->hp = !g->challenge && a->type == T_BOSS ? 2 : 1;
-        a->st = A_ENTER; a->y = 255;
+        a->st = A_ENTER; a->y = G_HIDE_Y;
     }
 #ifdef RULES_ARCADE32   /* the launch list of the stage's row: when each slot starts, and on which path */
     for (i = 0; i < 32; ++i) { Alien *a = &g->al[wave32[row][i][1]]; a->dly = wave32[row][i][0]; a->path = wave32[row][i][2]; }
@@ -105,7 +105,7 @@ static void start_game(Game *g) {
     g->stage = START_STAGE; g->diff = 1 + (g->stage - 1 - g->stage / 4); if (g->diff > 8) g->diff = 8;
 #endif
     g->nextBonus = 20000;
-    g->dual = 0; g->cap = C_NONE; g->px = 160; g->py = 230; g->invuln = 0; g->dyingQuiet = 0;
+    g->dual = 0; g->cap = C_NONE; g->px = G_SHIP_X0; g->py = G_SHIP_Y; g->invuln = 0; g->dyingQuiet = 0;
     start_stage(g);
 }
 static void game_over(Game *g) {
@@ -114,13 +114,13 @@ static void game_over(Game *g) {
 
 void game_init(Game *g, int hiScore) {
     memset(g, 0, sizeof *g);
-    g->hi = hiScore; g->state = S_TITLE; g->py = 230; g->px = 160;
+    g->hi = hiScore; g->state = S_TITLE; g->py = G_SHIP_Y; g->px = G_SHIP_X0;
 }
 
 /* ---- player ---- */
 static void player_hit(Game *g, int side) {
     if (g->dual) {
-        g->dual = 0; if (side == 0) g->px += 16;
+        g->dual = 0; if (side == 0) g->px += G_DUAL_DX;
         g->invuln = 90; g->snd |= SND_HIT; return;
     }
     --g->lives;
@@ -130,22 +130,22 @@ static void player_hit(Game *g, int side) {
     g->snd |= SND_HIT | SND_DEATH;
 }
 static void update_player(Game *g, const Input *in, int firePress) {
-    int maxx = g->dual ? 304 : 320, i, n;
-    if (in->left) g->px -= 2;
-    if (in->right) g->px += 2;
-    if (g->px < 24) g->px = 24;
+    int maxx = g->dual ? G_SHIP_XMAX - G_DUAL_DX : G_SHIP_XMAX, i, n;
+    if (in->left) g->px -= G_SHIP_V;
+    if (in->right) g->px += G_SHIP_V;
+    if (g->px < G_LEFT) g->px = G_LEFT;
     if (g->px > maxx) g->px = maxx;
     if (!firePress) return;
     for (n = 0; n < (g->dual ? 2 : 1); ++n)
         for (i = n * 2; i < n * 2 + 2; ++i) if (!g->ps[i].act) {
-            g->ps[i].act = 1; g->ps[i].x = g->px + 3 + 16 * n; g->ps[i].y = 214;
+            g->ps[i].act = 1; g->ps[i].x = g->px + G_SHOT_DX + G_DUAL_DX * n; g->ps[i].y = G_SHIP_Y - G_SHOT_DY;
             if (g->state != S_RESULT) ++g->shots;   /* the result screen shows the stage's shots: later ones do not count */
             g->snd |= SND_SHOOT; break;
         }
 }
 static void update_pshots(Game *g) {
     int i;
-    for (i = 0; i < 4; ++i) if (g->ps[i].act && (g->ps[i].y -= 4) < 20) g->ps[i].act = 0;
+    for (i = 0; i < 4; ++i) if (g->ps[i].act && (g->ps[i].y -= G_SHOT_V) < G_SHOT_TOP) g->ps[i].act = 0;
 }
 
 /* ---- aliens ---- */
@@ -166,7 +166,7 @@ static void alien_hit(Game *g, int i) {
     } else pts = a->type == T_BUTTERFLY ? (dive ? 160 : 80) : (dive ? 100 : 50);
     if (a->type == T_BOSS && g->cap && g->capBoss == i) {
         if (g->cap == C_CARRY && (a->st == A_DIVE || a->st == A_RETURN)) {
-            g->cap = C_RESCUE; g->rx = a->x; g->ry = a->y - 16;
+            g->cap = C_RESCUE; g->rx = a->x; g->ry = a->y - G_CAPT_DY;
             pts += 1000; g->snd |= JG_RESCUE;
         } else g->cap = C_NONE;   /* captive lost, or capture cancelled (beam vanishes) */
     }
@@ -205,7 +205,7 @@ static void arc_form_frame(Game *g) {
     if (!g->entering && g->swayPos == 0) { g->breathe = 1; g->bstep = 0; }
     else if (g->swayPos >= 32) g->swayDir = -1;
     else if (g->swayPos <= -32) g->swayDir = 1;
-    g->formDx = g->swayPos + g->swayPos * 3 / 7;   /* 320 / 224 */
+    g->formDx = G_FORM_DX(g->swayPos);   /* the X scale of the field: 320 / 224 */
 }
 static void update_formation(Game *g) {
     int i, n = 0;
@@ -241,13 +241,13 @@ static void update_entry(Game *g) {
             int tx = slot_px(g, i), ty = slot_py(g, i);
 #ifdef RULES_ARCADE32   /* the C64's: an axis that is within 3 px stays, the alien is home when none moves */
             int moved = 0;
-            if (abs(a->x - tx) > 3) { a->x += a->x < tx ? 2 : -2; moved = 1; }
-            if (abs(a->y - ty) > 3) { a->y += a->y < ty ? 2 : -2; moved = 1; }
+            if (abs(a->x - tx) > G_HOME_NEAR) { a->x += a->x < tx ? G_HOME_V : -G_HOME_V; moved = 1; }
+            if (abs(a->y - ty) > G_HOME_NEAR) { a->y += a->y < ty ? G_HOME_V : -G_HOME_V; moved = 1; }
             if (!moved) { a->st = A_FORM; a->x = tx; a->y = ty; }
 #else
-            a->x += a->x < tx ? 2 : a->x > tx ? -2 : 0;
-            a->y += a->y < ty ? 2 : a->y > ty ? -2 : 0;
-            if (abs(a->x - tx) <= 3 && abs(a->y - ty) <= 3) { a->st = A_FORM; a->x = tx; a->y = ty; }
+            a->x += a->x < tx ? G_HOME_V : a->x > tx ? -G_HOME_V : 0;
+            a->y += a->y < ty ? G_HOME_V : a->y > ty ? -G_HOME_V : 0;
+            if (abs(a->x - tx) <= G_HOME_NEAR && abs(a->y - ty) <= G_HOME_NEAR) { a->st = A_FORM; a->x = tx; a->y = ty; }
 #endif
         }
     }
@@ -268,11 +268,11 @@ static void update_challenge(Game *g) {
 #define BOMB_MAX_DX 24
 /* A diver drops no bombs below this line. In the arcade it is 97 of the 288 screen lines above the ship (a third of the screen),
  * so a bomb always falls far: here 67 of 200 lines. */
-#define BOMB_LOW_Y 163
+#define BOMB_LOW_Y G_BOMB_LOW_Y
 static void spawn_ebullet(Game *g, const Alien *a) {
     int i, d = g->px - a->x;
     for (i = 0; i < EBN; ++i) if (!g->eb[i].act) {
-        g->eb[i].act = 1; g->eb[i].x = a->x; g->eb[i].y = a->y + 8;
+        g->eb[i].act = 1; g->eb[i].x = a->x; g->eb[i].y = a->y + G_BOMB_DY;
         /* aimed at the ship's place now: the bomb needs (py - y) / 2.5 ticks to fall, so it moves dx / ticks a tick, in 16ths */
         g->eb[i].ax = 0;
         g->eb[i].dx = 16 * d / ((g->py - g->eb[i].y) * 2 / 5 + 1);
@@ -284,7 +284,7 @@ static void spawn_ebullet(Game *g, const Alien *a) {
 static void start_dive(Game *g, int i, int capture, int peel) {
     Alien *a = &g->al[i];
     a->st = A_DIVE; a->timer = peel; a->capdive = capture;
-    a->dir = capture ? (a->x < g->px ? 1 : -1) : (a->x >= 184 ? 1 : -1);
+    a->dir = capture ? (a->x < g->px ? 1 : -1) : (a->x >= G_MID_X ? 1 : -1);
     g->snd |= SND_SWOOP;
     if (capture) { g->cap = C_DIVING; g->capBoss = i; }
     a->bflags = g->bombFlags; a->btmr = 30;
@@ -300,15 +300,15 @@ static void dive_step_old(Game *g, int i) {
 static void dive_step(Game *g, int i) {
 #endif
     Alien *a = &g->al[i];
-    int dy = g->diff >= 5 ? 3 : 2;
-    if (a->timer > 0) { --a->timer; a->x += 2 * a->dir; a->y += 1; return; }
+    int dy = g->diff >= 5 ? G_CDIVE_V1 : G_CDIVE_V0;
+    if (a->timer > 0) { --a->timer; a->x += G_PEEL_VX * a->dir; a->y += G_PEEL_VY; return; }
     a->y += dy;
     if (a->capdive || (g->frame & 1)) a->x += a->x < g->px ? 1 : a->x > g->px ? -1 : 0;
-    if (a->capdive && a->y >= 196) {
+    if (a->capdive && a->y >= G_BEAM_Y) {
         a->st = A_BEAM; g->cap = C_BEAM; g->beamLen = g->beamAcc = 0; g->beamTimer = 180;
         /* 10 x p6 arcade frames to grow (p6 = 12, 9 or 6 by stage), then 64 frames to take the ship, then the same to go */
         g->beamPh = 0; g->beamStep = arc_stage[arc_stage_no(g->stage)][1 + 6] * 10 * 5 / 6 / 4;
-    } else if (a->y >= 244) { a->st = A_RETURN; a->y = 0; a->capdive = 0; }
+    } else if (a->y >= G_OFF_Y) { a->st = A_RETURN; a->y = G_RET_Y0; a->capdive = 0; }
 }
 #ifdef RULES_ARCADE
 static void dive_step(Game *g, int i) {
@@ -319,13 +319,13 @@ static void dive_step(Game *g, int i) {
         const signed char *d = arc_dive_path[a->dpath].d + 2 * a->pstep;
         a->x += d[0]; a->y += d[1];
     } else {   /* the end of the arcade path of a butterfly (it aims at the ship) */
-        a->y += 3;
+        a->y += G_TAIL_VY;
         if (g->frame & 1) a->x += a->x < g->px ? 1 : a->x > g->px ? -1 : 0;
     }
     ++a->pstep;
-    if (a->y >= 244) {   /* gone below the screen: back from the top when the arcade dive would end (the way back takes slot_y / 2 ticks) */
+    if (a->y >= G_OFF_Y) {   /* gone below the screen: back from the top when the arcade dive would end (the way back takes slot_y / 2 ticks) */
         int total = a->dpath >= 0 ? arc_dive_path[a->dpath].total : 220;
-        a->st = A_RETURN; a->y = 0; a->timer = total - a->pstep - slot_py(g, i) / 2; if (a->timer < 0) a->timer = 0;
+        a->st = A_RETURN; a->y = G_RET_Y0; a->timer = total - a->pstep - (slot_py(g, i) - G_RET_Y0) / G_RET_V; if (a->timer < 0) a->timer = 0;
     }
 }
 #endif
@@ -351,7 +351,7 @@ static void update_aliens(Game *g) {
 #ifdef RULES_ARCADE
             if (a->timer > 0) { --a->timer; break; }
 #endif
-            if ((a->y += 2) >= slot_py(g, i)) {
+            if ((a->y += G_RET_V) >= slot_py(g, i)) {
                 a->y = slot_py(g, i); a->st = A_FORM; a->esc = 0;
 #ifdef RULES_ARCADE   /* the arcade takes 54 frames (bee: 3) to settle a boss or a butterfly: 45 ticks */
                 a->timer = a->type == T_BEE ? 3 : 45;
@@ -465,7 +465,7 @@ static void update_ebullets(Game *g) {
     for (i = 0; i < EBN; ++i) if (g->eb[i].act) {
         g->eb[i].y += 2 + (g->frame & 1);
         g->eb[i].ax += g->eb[i].dx; g->eb[i].x += g->eb[i].ax >> 4; g->eb[i].ax &= 15;
-        if (g->eb[i].y >= 250) g->eb[i].act = 0;
+        if (g->eb[i].y >= G_BOMB_OFF_Y) g->eb[i].act = 0;
     }
 }
 
@@ -478,15 +478,15 @@ static void update_collisions(Game *g) {
 #endif
         Alien *a = &g->al[j];
         if (a->st == A_DEAD || a->st == A_EXPLODE || (a->st == A_ENTER && a->ent == 0)) continue;
-        if (g->ps[i].y - 8 <= a->y && a->y < g->ps[i].y + 8 && a->x - 6 <= g->ps[i].x && g->ps[i].x < a->x + 12) {
+        if (g->ps[i].y - G_HB_SHOT_Y <= a->y && a->y < g->ps[i].y + G_HB_SHOT_Y && a->x - G_HB_SHOT_XL <= g->ps[i].x && g->ps[i].x < a->x + G_HB_SHOT_XR) {
             g->ps[i].act = 0; alien_hit(g, j); break;
         }
     }
     if (g->state != S_PLAY || g->invuln) return;
-    for (i = 0; i < EBN && g->state == S_PLAY; ++i) if (g->eb[i].act && g->eb[i].y >= 227 && g->eb[i].y <= 240) {
+    for (i = 0; i < EBN && g->state == S_PLAY; ++i) if (g->eb[i].act && g->eb[i].y >= G_SHIP_Y + G_HB_BOMB_Y0 && g->eb[i].y <= G_SHIP_Y + G_HB_BOMB_Y1) {
         for (j = 0; j < 1 + g->dual; ++j) {
-            int sx = g->px + 16 * j;
-            if (g->eb[i].x >= sx - 6 && g->eb[i].x <= sx + 7) { g->eb[i].act = 0; player_hit(g, j); break; }
+            int sx = g->px + G_DUAL_DX * j;
+            if (g->eb[i].x >= sx - G_HB_BOMB_XL && g->eb[i].x <= sx + G_HB_BOMB_XR) { g->eb[i].act = 0; player_hit(g, j); break; }
         }
     }
 #ifdef RULES_ARCADE32   /* the C64 tests half of the aliens in a tick, from the last one down */
@@ -498,8 +498,8 @@ static void update_collisions(Game *g) {
         int s;
         if (!((a->st == A_DIVE) || (a->st == A_ENTER && a->ent))) continue;
         for (s = 0; s < 1 + g->dual; ++s) {
-            int sx = g->px + 16 * s;
-            if (a->y >= g->py - 7 && a->y <= g->py + 8 && a->x > sx - 8 && a->x <= sx + 8) {
+            int sx = g->px + G_DUAL_DX * s;
+            if (a->y >= g->py - G_HB_RAM_Y0 && a->y <= g->py + G_HB_RAM_Y1 && a->x > sx - G_HB_RAM_X && a->x <= sx + G_HB_RAM_X) {
                 if (a->capdive) release_capture(g, j);   /* ramming boss drops its captive */
                 if (a->type == T_BOSS && g->cap == C_CARRY && g->capBoss == j) g->cap = C_NONE;
                 a->st = A_EXPLODE; a->timer = 11; g->snd |= SND_EXPLODE;
@@ -516,29 +516,29 @@ static void update_capture(Game *g) {
         if (!(g->frame & 31)) g->snd |= SND_SWOOP;
         if (g->beamPh == 0) { if (++g->beamAcc >= g->beamStep) { g->beamAcc = 0; if (++g->beamLen >= 4) { g->beamPh = 1; g->beamTimer = 53; } } }
         else if (g->beamPh == 2) {
-            if (++g->beamAcc >= g->beamStep) { g->beamAcc = 0; if (--g->beamLen <= 0) { g->cap = C_NONE; b->st = A_RETURN; b->y = 0; } }
+            if (++g->beamAcc >= g->beamStep) { g->beamAcc = 0; if (--g->beamLen <= 0) { g->cap = C_NONE; b->st = A_RETURN; b->y = G_RET_Y0; } }
         } else
-        if (g->state == S_PLAY && !g->invuln && g->px >= b->x - 20 && g->px <= b->x + 19) {
+        if (g->state == S_PLAY && !g->invuln && g->px >= b->x - G_HB_BEAM_XL && g->px <= b->x + G_HB_BEAM_XR) {
             g->cap = C_PULL; g->state = S_CAPTURED; g->dual = 0;
             memset(g->ps, 0, sizeof g->ps); g->snd |= JG_CAPTURE;
         } else if (--g->beamTimer <= 0) {
             g->beamPh = 2; g->beamAcc = 0;
         }
     } else if (g->cap == C_RESCUE) {
-        int tx = g->px + 16;
-        if ((g->ry += 3) > 230) g->ry = 230;
-        g->rx += g->rx < tx ? 2 : g->rx > tx ? -2 : 0;
-        if (g->ry == 230 && g->state == S_PLAY && g->rx - tx >= -4 && g->rx - tx <= 3) {
-            g->cap = C_NONE; g->dual = 1; if (g->px > 304) g->px = 304; g->snd |= JG_RESCUE;
+        int tx = g->px + G_DUAL_DX;
+        if ((g->ry += G_RESC_VY) > G_SHIP_Y) g->ry = G_SHIP_Y;
+        g->rx += g->rx < tx ? G_RESC_VX : g->rx > tx ? -G_RESC_VX : 0;
+        if (g->ry == G_SHIP_Y && g->state == S_PLAY && g->rx - tx >= -G_HB_DOCK_L && g->rx - tx <= G_HB_DOCK_R) {
+            g->cap = C_NONE; g->dual = 1; if (g->px > G_SHIP_XMAX - G_DUAL_DX) g->px = G_SHIP_XMAX - G_DUAL_DX; g->snd |= JG_RESCUE;
         }
     }
 }
 static void update_captured(Game *g) {
     Alien *b = &g->al[g->capBoss];
     update_ebullets(g);
-    g->py -= 2;
-    if (g->py - b->y >= 22) return;
-    g->py = 230; g->cap = C_CARRY; b->st = A_RETURN; b->y = 0; b->capdive = 0;
+    g->py -= G_PULL_V;
+    if (g->py - b->y >= G_PULL_DONE) return;
+    g->py = G_SHIP_Y; g->cap = C_CARRY; b->st = A_RETURN; b->y = G_RET_Y0; b->capdive = 0;
     if (--g->lives <= 0) { game_over(g); return; }
     g->state = S_DYING; g->stateTimer = 100; g->dyingQuiet = 1;
 }
@@ -599,7 +599,7 @@ void game_tick(Game *g, const Input *in) {
             if (flying) break;
         }
         if (--g->stateTimer <= 0) {
-            g->state = S_PLAY; g->px = 160; g->invuln = 120;
+            g->state = S_PLAY; g->px = G_SHIP_X0; g->invuln = 120;
             g->tmr2 += 30; if (g->tmr2 > 120) g->tmr2 = 120;   /* after a death the sorties start slowly again */
         }
         break;

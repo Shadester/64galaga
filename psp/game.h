@@ -17,6 +17,104 @@
 #endif
 #define TICK_HZ 50
 
+/* The geometry of the field, in game units (2 units are one Lynx pixel; x / y are the top left of a sprite box). The default is the C64 field: x 24..343, y 50..249,
+ * 24 x 21 sprites. -DRULES_PORTRAIT is the arcade's own portrait field at 0.88 units per arcade pixel (see tools/gen_arcade.py portrait): 16 x 16 sprites. */
+#ifdef RULES_PORTRAIT
+#define G_LEFT 4            /* the ship's smallest x */
+#define G_SHIP_XMAX 184     /* its biggest x (a dual fighter: less one ship) */
+#define G_SHIP_X0 94        /* where it starts and comes back */
+#define G_SHIP_Y 224        /* its y */
+#define G_DUAL_DX 16        /* the second ship of a dual fighter, and a captive docked beside it */
+#define G_SHIP_V 1
+#define G_SHOT_DX 7         /* a shot leaves the ship this far from its x ... */
+#define G_SHOT_DY 12        /* ... and this far above its y */
+#define G_SHOT_V 4
+#define G_SHOT_TOP 4        /* a shot is gone above this y */
+#define G_HIDE_Y 255        /* an enemy that waits to fly in */
+#define G_RET_Y0 (-16)      /* a diver that comes back from the top starts here */
+#define G_OFF_Y 250         /* a diver has left the bottom */
+#define G_BEAM_Y 176        /* the capture boss starts the beam */
+#define G_BOMB_OFF_Y 253    /* a bomb has left the bottom */
+#define G_BOMB_LOW_Y 140    /* no bombs from a diver below this y */
+#define G_BOMB_DY 6         /* a bomb starts this far below the alien's y */
+#define G_MID_X 90          /* the middle of the field (the side a diver peels off to) */
+#define G_CAPT_DY 12        /* a captive rides this far above its boss */
+#define G_HOME_V 1          /* speeds in units a tick: flying home ... */
+#define G_HOME_NEAR 2       /* ... it is home within this distance */
+#define G_RET_V 1           /* a diver returning from the top */
+#define G_PEEL_VX 1         /* a capture dive peels off sideways ... */
+#define G_PEEL_VY 1
+#define G_CDIVE_V0 1        /* ... and dives (stage 1-4, later) */
+#define G_CDIVE_V1 2
+#define G_TAIL_VY 2         /* the end of a butterfly's dive path */
+#define G_RESC_VY 2         /* a rescued ship flies down ... */
+#define G_RESC_VX 1         /* ... and sideways */
+#define G_PULL_V 1          /* the captured ship is pulled up */
+#define G_PULL_DONE 14      /* ... until it is this close to the boss */
+#define G_HB_SHOT_Y 5       /* hit boxes: a shot hits an alien when ... */
+#define G_HB_SHOT_XL 4
+#define G_HB_SHOT_XR 8
+#define G_HB_BOMB_Y0 (-2)   /* a bomb hits the ship from y - 2 to y + 7 ... */
+#define G_HB_BOMB_Y1 7
+#define G_HB_BOMB_XL 4
+#define G_HB_BOMB_XR 5
+#define G_HB_RAM_Y0 5       /* an alien rams the ship */
+#define G_HB_RAM_Y1 5
+#define G_HB_RAM_X 5
+#define G_HB_BEAM_XL 13     /* the beam takes the ship */
+#define G_HB_BEAM_XR 12
+#define G_HB_DOCK_L 3       /* a rescued ship docks */
+#define G_HB_DOCK_R 2
+#define G_FORM_DX(p) ((p) * 88 / 100)   /* the swing of the formation: arcade pixels to units */
+#else
+#define G_LEFT 24
+#define G_SHIP_XMAX 320
+#define G_SHIP_X0 160
+#define G_SHIP_Y 230
+#define G_DUAL_DX 16
+#define G_SHIP_V 2
+#define G_SHOT_DX 3
+#define G_SHOT_DY 16
+#define G_SHOT_V 4
+#define G_SHOT_TOP 20
+#define G_HIDE_Y 255
+#define G_RET_Y0 0
+#define G_OFF_Y 244
+#define G_BEAM_Y 196
+#define G_BOMB_OFF_Y 250
+#define G_BOMB_LOW_Y 163
+#define G_BOMB_DY 8
+#define G_MID_X 184
+#define G_CAPT_DY 16
+#define G_HOME_V 2
+#define G_HOME_NEAR 3
+#define G_RET_V 2
+#define G_PEEL_VX 2
+#define G_PEEL_VY 1
+#define G_CDIVE_V0 2
+#define G_CDIVE_V1 3
+#define G_TAIL_VY 3
+#define G_RESC_VY 3
+#define G_RESC_VX 2
+#define G_PULL_V 2
+#define G_PULL_DONE 22
+#define G_HB_SHOT_Y 8
+#define G_HB_SHOT_XL 6
+#define G_HB_SHOT_XR 12
+#define G_HB_BOMB_Y0 (-3)
+#define G_HB_BOMB_Y1 10
+#define G_HB_BOMB_XL 6
+#define G_HB_BOMB_XR 7
+#define G_HB_RAM_Y0 7
+#define G_HB_RAM_Y1 8
+#define G_HB_RAM_X 8
+#define G_HB_BEAM_XL 20
+#define G_HB_BEAM_XR 19
+#define G_HB_DOCK_L 4
+#define G_HB_DOCK_R 3
+#define G_FORM_DX(p) ((p) + (p) * 3 / 7)   /* 320 / 224 */
+#endif
+
 enum { S_TITLE, S_INTRO, S_PLAY, S_DYING, S_GAMEOVER, S_CAPTURED, S_RESULT, S_READY };
 enum { T_BOSS, T_BUTTERFLY, T_BEE };
 enum { A_DEAD, A_FORM, A_DIVE, A_RETURN, A_EXPLODE, A_BEAM, A_ENTER };
