@@ -1,5 +1,7 @@
 # Amiga: no cost for the formation sway (copper scroll) + assembly for the hot loops
 
+**Status: section 1 (copper scroll) is done, with the lives in the hud and exact text positions (see CLAUDE.md, "Copper scroll"). Section 2 (assembly) is not done: the measurements show that the moving sprites and the text, not the sway bookkeeping, are what is left (CLAUDE.md, "Where the time goes"). GUARD is 64.**
+
 ## Context
 The Amiga port (`amiga/`, pushed as `406c598`) runs the game at full speed but draws about 20 pictures a second in busy scenes. The worst
 frame is the formation sway: every 9 ticks the 28 formation aliens move 3 pixels together, and 28 clears + 28 blits take about 34 ms.

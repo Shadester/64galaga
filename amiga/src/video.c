@@ -7,16 +7,17 @@
 #define L(reg) (*(volatile u32 *)(0xdff000 + (reg)))
 #define DMACONR W(0x002)
 
-/* A bitmap is 384 pixels wide (the screen has 32 pixels of guard on each side, so a sprite needs no clipping at the sides):
- * 48 bytes a row of a plane, NPL planes a line (32 colours). */
+/* A bitmap is 448 pixels wide (the screen has 64 pixels of guard on each side: a sprite needs no clipping at the sides, and the playfield below
+ * the hud can be shown scrolled by up to 48 pixels): 56 bytes a row of a plane, NPL planes a line (32 colours). */
 #define NPL 5
-#define STRIDE 48
+#define STRIDE 56
 #define ROWB (STRIDE * NPL)
-#define GUARD 32
+#define GUARD 64
 #define BITMAP_BYTES (ROWB * SCREEN_H)
 #define MAX_RECTS 96
 #define MAX_OBJ (NAL + 3 + 4 + EBN)                /* sprite slots (main.c): aliens, ship, dual, captive, player shots, bombs */
 #define MAX_TEXTS 8
+#define MAX_TEXT_CELLS 26                   /* a text of 23 characters, two cells more */
 
 typedef struct { s16 xw, wd, y, h; } Rect;       /* words from the left of the bitmap, width in words, lines */
 typedef struct {
@@ -36,10 +37,13 @@ static Place placed[NBMP][MAX_OBJ];
 Obj want[MAX_OBJ];                                /* the sprites of this frame (video_bob in video.h writes them) */
 static int back;                                  /* the bitmap that is drawn into */
 static int shown = 0, pending = -1;               /* the bitmap on the screen; the one handed to the copper at the last video_end, not yet shown */
-static u16 copper[144];
+#define COPLEN 160
+static u16 copper[NBMP][COPLEN];                  /* a copper list for each bitmap (see build_copper) */
+static int cop_title[NBMP];                       /* the palette that is in a list: 1 title, 0 game */
+static int scroll_d;                              /* this frame: the playfield below the hud is shown shifted to the right by this many pixels */
 static const u16 no_sprite[2] = {0, 0};          /* a sprite list with nothing in it */
 static void stars_init(void);
-static int cop_pal, cop_bpl, cop_spr;             /* indexes in the copper list: the palette values, the bitplane pointers, the sprite pointers */
+static int cop_pal, cop_bpl, cop_spr, cop_bpl2, cop_con1;   /* indexes in the copper list: the palette values, the bitplane pointers (hud, playfield), the sprite pointers, BPLCON1 of the playfield */
 
 /* What the frame asks for. Nothing is drawn until video_end: a sprite that has not changed since this bitmap was drawn last
  * is not drawn again (the formation moves once in about 9 ticks), unless something else is cleared or drawn over it. */
@@ -56,39 +60,60 @@ static void wait_blit(void) {
 }
 void video_wait_blitter(void) { wait_blit(); }
 
-static void copper_set_palette(const u16 *pal) {
+static void copper_set_palette(int b, const u16 *pal) {
     int i;
-    for (i = 0; i < 32; ++i) copper[cop_pal + 2 * i] = pal[i];
+    for (i = 0; i < 32; ++i) copper[b][cop_pal + 2 * i] = pal[i];
 }
 
-void video_init(void) {
-    u16 *c = copper;
+/* The copper list of a bitmap: the setup, the palette, the bitplane pointers for the hud (lines 0 .. TOP - 1, never scrolled), the sprite pointers, then
+ * at the end of the line TOP - 1 (in the horizontal blank) the pointers and BPLCON1 for the playfield, which is shown scrolled by scroll_d.
+ * The fetch starts one word early (DDFSTRT 0x30): the first word is hidden, and BPLCON1 delays the picture to the right by 0 .. 15 pixels. */
+static void build_copper(int b) {
+    u16 *c = copper[b];
     int i;
 #define MOVE(reg, val) (*c++ = (reg), *c++ = (val))
     MOVE(0x100, 0x5200);                          /* BPLCON0: 5 bitplanes, lores, colour */
     MOVE(0x102, 0); MOVE(0x104, 4);               /* BPLCON1, BPLCON2 */
-    MOVE(0x108, ROWB - 40); MOVE(0x10a, ROWB - 40);   /* BPL1MOD, BPL2MOD: the rest of the line of the planes */
-    MOVE(0x092, 0x38); MOVE(0x094, 0xd0);         /* DDFSTRT, DDFSTOP */
+    MOVE(0x108, ROWB - 42); MOVE(0x10a, ROWB - 42);   /* BPL1MOD, BPL2MOD: the rest of the line of the planes (21 words are fetched) */
+    MOVE(0x092, 0x30); MOVE(0x094, 0xd0);         /* DDFSTRT, DDFSTOP */
     MOVE(0x08e, 0x2c81); MOVE(0x090, 0x2cc1);     /* DIWSTRT, DIWSTOP: 320 x 256, PAL */
-    cop_pal = c - copper + 1;
+    cop_pal = c - copper[b] + 1;
     for (i = 0; i < 32; ++i) MOVE(0x180 + 2 * i, 0);
-    cop_bpl = c - copper + 1;
+    cop_bpl = c - copper[b] + 1;
     for (i = 0; i < NPL; ++i) { MOVE(0xe0 + 4 * i, 0); MOVE(0xe2 + 4 * i, 0); }
-    cop_spr = c - copper + 1;
+    cop_spr = c - copper[b] + 1;
     for (i = 0; i < 8; ++i) { MOVE(0x120 + 4 * i, (u32)no_sprite >> 16); MOVE(0x122 + 4 * i, (u32)no_sprite & 0xffff); }
+    *c++ = ((0x2c + TOP - 1) << 8) | 0xd9; *c++ = 0xfffe;     /* WAIT: the end of the last hud line, after the fetch */
+    cop_bpl2 = c - copper[b] + 1;
+    for (i = 0; i < NPL; ++i) { MOVE(0xe0 + 4 * i, 0); MOVE(0xe2 + 4 * i, 0); }
+    cop_con1 = c - copper[b] + 1;
+    MOVE(0x102, 0);
     *c++ = 0xffff; *c++ = 0xfffe;                 /* the end */
-    copper_set_palette(game_palette);
-    for (i = 0; i < NPL; ++i) {
-        u32 p = (u32)bitmap[0] + GUARD / 8 + i * STRIDE;
-        copper[cop_bpl + 4 * i] = p >> 16; copper[cop_bpl + 4 * i + 2] = p & 0xffff;
+#undef MOVE
+}
+
+void video_init(void) {
+    int i, b;
+    for (b = 0; b < NBMP; ++b) {
+        build_copper(b);
+        copper_set_palette(b, game_palette);
+        for (i = 0; i < NPL; ++i) {
+            u32 p = (u32)bitmap[b] + GUARD / 8 - 2 + i * STRIDE;
+            copper[b][cop_bpl + 4 * i] = p >> 16; copper[b][cop_bpl + 4 * i + 2] = p & 0xffff;
+            copper[b][cop_bpl2 + 4 * i] = p >> 16; copper[b][cop_bpl2 + 4 * i + 2] = p & 0xffff;
+        }
     }
-    L(0x080) = (u32)copper;                       /* COP1LC */
+    L(0x080) = (u32)copper[0];                    /* COP1LC */
     W(0x088) = 0;                                 /* COPJMP1 */
     stars_init();
     W(0x096) = 0x8fe0;                            /* DMACON: set, master, bitplanes, copper, blitter, sprites, and the blitter before the CPU */
     back = 1;
     shown = 0;
 }
+
+/* The playfield (below the hud) is shown shifted to the right by d pixels (-48 .. 48): the formation sways without being drawn again. Call it
+ * in every frame, before the sprites: they are drawn at x - d. */
+void video_scroll(int d) { scroll_d = d; }
 
 static void clear_rect(const Rect *r) {
     wait_blit();
@@ -134,11 +159,10 @@ static int static_key[NBMP][4] = {{-1, -1, -1, -1}, {-1, -1, -1, -1}, {-1, -1, -
 
 int video_static_begin(int a, int b, int c, int d) {
     int *k = static_key[back];
-    Rect top = {0, STRIDE / 2, 0, TOP}, bottom = {0, STRIDE / 2, SCREEN_H - 16, 16};
+    Rect top = {0, STRIDE / 2, 0, TOP};
     if (k[0] == a && k[1] == b && k[2] == c && k[3] == d) return 0;
     k[0] = a; k[1] = b; k[2] = c; k[3] = d;
     clear_rect(&top);
-    clear_rect(&bottom);
     wait_blit();
     static_mode = 1;
     return 1;
@@ -203,12 +227,12 @@ static void build_stars(int b) {
 /* The words of the bitmap that a sprite covers, clipped at the top (the hud) and the bottom. 0: nothing to draw. */
 static int obj_rect(const Obj *o, Rect *r, int *skip_out) {
     const SpriteInfo *s;
-    int w, h, skip = 0, y, xb, xw;
+    int w, h, skip = 0, y, xb, xw, top = static_mode ? 0 : TOP;     /* the static layer (hud) is above the playfield */
     if (o->id < 0) return 0;
     s = &sprites[o->id];
     w = s->w; h = s->h; y = o->y; xb = o->x + GUARD; xw = xb >> 4;
     if (xb < 0 || xw + w > STRIDE / 2 - 1) return 0;           /* the guard of 32 pixels is enough for every sprite we draw */
-    if (y < TOP) { skip = TOP - y; y = TOP; }
+    if (y < top) { skip = top - y; y = top; }
     if (skip >= h) return 0;
     if (y + (h - skip) > SCREEN_H) h = SCREEN_H - y + skip;
     if (h <= skip) return 0;
@@ -315,13 +339,13 @@ static void draw_sprites(void) {
 
 /* ---- text and the beam: the CPU draws them, after the sprites (the text) or before (the beam) ---- */
 
-static int text_words(int xb, int n, int *wd) {           /* words that a text covers: the shadow is one cell wider */
-    *wd = ((xb + (n + 1) * 8 - 1) >> 4) - (xb >> 4) + 1;
+static int text_words(int xb, int n, int *wd) {           /* words that a text covers: a shift and the shadow make it two cells wider */
+    *wd = ((xb + (n + 2) * 8 - 1) >> 4) - (xb >> 4) + 1;
     return xb >> 4;
 }
 
-/* Text: 8 x 8 cells, with a shadow of one pixel to the lower right (colour 31). */
-static void text_now(const char *s, int x, int y, int colour) {
+/* The usual case (x a multiple of 8, no shift): text in whole cells, with a shadow of one pixel to the lower right (colour 31). */
+static void text_aligned(const char *s, int x, int y, int colour) {
     int n = 0, xb, c, r, pl;
     u8 *row;
     for (; s[n]; ++n) ;
@@ -343,16 +367,49 @@ static void text_now(const char *s, int x, int y, int colour) {
                 row[pl * STRIDE] |= (colour >> pl & 1 ? main : 0) | (31 >> pl & 1 ? sh : 0);
         }
     }
-    if (!static_mode) {
-        int wd, xw = text_words(xb, n, &wd);
-        add_dirty(xw, wd, y, 9);
+}
+
+
+/* Text with a shift: 8 x 8 cells, with a shadow of one pixel to the lower right (colour 31). x is exact: the glyphs are shifted by x mod 8 (the playfield is
+ * shown scrolled, so a message must be drawn at x - the scroll). */
+static void text_shifted(const char *s, int x, int y, int colour) {
+    int n = 0, xb, c, r, pl, sh;
+    u8 *row;
+    u8 mrow[MAX_TEXT_CELLS], srow[MAX_TEXT_CELLS];
+    for (; s[n]; ++n) ;
+    xb = (x + GUARD) & ~7;
+    sh = (x + GUARD) & 7;
+    for (r = 0; r < 9; ++r) {                     /* 8 rows of glyph and one of shadow */
+        for (c = 0; c < n + 2; ++c) mrow[c] = srow[c] = 0;
+        for (c = 0; c < n; ++c) {
+            int ch = s[c] - 32;
+            u16 v;
+            if (ch < 0 || ch >= 64) continue;
+            if (r < 8) { v = (u16)(font_rows[ch * 8 + r] << 8) >> sh; mrow[c] |= v >> 8; mrow[c + 1] |= v & 255; }
+            if (r > 0) { v = (u16)(font_rows[ch * 8 + r - 1] << 8) >> (sh + 1); srow[c] |= v >> 8; srow[c + 1] |= v & 255; }   /* the glyph of the row above, one pixel right */
+        }
+        row = (u8 *)bitmap[back] + (y + r) * ROWB + (xb >> 3);
+        for (c = 0; c < n + 2; ++c, ++row) {
+            u8 m = mrow[c], sd = srow[c] & ~m;
+            if (!(m | sd)) continue;
+            for (pl = 0; pl < NPL; ++pl)
+                row[pl * STRIDE] |= (colour >> pl & 1 ? m : 0) | (31 >> pl & 1 ? sd : 0);
+        }
     }
+}
+
+static void text_now(const char *s, int x, int y, int colour) {
+    int n = 0, wd, xw;
+    for (; s[n]; ++n) ;
+    if ((x + GUARD) & 7) text_shifted(s, x, y, colour); else text_aligned(s, x, y, colour);
+    if (!static_mode) { xw = text_words((x + GUARD) & ~7, n, &wd); add_dirty(xw, wd, y, 9); }
 }
 
 void video_text(const char *s, int x, int y, int colour) {
     TextReq *t;
     int n, wd, xw, i;
     if (static_mode) { wait_blit(); text_now(s, x, y, colour); return; }
+    x -= scroll_d;
     if (ntext >= MAX_TEXTS || nnew_ov >= MAX_RECTS) return;
     t = &text_req[ntext++];
     for (n = 0; s[n] && n < 23; ++n) t->s[n] = s[n];
@@ -411,7 +468,6 @@ void video_title(int on) {
         W(0x058) = ((TITLE_H * NPL) << 6) | 20;
         has_title[back] = 1;
         static_key[back][0] = -1;                              /* the title covers the hud: draw it again later */
-        { Rect bottom = {0, STRIDE / 2, SCREEN_H - 16, 16}; clear_rect(&bottom); }       /* the lives */
     } else if (!on && has_title[back]) {
         Rect r = {0, STRIDE / 2, 0, TITLE_H};
         clear_rect(&r);
@@ -426,16 +482,23 @@ void video_end(int title) {
     wait_blit();
     build_stars(back);
     for (i = 0; i < ntext; ++i) text_now(text_req[i].s, text_req[i].x, text_req[i].y, text_req[i].colour);
-    while (((W(0x004) & 1) << 8 | W(0x006) >> 8) < 8) ;       /* the copper reads the list in the first lines of the frame: not now */
-    copper_set_palette(title ? title_palette : game_palette);
-    for (i = 0; i < NPL; ++i) {
-        u32 p = (u32)bitmap[back] + GUARD / 8 + i * STRIDE;
-        copper[cop_bpl + 4 * i] = p >> 16; copper[cop_bpl + 4 * i + 2] = p & 0xffff;
+    if (cop_title[back] != title) { copper_set_palette(back, title ? title_palette : game_palette); cop_title[back] = title; }
+    {
+        int coarse = scroll_d >> 4, fine = scroll_d & 15;             /* floor: a negative shift is a smaller pointer and a bigger delay */
+        u16 *c = copper[back];
+        for (i = 0; i < NPL; ++i) {
+            u32 p = (u32)bitmap[back] + GUARD / 8 - 2 + i * STRIDE, q = p - 2 * coarse + TOP * ROWB;   /* (the pointers go on from the next line, TOP) */
+            c[cop_bpl + 4 * i] = p >> 16; c[cop_bpl + 4 * i + 2] = p & 0xffff;
+            c[cop_bpl2 + 4 * i] = q >> 16; c[cop_bpl2 + 4 * i + 2] = q & 0xffff;
+        }
+        c[cop_con1] = fine * 0x11;
+        for (i = 0; i < 2; ++i) {                  /* sprites 4 and 5: the stars of this bitmap */
+            u32 p = (u32)star_list[back][i];
+            c[cop_spr + 4 * (4 + i)] = p >> 16; c[cop_spr + 4 * (4 + i) + 2] = p & 0xffff;
+        }
     }
-    for (i = 0; i < 2; ++i) {                      /* sprites 4 and 5: the stars of this bitmap */
-        u32 p = (u32)star_list[back][i];
-        copper[cop_spr + 4 * (4 + i)] = p >> 16; copper[cop_spr + 4 * (4 + i) + 2] = p & 0xffff;
-    }
+    while (((W(0x004) & 1) << 8 | W(0x006) >> 8) < 8) ;       /* COP1LC is read at the vertical blank: not now (the first lines) */
+    L(0x080) = (u32)copper[back];                  /* the copper runs this list from the next frame on; the list of the shown bitmap is not touched */
     settle_display();                              /* (a vertical blank may have come while we drew) */
     published = vbl_count;
     pending = back;

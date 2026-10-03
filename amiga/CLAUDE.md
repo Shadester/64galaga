@@ -37,6 +37,7 @@ python3 tests/shots.py [--update] [case ...]   # screenshots in vAmigaWeb; look 
   `pending` (handed over, not yet shown); `settle_display()` must run whenever a bitmap is chosen or handed over, because a vertical blank
   can come at any time. Without it the bitmap on the screen is taken for a free one, and the game draws in it (flicker, missing text:
   it showed up in 1 of 5 screenshots). The copper list is changed only after line 8 of the frame: the copper reads it at the top.
+- **Copper scroll:** the play area (lines `TOP` and below) is shown shifted by `video_scroll(d)` = `formDx`. Each bitmap has its own copper list (`build_copper`): the hud lines use pointers at `bitmap + GUARD/8 - 2`, a `WAIT` at the end of line `TOP - 1` (horizontal 0xd9) sets the pointers again for the play area, `BPLCON1` = `(d & 15) * 0x11` and the pointers `- 2 * (d >> 4)` bytes. The fetch starts one word early (`DDFSTRT 0x30`, 21 words a line, the first one hidden). Everything below the hud is drawn at `x - d` (`SX` in `main.c`, `video_text`), so a formation alien stays still in the bitmap. Text is drawn at any pixel (`text_shifted`; `text_aligned` is the fast path when x is a multiple of 8). The lives are in the hud (the bottom is scrolled). Checked: the pictures are the same as without the scroll at 8 times (a git worktree of the commit before, `HALT` 300 .. 2600).
 - **Bitmaps:** `NPL` = 5 interleaved bitplanes, 32 colours (a line = plane 0 .. 4 rows), so one blit draws a sprite in all planes
   (the height is `NPL` x the lines, the modulo is 48 - 2 x the width). The bitmap is 384 pixels wide (32 pixels of guard each side), so sprites need no
   clipping at the sides. Sprite data has one extra zero word on the right (the blitter shifts into it). A cookie-cut blit is
@@ -57,8 +58,9 @@ python3 tests/shots.py [--update] [case ...]   # screenshots in vAmigaWeb; look 
   the formation slots are a table. The game catches up with up to 6 ticks a loop, so its speed is right (about 97 % in a busy autoplay run).
   Measure with `-DPROFILE -DHALT=900 -DAUTOPLAY -DTITLE_HOLD=0`: when the game stops it shows `LOOPS n Vm` = the loops of the main loop and
   the vertical blanks that 900 ticks needed (900 loops = 50 pictures a second; 400 = about 22). A busy autoplay run gives about 400: the
-  formation moves 28 sprites at once every 9 ticks, and a 25 ms picture follows. Text is slow too (a line of 20 characters is about
+  formation moves 28 sprites at once every 9 ticks, and a 25 ms picture follows (now the copper scroll does the sway: while the aliens fly in and sway, 177 loops instead of 145 for 300 ticks; the other scenes are the same). Text is slow too (a line of 20 characters is about
   20 ms with the CPU): keep text out of the frames, do not print numbers every frame.
+- **Where the time goes** (`-DPROFILE` also shows `T` = beam lines/16 that the ticks needed and `D` = the pictures): the game ticks alone keep 50 pictures a second; a picture with 30 moving aliens needs 20-25 ms, a still formation 6 ms. The blitter is not the whole story: with the blits switched off a busy scene reaches only 80 %. Tried and not kept: a copy blit (B to D, 2 channels) instead of the cookie cut for sprites that are alone in their cells: no faster. Text is slow because the CPU gets few chip RAM cycles (about 20 ms for 20 characters); a cache of unchanged text, or cells made in advance, would help the intro and result screens.
 - **16-bit friendly code:** a 32-bit `*` and `/` call libgcc (slow on a 68000). The scripted-game hash uses rotate / xor / add for this reason.
 
 ## vAmigaWeb (the test emulator)

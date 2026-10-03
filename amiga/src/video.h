@@ -12,6 +12,7 @@ typedef unsigned long u32;
 
 void video_init(void);
 void video_begin(void);                              /* the next frame: clear what the frame before drew in this bitmap */
+void video_scroll(int d);                            /* the playfield below the hud is shown d pixels to the right (-48 .. 48): draw at x - d */
 void video_end(int title);                           /* show it (at the next vertical blank), with the title or the game palette */
 void video_title(int on);                            /* the title picture on or off in the bitmap (call it in every frame) */
 typedef struct { s16 id, x, y; } Obj;                 /* a sprite in a slot (id -1: nothing) */

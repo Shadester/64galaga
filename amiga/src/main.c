@@ -61,7 +61,8 @@ static void centre(const char *s, int y, int colour) { video_text(s, (SCREEN_W -
 enum { SLOT_SHIP = NAL, SLOT_DUAL, SLOT_CAPTIVE, SLOT_PBUL, SLOT_EBUL = SLOT_PBUL + 4 };
 
 /* C64 position of a sprite box -> screen */
-#define SX(x) ((x) - 24)
+static int scroll;                                /* the formation's sway (formDx): the playfield is shown shifted by it (copper), so everything is drawn at x - scroll */
+#define SX(x) ((x) - 24 - scroll)
 #define SY(y) ((y) - 50 + TOP)
 
 static void draw_hud(const Game *g) {
@@ -74,7 +75,7 @@ static void draw_hud(const Game *g) {
     put_num(b, g->score, 6); b[6] = 0; video_text(b, 8, 12, WHITE);
     put_num(b, g->hi, 6); b[6] = 0; video_text(b, 136, 12, WHITE);
     put_num(b, g->stage, 2); b[2] = 0; video_text(b, 264, 12, WHITE);
-    for (i = 0; i < g->lives && i < 9; ++i) video_static_bob(SPR_LIFE, 8 + i * 14, SCREEN_H - 14);
+    for (i = 0; i < g->lives && i < 8; ++i) video_static_bob(SPR_LIFE, 64 + (i & 3) * 14, 2 + (i >> 2) * 13);   /* the lives: two rows of four, in the hud */
     video_static_end();
 }
 
@@ -116,12 +117,17 @@ static void draw_messages(const Game *g) {
 
 #ifdef PROFILE
 static int loops;                                 /* PROFILE (+ HALT): loops of the main loop; fewer loops for the same ticks = a slower picture */
-static u32 vbl_start, vbl_halt;                   /* the VBLs the game needed for HALT ticks: HALT = 50 a second */
+static u32 vbl_start, vbl_halt;
+static u32 lines_tick, lines_draw;                /* PROFILE: the beam lines (64 us) that the ticks and the picture needed in total */
+extern volatile u32 vbl_count;
+static u32 now_lines(void) { u32 v; do { v = vbl_count; } while (v != vbl_count); return v * 313 + ((REG(0x004) & 1) << 8 | REG(0x006) >> 8); }                   /* the VBLs the game needed for HALT ticks: HALT = 50 a second */
 #endif
 
 static void draw(const Game *g) {
     int i, anim = (g->frame >> 4) & 1;
     video_begin();
+    scroll = g->state == S_TITLE ? 0 : g->formDx;
+    video_scroll(scroll);
     video_title(g->state == S_TITLE);
     if (g->state == S_TITLE) {
         char b[20] = "HI-SCORE ";
@@ -166,7 +172,7 @@ static void draw(const Game *g) {
     }
     draw_messages(g);
 #if defined(PROFILE) && defined(HALT)
-    if (g->frame + 3 >= HALT) { char b[32] = "LOOPS "; char *p = put_num(b + 6, loops, 4); *p++ = ' '; *p++ = 'V'; p = put_num(p, vbl_halt > 9999 ? 9999 : vbl_halt, 4); *p = 0; video_text(b, 60, 244, WHITE); }
+    if (g->frame + 3 >= HALT) { char b[40] = "LOOPS "; char *p = put_num(b + 6, loops, 4); *p++ = ' '; *p++ = 'T'; p = put_num(p, (lines_tick >> 4) % 10000, 4); *p++ = ' '; *p++ = 'D'; p = put_num(p, (lines_draw >> 4) % 10000, 4); *p = 0; video_text(b, 60, 244, WHITE); }
 #endif
     video_end(0);
 }
@@ -200,6 +206,9 @@ int main(void) {
 #endif
 #endif
         last = now;
+#ifdef PROFILE
+        u32 t0 = now_lines(), t1, t2;
+#endif
         read_input(&in);
         while (n--) {
 #ifdef HALT
@@ -221,6 +230,16 @@ int main(void) {
 #if defined(PROFILE) && defined(HALT)
         if (t >= HALT && !vbl_halt) vbl_halt = vbl_count - vbl_start;
 #endif
+#ifdef PROFILE
+        t1 = now_lines();
+#endif
         draw(&g);
+#ifdef PROFILE
+        t2 = now_lines();
+#ifdef HALT
+        if (t < HALT)
+#endif
+        { lines_tick += t1 - t0; lines_draw += t2 - t1; }
+#endif
     }
 }
