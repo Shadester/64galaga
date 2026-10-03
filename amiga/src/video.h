@@ -1,4 +1,4 @@
-/* The screen: two bitmaps of 4 interleaved bitplanes (16 colours), drawn with the blitter while the other one is shown. */
+/* The screen: three bitmaps of 5 interleaved bitplanes (32 colours), drawn with the blitter while another one is shown. */
 #ifndef VIDEO_H
 #define VIDEO_H
 typedef unsigned char u8;

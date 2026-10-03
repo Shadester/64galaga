@@ -152,4 +152,62 @@ def small_ship():
 
 PBUL = ['Cw', 'Cw', 'Cw', 'CC', 'CC', 'CC', 'DC', 'DC', 'D.', 'D.']
 EBUL = ['.yy.', 'yyyy', 'yeey', 'yeey', 'deed', 'deed', 'deed', 'deed', '.dd.']
+
+# ---- the aliens: our own 16 x 16 art of ../psp/art.h (the same pictures as the other ports), 1.5 times as big: 24 wide, as on the C64 ----
+import os
+import re
+
+_H = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'psp', 'art.h')).read()
+PSP = {m.group(1): re.findall(r'"([^"]*)"', m.group(2)) for m in re.finditer(r'static ArtRows art_(\w+) = \{(.*?)\};', _H, re.S)}
+LETTER = {'y': 'y', 'Y': 'Y', 'c': 'C', 'w': 'w', 'k': 'K', 'o': 'O', 'r': 'e', 'b': 'b', 'g': 's'}
+HALF12 = [0, 1, 1, 2, 3, 3, 4, 5, 5, 6, 7, 7]               # 8 columns of the left half -> 12 (every third one doubled), then mirrored
+
+
+def from_psp(name, own):
+    """The 16 x 16 art `name` (left half given) as 24 pixels wide, 1.5 times as high; m, M, n are the own colour's mid, light and dark tones."""
+    rows = PSP[name]
+    used = [y for y in range(16) if rows[y].strip('.')]
+    rows = rows[used[0]:used[-1] + 1]
+    tone = {'m': BODY[own][1], 'M': BODY[own][2], 'n': BODY[own][0]}
+    ry = [i * 2 // 3 for i in range(len(rows) * 3 // 2)]
+    out = []
+    for y in ry:
+        half = ''.join((tone.get(rows[y][x]) or LETTER.get(rows[y][x], '.')) for x in HALF12)
+        out.append(half + half[::-1])
+    return out
+
+
+def hand(name):
+    kind, f = name.split('_')
+    base = {'bee': 'bee', 'bfly': 'bfly', 'boss': 'boss', 'bossp': 'boss'}[kind]
+    own = {'bee': 'b', 'bfly': 'r', 'boss': 'g', 'bossp': 'p'}[kind]
+    return from_psp(f'{base}_{f}', own)
+
+
+def ship_psp(cols=(0, 1, 2, 3, 3, 4, 5, 6, 7, 7), height=22, remap=None):
+    """The fighter of psp/art.h: 20 pixels wide (10 columns mirrored) and `height` rows. The art has its own shading, so it is not shaded again."""
+    rows = PSP['player']
+    used = [y for y in range(16) if rows[y].strip('.')]
+    rows = rows[used[0]:used[-1] + 1]
+    out = []
+    for i in range(height):
+        half = ''.join(LETTER.get(rows[i * len(rows) // height][x], '.') for x in cols)
+        row = half + half[::-1]
+        out.append(''.join((remap or {}).get(ch, ch) for ch in row))
+    return out
+
+
+def ship():
+    return ship_psp()
+
+
+def captive():
+    """The same ship, red and pink (the fighter that the boss has captured)."""
+    return ship_psp(remap={'w': 'n', 'b': 'e', 'e': 'y', 'C': 'o'})
+
+
+def small_ship():
+    return ship_psp(cols=(0, 1, 3, 4, 6, 7)[:5], height=11)
+
+
 EXTRA = [ship(), captive(), small_ship()]

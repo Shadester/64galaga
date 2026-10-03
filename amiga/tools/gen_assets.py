@@ -72,7 +72,7 @@ def sprite_list():
     for name, own in (('bee', 'b'), ('bfly', 'r'), ('boss', 'g'), ('bossp', 'p')):
         base = 'boss' if name == 'bossp' else name
         for f in 'ab':
-            sp.append((f'{name}_{f}', art.alien(crop(T.recolour(c[f'{base}_{f}'], 'o')), own)))
+            sp.append((f'{name}_{f}', art.hand(f'{name}_{f}')))
     sp += [('ship', art.ship()), ('captive', art.captive()), ('pbul', art.PBUL), ('ebul', art.EBUL)]
     for n in (1, 2, 3):
         sp.append((f'expl{n}', art.alien(crop(T.recolour(c[f'expl{n}'], 'o')), 'O')))
