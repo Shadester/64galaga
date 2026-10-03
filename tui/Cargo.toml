@@ -4,9 +4,23 @@ version = "0.1.0"
 edition = "2021"
 description = "Galaga for the terminal: the arcade rules of psp/game.c in Rust, half-block pixel art"
 
+[lib]
+crate-type = ["rlib", "cdylib"]      # the cdylib is the WebAssembly module of docs/tui (tools/build_web.sh)
+
+[[bin]]
+name = "galaga-tui"
+path = "src/main.rs"
+required-features = ["terminal"]
+
+[features]
+default = ["terminal"]
+terminal = ["dep:crossterm"]         # the terminal front end; without it the library is the rules and the renderer only
+
 [dependencies]
-crossterm = "0.28"
+crossterm = { version = "0.28", optional = true }
 
 [profile.release]
-opt-level = 3
+opt-level = "s"
 lto = true
+panic = "abort"
+strip = true

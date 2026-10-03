@@ -53,6 +53,13 @@ impl Frame {
     }
 }
 
+/// The frame for a window that is too small for the game: a message.
+pub fn too_small(cols: usize, rows: usize) -> Frame {
+    let mut f = Frame::new(cols, rows);
+    f.ctext((rows / 2) as i32, &format!("Please make the window at least {} x {} (now {} x {})", MIN_COLS, MIN_ROWS, cols, rows), [255, 255, 255], None);
+    f
+}
+
 /// How the play area fits the window: k game pixels for one canvas pixel.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Layout {

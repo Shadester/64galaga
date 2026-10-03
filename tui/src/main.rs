@@ -3,7 +3,7 @@ use crossterm::event::{self, Event};
 use galaga_tui::game::*;
 use galaga_tui::hiscore;
 use galaga_tui::input::Keys;
-use galaga_tui::render::{layout, Renderer, MIN_COLS, MIN_ROWS};
+use galaga_tui::render::{layout, Renderer};
 use galaga_tui::term::Term;
 use std::io;
 use std::time::{Duration, Instant};
@@ -80,12 +80,7 @@ fn main() -> io::Result<()> {
         if dirty && now.duration_since(last_draw) >= FRAME {
             match renderer.as_mut() {
                 Some(r) => term.present(r.draw(&game, cols, rows))?,
-                None => {
-                    use galaga_tui::render::Frame;
-                    let mut f = Frame::new(cols, rows);
-                    f.ctext((rows / 2) as i32, &format!("Please make the window at least {} x {} (now {} x {})", MIN_COLS, MIN_ROWS, cols, rows), [255, 255, 255], None);
-                    term.present(f)?;
-                }
+                None => term.present(galaga_tui::render::too_small(cols, rows))?,
             }
             last_draw = now;
             dirty = false;
