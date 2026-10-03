@@ -3,6 +3,7 @@
 
 ; Flight path data (src/paths.asm), indexed by path: 0 = A, 1 = B (challenge
 ; stages), 2 = C, 3 = D (fly-in). enemy_path = path | $80 when mirrored.
+.ifndef ARCADE
 path_x0:        .byte <PATHA_X0, <PATHB_X0, <PATHC_X0, <PATHD_X0
 path_x0h:       .byte >PATHA_X0, >PATHB_X0, >PATHC_X0, >PATHD_X0
 path_y0:        .byte PATHA_Y0, PATHB_Y0, PATHC_Y0, PATHD_Y0
@@ -12,6 +13,7 @@ chal_path_tbl:  .byte 0, 1, $80, $81            ; path per wave
 wave_delay:     .byte 0, 55, 110, 165           ; frames before a wave starts
 pos_delay:      .byte 0, 6, 12, 18, 24, 30, 36, 42  ; ... and between its aliens
 chal_ptr_tbl:   .byte SPR_BEE, SPR_BFLY, SPR_BEE, SPR_BOSS    ; sprite per wave
+.endif
 
 ; Slot s belongs to wave s>>3. Waves 0/2 fly path A, waves 1/3 path B, and
 ; waves 2/3 are mirrored left-right (chal_path_tbl).

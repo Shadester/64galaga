@@ -1,6 +1,6 @@
 # galaga for the Atari Lynx
 
-Port of the C64 game (`../c64`, the reference for the rules) to the Atari Lynx in 6502 assembly (ca65/ld65).
+The Atari Lynx game in 6502 assembly (ca65/ld65). It plays by the arcade rules (`../ARCADE.md`; `src/game/arc.s` translates `../psp/game.c`, the reference); `-D RULES_C64=1` builds the rules of the C64 game (`../c64`) it started from.
 `README.md` has the features, controls, build commands, debug flags and the source layout.
 
 ## Build, run, test
@@ -19,7 +19,7 @@ python3 tools/make_gif.py # re-record docs/gameplay.gif
   to add for the boot ROM (it takes about 60: 400 is a safe margin).
 - `tools/dbg.py ROM FRAMES label[:size] ...` prints memory by label. Only exported labels are in `build/galaga.lbl`:
   add a name to the `.export` line of `src/game.s` when you need one.
-- `python3 ../tools/compare_6502.py lynx SCENARIO` runs a scripted game in the ROM (Gearlynx) and in the C reference `psp/game.c` and compares the
+- `python3 ../tools/compare_6502.py lynx SCENARIO` (arc_entry, arc_shoot, arc_chal, arc_dive, arc_dive2, arc_play, arc_capture, arc_rescue) runs a scripted game in the ROM (Gearlynx) and in the C reference `psp/game.c` and compares the
   game state at checkpoints (the state is read by label: the labels it needs are exported in `src/game.s`). `list` shows the scenarios. It reads the game's
   own tick counter (`frame`), so a slow frame does not break it. Only games without random numbers can be compared exactly (the arcade rules, and the
   start of the C64 rules).
@@ -33,8 +33,10 @@ python3 tools/make_gif.py # re-record docs/gameplay.gif
   frame has about 60-70 SCBs and 40 aliens fit (the static 40-alien test build: 70). `-DPROFILE=1` counts late frames, the most sprites of a frame and
   the sprites that did not fit (`late_frames`, `scb_peak`, `scb_over`, read with `tools/dbg.py`). `add_sprite` drops a sprite when the SCB pool
   (`MAX_SCB`) is full.
-- `-DARCADE=1` is the build with 40 aliens in the arcade formation (slot tables from `src/game/arcade_data.s`, made by `tools/gen_arcade.py`
-  from `../psp/arcade_data.h`). It has no fly-in yet: the aliens stand in their slots.
+- The arcade rules are the default (`ARCADE` is set in `src/constants.inc` unless `RULES_C64` is defined). Their data (`src/game/arcade_data.s`) is made by
+  `tools/gen_arcade.py` from `../psp/arcade_data.h`; the flight paths are a bit stream (second differences, see the generator), 5.4 KB for 62 paths.
+  The aliens' positions are signed 16-bit numbers (`ax_lo/hi`, `ay_lo/hi`): `arc_sync_aliens` makes the sprite tables from them each tick. MAIN ends at about
+  `$96EA`: it must stay below `$A000` (the frame buffer), so little room is left.
 
 - **Suzy and the CPU:** poll `SPRSYS` for "sprite engine busy" only after `stz CPUSLEEP`: the emulator advances the
   engine while the CPU sleeps. Then `stz SDONEACK`, or the next frame's sleep never ends (`frame_end`).
@@ -58,7 +60,7 @@ python3 tools/make_gif.py # re-record docs/gameplay.gif
 
 ## Conventions
 
-- The modules in `src/game/` are the C64 modules with ACME syntax turned into ca65 syntax. Keep the C64 labels and
-  comments, so a change in the C64 code can be carried over.
+- The modules `enemies.s`, `entry.s`, `challenge.s`, `capture.s`, `combat.s`, `paths.s` are the C64 modules with ACME syntax turned into ca65 syntax (the `RULES_C64` build; compiled out of the
+  arcade build). Keep their labels and comments, so a change in the C64 code can be carried over. `arc.s` follows `../psp/game.c`: keep its names, and check a change with `compare_6502.py`.
 - Comments explain why, are short, and match the surrounding style. README text is in Simplified Technical English.
 - Keep commits small. Do not push without asking.

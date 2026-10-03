@@ -1,4 +1,11 @@
 ; Memory map, screen geometry and shared limits
+
+; The rules: the arcade's (the default: 40 aliens) or, with -D RULES_C64=1, the rules of the C64 game (32 aliens)
+.ifndef RULES_C64
+.ifndef ARCADE
+ARCADE = 1
+.endif
+.endif
 SCR_W       = 160
 SCR_H       = 102
 BUF0        = $a000             ; two 8160-byte frame buffers (code and data end below $a000)
@@ -21,12 +28,17 @@ MAX_ENEMIES     = 40            ; the arcade formation: 4 bosses, 16 butterflies
 .else
 MAX_ENEMIES     = 32
 .endif
-MAX_SPRITES     = MAX_ENEMIES+12 ; ship + enemies + 4 player bullets + 3 enemy bullets + extras
+.ifdef ARCADE
+EBN             = 8             ; enemy bombs on the screen
+.else
+EBN             = 3
+.endif
 VS_PLAYER       = MAX_ENEMIES
 VS_PBUL         = VS_PLAYER+1   ; 4 slots
-VS_EBUL         = VS_PBUL+4     ; 3 slots
-VS_DUAL         = VS_EBUL+3     ; second ship of the dual fighter
+VS_EBUL         = VS_PBUL+4     ; EBN slots
+VS_DUAL         = VS_EBUL+EBN   ; second ship of the dual fighter
 VS_CAPT         = VS_DUAL+1     ; captured ship carried by a boss
+MAX_SPRITES     = VS_CAPT+3     ; ship + enemies + 4 player bullets + enemy bullets + extras
 VS_NONE         = MAX_SPRITES
 PLAYER_Y        = 230
 SCREEN_LEFT     = 24

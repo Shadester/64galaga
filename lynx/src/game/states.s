@@ -303,6 +303,18 @@ print_num:
 ; --- Playing ---
 
 st_play:
+.ifdef GODBEAM
+    lda #100                    ; -DGODBEAM=1: the ship can only be hit by the beam (tools/compare_6502.py)
+    ldx cap_state
+    cpx #2
+    bne @gb
+    lda #0
+@gb:sta invuln
+.endif
+.ifdef GODMODE
+    lda #100                    ; -DGODMODE=1: the ship cannot be hit (tools/compare_6502.py)
+    sta invuln
+.endif
 .ifdef DIEAT
     lda halt_cnt+1              ; -DDIEAT=n (with HALT): the ship is hit at frame n
     cmp #>DIEAT
@@ -356,7 +368,11 @@ st_dying:
     beq @game_over
     jsr clear_stage_row
     print msg_ready, SCREEN_RAM+20*40+17, 1
+.ifdef ARCADE
+    lda #80                     ; 3 x 32 arcade frames after the last flyer is home
+.else
     lda #90
+.endif
     sta ready_timer
     lda #GS_READY
     sta game_state
@@ -370,9 +386,23 @@ st_ready:
     jsr update_formation
     jsr update_entry
     jsr update_enemies
+.ifdef ARCADE
+    jsr update_capture
+    jsr arc_flying              ; the ship comes back when nothing flies any more
+    bne @rts
+.endif
     dec ready_timer
     bne @rts
     jsr clear_stage_row
+.ifdef ARCADE
+    lda arc_tmr2                ; after a death the sorties start slowly again: +30 (at most 120)
+    clc
+    adc #30
+    cmp #121
+    bcc @t2
+    lda #120
+@t2:sta arc_tmr2
+.endif
     lda #160                    ; Respawn, briefly invulnerable
     sta player_x
     lda #0
@@ -393,6 +423,9 @@ st_captured:
     jsr update_enemies
     jsr update_ebullets
     jsr update_capture
+.ifdef ARCADE
+    jmp arc_captured
+.endif
     lda player_y                ; Pulled up towards the boss
     sec
     sbc #2

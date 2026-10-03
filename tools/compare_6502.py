@@ -24,11 +24,20 @@ SKEW = int(os.environ.get('SKEW', '0'))      # the ROM is read between two ticks
 SCENARIOS = {
     # A check of the tool itself: the start of the game, the intro and the ship are the same in the C64 rules (checked up to tick 130; from
     # about tick 200 the aliens are on other flight paths than in C: the C64 paths.asm and the float paths of psp/game.c are not the same)
-    'c64start': (['AUTOPLAY=1', 'NOFIRE=1'], ['-DRULES_C64'], [20, 60, 90, 130], 'start, intro and ship of the C64 rules'),
+    'c64start': (['RULES_C64=1', 'AUTOPLAY=1', 'NOFIRE=1'], ['-DRULES_C64'], [20, 60, 90, 130], 'start, intro and ship of the C64 rules'),
     # the arcade rules without dives, bombs and rams (the ROM has none yet: the C game gets no sorties and an invulnerable ship)
-    'arc_entry': (['ARCADE=1', 'AUTOPLAY=1', 'NOFIRE=1'], ['-DNODIVE'], [130, 300, 500, 700, 900, 1100, 1300, 1600], 'fly-in, swing and breathing'),
-    'arc_shoot': (['ARCADE=1', 'AUTOPLAY=1'], ['-DNODIVE'], [900, 1200, 1500, 2000, 2500], 'shooting the formation'),
-    'arc_chal': (['ARCADE=1', 'AUTOPLAY=1', 'STAGE=3'], ['-DNODIVE', '-DSTART_STAGE=3'], [150, 400, 700, 1000, 1400, 1700, 1900], 'a challenge stage'),
+    'arc_entry': (['ARCADE=1', 'AUTOPLAY=1', 'NOFIRE=1', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE'], [130, 300, 500, 700, 900, 1100, 1300, 1600], 'fly-in, swing and breathing'),
+    'arc_shoot': (['ARCADE=1', 'AUTOPLAY=1', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE'], [900, 1200, 1500, 2000, 2500], 'shooting the formation'),
+    # dives, bombs and rams: the ship cannot be hit (a dual fighter, so that no boss captures it: the beam is the next milestone)
+    'arc_dive': (['ARCADE=1', 'AUTOPLAY=1', 'NOFIRE=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [900, 1100, 1300, 1600, 2000, 2500, 3200], 'dives, escorts, bombs'),
+    'arc_dive2': (['ARCADE=1', 'AUTOPLAY=1', 'DUAL=1', 'GODMODE=1'], ['-DGODDUAL'], [1100, 1500, 2000, 2800, 3600, 4500], 'dives while the ship shoots'),
+    # a whole game: the ship is hit, dies, is captured, comes back (no help for the ship)
+    'arc_play': (['ARCADE=1', 'AUTOPLAY=1'], [], [1250, 1300, 1350, 1400, 1500, 1600, 1700], 'a whole game'),
+    # a capture: the ship walks under the capture boss, is taken, and shoots the carrier to get it back as a dual fighter
+    'arc_capture': (['ARCADE=1', 'AUTOPLAY=1', 'CAPTURE=1', 'GODBEAM=1'], ['-DCAPSCRIPT', '-DGODBEAM'], [1100, 1300, 1500, 1660, 1680, 1690, 1700, 1710, 1720, 1750, 2000, 2400, 3000, 4000], 'capture and rescue'),
+    'arc_rescue': (['ARCADE=1', 'AUTOPLAY=1', 'CAPTURE=1', 'GODBEAM=1', 'LIVES=9'], ['-DCAPSCRIPT', '-DGODBEAM', '-DLIVES9'],
+                   [2400, 3000, 3600, 4200, 4800, 5400, 6000, 7000, 8000], 'capture, rescue, dual fighter'),
+    'arc_chal': (['ARCADE=1', 'AUTOPLAY=1', 'STAGE=3', 'GODMODE=1', 'NODIVE=1'], ['-DNODIVE', '-DSTART_STAGE=3'], [150, 400, 700, 1000, 1400, 1700, 1900], 'a challenge stage'),
 }
 
 C_DRIVER = r'''
@@ -49,13 +58,31 @@ int main(void) {
         if (g.state == S_PLAY) in.fire = 0;
 #endif
         if (g.state == S_TITLE) in.fire = t + 1 == START;   /* the 6502 title needs a release and a press: the game starts at the tick the ROM started */
+#ifdef CAPSCRIPT
+        if (g.state == S_PLAY || g.state == S_RESULT) in.fire = 0;       /* the ROM's script (lynx/src/game/player.s) */
+        if (g.cap == C_BEAM || g.cap == C_CARRY || g.cap == C_DIVING) {
+            int bx = g.al[g.capBoss].x;
+            in.left = g.px > bx + 2; in.right = g.px < bx - 2;
+            if (g.cap == C_CARRY) in.fire = (f & 3) < 2;
+        }
+#endif
+#ifdef GODBEAM
+        if (g.state != S_TITLE) g.invuln = g.cap == C_BEAM ? 0 : 100;       /* only the beam can take the ship */
+#endif
 #ifdef NODIVE
         g.sortie[0] = g.sortie[1] = g.sortie[2] = 1 << 30; g.invuln = 100;
 #endif
+#ifdef GODDUAL
+        if (g.state != S_TITLE) { g.invuln = 100; g.dual = 1; }   /* the ship cannot be hit; a dual fighter is never captured */
+#endif
         game_tick(&g, &in);
+#ifdef LIVES9
+        if (t + 1 == START) g.lives = 9;
+#endif
         printf("%d %d %d %d %d %d %d", t + 1, g.state, g.score, g.lives, g.stage, g.px, g.py);
-        for (i = 0; i < NAL; ++i) printf(" %d,%d,%d,%d", g.al[i].st, g.al[i].x, g.al[i].y, g.al[i].ent);
+        for (i = 0; i < NAL; ++i) printf(" %d,%d,%d,%d,%d", g.al[i].st, g.al[i].x, g.al[i].y, g.al[i].ent, g.al[i].esc);
         for (i = 0; i < 4; ++i) printf(" %d,%d,%d", g.ps[i].act, g.ps[i].x, g.ps[i].y);
+        for (i = 0; i < EBN; ++i) printf(" %d,%d,%d,%d,%d", g.eb[i].act, g.eb[i].x, g.eb[i].y, g.eb[i].dx, g.eb[i].ax);
         printf("\n");
         g.snd = g.saveReq = 0;
     }
@@ -77,9 +104,11 @@ def c_trace(cflags, ticks, nofire, start):
         if not line:
             continue
         p = line.split(' ')
-        al = [tuple(int(v) for v in a.split(',')) for a in p[7:-4]]
-        sh = [tuple(int(v) for v in a.split(',')) for a in p[-4:]]
-        rows[int(p[0])] = dict(state=int(p[1]), score=int(p[2]), lives=int(p[3]), stage=int(p[4]), px=int(p[5]), py=int(p[6]), al=al, shots=sh)
+        nb = 3 if any('RULES_C64' in f for f in cflags) else 8
+        al = [tuple(int(v) for v in a.split(',')) for a in p[7:-4 - nb]]
+        sh = [tuple(int(v) for v in a.split(',')) for a in p[-4 - nb:-nb]]
+        bm = [tuple(int(v) for v in a.split(',')) for a in p[-nb:]]
+        rows[int(p[0])] = dict(state=int(p[1]), score=int(p[2]), lives=int(p[3]), stage=int(p[4]), px=int(p[5]), py=int(p[6]), al=al, shots=sh, bombs=bm)
     return rows
 
 
@@ -130,6 +159,12 @@ class Lynx:
             return n + (t8 - n + 128) % 256 - 128
         return n
 
+    def bombs(self):
+        s8 = lambda v: v - 256 if v > 127 else v
+        s16 = lambda lo, hi: lo + 256 * hi - (65536 if hi > 127 else 0)
+        act, xl, xh, yy, dx, ax = (self.read(n, 8) for n in ('eb_active', 'eb_x', 'eb_msb', 'eb_y', 'eb_dx', 'eb_ax'))
+        return [(act[i] & 1, s16(xl[i], xh[i]), yy[i], s8(dx[i]), ax[i]) for i in range(8)]
+
     def state(self, n_aliens, arcade=False):
         px = self.read('player_x')[0] + 256 * (self.read('player_x_msb')[0] & 1)
         st = [6 if v == 7 else v for v in self.read('enemy_state', n_aliens)]    # the C64 code numbers an entering alien 7, C 6
@@ -142,7 +177,9 @@ class Lynx:
             al = [(st[i], xs[i] + 256 * (ms[i] & 1), ys[i]) for i in range(n_aliens)]
         return dict(state=self.read('game_state')[0], score=bcd(self.read('score', 3)), lives=self.read('lives')[0],
                     stage=int('%x' % self.read('level')[0]), px=px, al=al,
-                    shots=[(act & 1, xl + 256 * (xh & 1), yy) for act, xl, xh, yy in zip(self.read('pbul_active', 4), self.read('pbul_x', 4), self.read('pbul_msb', 4), self.read('pbul_y', 4))])
+                    shots=[(act & 1, xl + 256 * (xh & 1), yy) for act, xl, xh, yy in zip(self.read('pbul_active', 4), self.read('pbul_x', 4), self.read('pbul_msb', 4), self.read('pbul_y', 4))],
+                    esc=self.read('enemy_esc', n_aliens),
+                    bombs=self.bombs() if arcade else [])
 
 
 def lynx_state_at(name, rom_flags, tick, start):
@@ -196,17 +233,25 @@ def compare(name):
         if a['t8'] != n & 255:
             diffs.append(f'the ROM stopped at tick {a["t8"]}, not {n & 255} (mod 256): late frames or not enough boot frames')
         for key in ('state', 'score', 'lives', 'stage', 'px'):
+            if key == 'stage' and a['state'] == 6 and a[key] == c[key] + 1:
+                continue                                 # the 6502 counts the stage when it is cleared, C after the result screen
             if a[key] != c[key]:
                 diffs.append(f'{key}: rom {a[key]} c {c[key]}')
         for i in range(4):                        # a shot that is not in flight has no position
             sa, sc = a['shots'][i], c['shots'][i]
             if sa[0] != sc[0] or (sc[0] and sa != sc):
                 diffs.append(f'shot {i}: rom {sa} c {sc}')
+        for i in range(len(a['bombs'])):                        # a bomb that is not on the screen has no position
+            ba, bc = a['bombs'][i], c['bombs'][i]
+            if ba[0] != bc[0] or (bc[0] and ba != bc):
+                diffs.append(f'bomb {i}: rom {ba} c {bc}')
         for i in range(len(c['al'])):
-            (rs, rx, ry), (cs, cx, cy, ce) = a['al'][i], c['al'][i]
+            (rs, rx, ry), (cs, cx, cy, ce, cesc) = a['al'][i], c['al'][i]
             on = cs != 0 and not (cs == 6 and ce == 0)
             if rs != cs:
                 diffs.append(f'alien {i} state: rom {rs} c {cs}')
+            elif cs != 0 and a['esc'][i] != cesc:
+                diffs.append(f'alien {i} escort of: rom {a["esc"][i]} c {cesc}')
             elif on and (rx != cx or ry != cy):
                 diffs.append(f'alien {i} position: rom ({rx},{ry}) c ({cx},{cy})')
         print(f'  tick {n}: ' + ('same' if not diffs else f'{len(diffs)} differences, first: ' + '; '.join(diffs[:3])))

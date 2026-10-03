@@ -1,20 +1,18 @@
 # Galaga for the Atari Lynx
 
-A port of the C64 Galaga clone in [`../c64`](../c64) to the Atari Lynx. It is written in 6502 assembly ([ca65](https://cc65.github.io/), from the cc65 suite).
+A Galaga clone for the Atari Lynx, written in 6502 assembly ([ca65](https://cc65.github.io/), from the cc65 suite). It started as a port of the C64 clone in [`../c64`](../c64); it now plays by the rules of the arcade Galaga.
 
 [**▶ Play it in your browser**](https://shadester.github.io/galagas/lynx/) (EmulatorJS; it needs no boot ROM)
 
 ![Gameplay: the title screen, then the autoplay build with stage intro, fly-in and a tractor beam](docs/gameplay.gif)
 
-The rules are the rules of the C64 game: the same code, with the same numbers. The game runs in C64 sprite coordinates (x 24..343, y 50..249) at 50 ticks a second. The Lynx screen is 160 x 102 pixels, so the picture is the C64 picture at half size. The C64 source is the reference for how the game must behave.
+The rules are the rules of the arcade Galaga (see [`../ARCADE.md`](../ARCADE.md)): 40 aliens, the arcade flight paths, dive scheduler and bombs, a formation that swings and breathes, and challenge stages of five waves. They are a translation of `../psp/game.c`: `../tools/compare_6502.py` runs the same game in the ROM and in that C code and compares the state at checkpoints. The rules of the C64 game (32 aliens) are a build option: `make CAFLAGS="-D RULES_C64=1"`. The game runs in C64 sprite coordinates (x 24..343, y 50..249) at 50 ticks a second. The Lynx screen is 160 x 102 pixels, so the picture is the C64 picture at half size.
 
 ## Features
 
-The same features as the C64 game:
-
-- 32-alien formation, fly-in waves, dives with escorts, bosses that take two hits
+- 40-alien formation (4 bosses, 16 butterflies, 20 bees), fly-in waves on the arcade paths, dives with escorts, aimed bombs, bosses that take two hits
 - Tractor beam capture, rescue of the captive, dual fighter
-- Challenge stages (3, 7, 11, ...) with a 10,000 bonus for a perfect clear
+- Challenge stages (3, 7, 11, ...): five waves, 100 points a hit, 10,000 for a perfect clear
 - Shots / hits / ratio screen, bonus ships at 20,000 and 70,000, game over
 - Title picture, starfield, jingles and sound effects (the four Mikey voices)
 - The hi-score is saved in the cartridge EEPROM (93C46)
@@ -65,7 +63,7 @@ The generated files are in the repository. You only run the generators when you 
 
 ## Debug build flags
 
-Pass them to ca65: `make CAFLAGS="-D AUTOPLAY=1 -D HALT=300"`. They are the flags of the C64 game.
+Pass them to ca65: `make CAFLAGS="-D AUTOPLAY=1 -D HALT=300"`. Most are the flags of the C64 game.
 
 | Flag | Effect |
 |------|--------|
@@ -77,7 +75,8 @@ Pass them to ca65: `make CAFLAGS="-D AUTOPLAY=1 -D HALT=300"`. They are the flag
 | `LIVES=n`, `DIFF=n`, `STAGE=n`, `DUAL` | Start with n lives, at difficulty n, at stage n, with a dual fighter |
 | `FEW`, `BOSSDIVE`, `CAPTURE`, `FORCEPERFECT` | Test helpers: few aliens, a boss that always dives, a scripted capture, a perfect challenge stage |
 | `PROFILE` | Count late frames, the most sprites in a frame and the sprites that did not fit (labels `late_frames`, `scb_peak`, `scb_over`) |
-| `ARCADE` | 40 aliens in the arcade formation, standing in their slots (work in progress: no fly-in yet) |
+| `RULES_C64` | The rules of the C64 game (32 aliens) instead of the arcade rules |
+| `GODMODE`, `GODBEAM`, `NODIVE` | Test helpers of `../tools/compare_6502.py`: the ship cannot be hit (GODBEAM: only by the beam), no sorties |
 
 ## Source layout
 
@@ -89,7 +88,9 @@ Pass them to ca65: `make CAFLAGS="-D AUTOPLAY=1 -D HALT=300"`. They are the flag
 | `src/render.s` | Palette, 50 Hz timing, the sprite chain, the buffer flip |
 | `src/game.s` | Zero page, macros, main loop, state dispatch |
 | `src/game/data.s` | Variables and tables |
-| `src/game/states.s`, `player.s`, `enemies.s`, `entry.s`, `challenge.s`, `capture.s`, `combat.s`, `progress.s`, `paths.s` | The game rules |
+| `src/game/states.s`, `player.s`, `progress.s`, `hud.s` | The game states, the ship, scoring, the HUD (shared by both rule sets) |
+| `src/game/arc.s`, `arcade_data.s` | The arcade rules (`arcade_data.s` is made by `tools/gen_arcade.py` from `../psp/arcade_data.h`; the flight paths are a bit stream) |
+| `src/game/enemies.s`, `entry.s`, `challenge.s`, `capture.s`, `combat.s`, `paths.s` | The rules of the C64 game (`RULES_C64`) |
 | `src/game/sprites.s`, `view.s` | The virtual sprite tables, and drawing them (and the beam) |
 | `src/game/hud.s` | Messages, HUD, starfield |
 | `src/game/sound.s`, `hiscore.s` | Mikey voices; EEPROM |

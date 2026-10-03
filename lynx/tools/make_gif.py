@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Record docs/gameplay.gif: the title screen, then the autoplay build (stage intro, fly-in, shooting).
+"""Record docs/gameplay.gif: the title screen, then the autoplay build (stage intro, fly-in, dives, shooting; the ship cannot be hit: GODMODE).
 
 Runs headless Gearlynx and takes a screenshot every few frames. Needs Pillow.
 Usage: python3 tools/make_gif.py [game_frames] [step]
@@ -49,7 +49,7 @@ def record(out, frames):
 
 os.makedirs(os.path.join(ROOT, 'build', 'gif'), exist_ok=True)
 os.chdir(ROOT)
-imgs = record(build('title', ''), TITLE) + record(build('play', 'AUTOPLAY=1'), LAST)
+imgs = record(build('title', ''), TITLE) + record(build('play', 'AUTOPLAY=1 GODMODE=1'), LAST)
 imgs = [im.resize((im.width * SCALE, im.height * SCALE), Image.NEAREST) for im in imgs]
 os.makedirs('docs', exist_ok=True)
 imgs[0].save('docs/gameplay.gif', save_all=True, append_images=imgs[1:], duration=STEP * 20, loop=0, optimize=True)

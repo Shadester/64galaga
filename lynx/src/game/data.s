@@ -82,11 +82,12 @@ pbul_msb:       .res 4
 pbul_y:         .res 4
 pbul_active:    .res 4
 
-eb_x:           .res 3
-eb_msb:         .res 3
-eb_y:           .res 3
-eb_dx:          .res 3; -1, 0, +1 drift per 2 frames
-eb_active:      .res 3
+eb_x:           .res EBN
+eb_msb:         .res EBN
+eb_y:           .res EBN
+eb_dx:          .res EBN; -1, 0, +1 drift per 2 frames (the arcade rules: sideways speed in 16ths of a pixel)
+eb_active:      .res EBN
+eb_ax:          .res EBN        ; the arcade rules: the rest of the sideways speed, 0..15
 
 score:          .byte 0, 0, 0           ; BCD, low pair first
 hiscore:        .byte 0, 0, 0

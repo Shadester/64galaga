@@ -11,7 +11,7 @@
         .ifdef ARCADE
         .export ax_lo, ax_hi, ay_lo, ay_hi, enemy_flag, form_pos, form_fdx, form_breathe, form_bstep, a_dly_lo, a_dly_hi
         .endif
-        .export player_x_msb, enemy_state, enemy_timer, enemy_hp, enemy_dir, enemy_idx, enemy_path, enemy_esc, spr_x, spr_x_msb, spr_y, score, level, form_dx, form_ext, eb_x, eb_msb, eb_y, eb_dx, eb_active, pbul_x, pbul_msb, pbul_y
+        .export player_x_msb, enemy_state, enemy_timer, enemy_hp, enemy_dir, enemy_idx, enemy_path, enemy_esc, spr_x, spr_x_msb, spr_y, score, level, form_dx, form_ext, eb_x, eb_msb, eb_y, eb_dx, eb_active, eb_ax, pbul_x, pbul_msb, pbul_y
         .export main, frame, game_state, msg_n, anim, paused, player_x, lives, cap_state, beam_len, go_timer, pbul_active, shots, in_chal, msg_y, msg_x, msg_lo, msg_hi
 
         .zeropage
@@ -79,7 +79,9 @@ tgy:            .res 2
         .include "game/entry.s"
         .include "game/challenge.s"
         .include "game/capture.s"
-        .include "game/paths.s"
+.ifndef ARCADE
+        .include "game/paths.s"   ; the flight paths of the old rules (the arcade rules have a bit stream)
+.endif
         .include "game/states.s"
 .ifdef ARCADE
         .include "game/arc.s"

@@ -10,6 +10,90 @@ read_joystick:
     lda #$ff
     sta joystick_state
 .ifdef CAPTURE
+.ifdef ARCADE
+    ; -DCAPTURE=1 with the arcade rules: the script of FORCECAPTURE in psp/game.c (tools/compare_6502.py has the same one in C): the ship
+    ; sweeps, but walks under the capture boss while it dives, beams or carries the captive; it only fires to leave the title screen
+    ; and game over (pulses), and at the carrier
+    lda frame
+    and #$80
+    beq @a_right
+    lda joystick_state
+    and #$fb
+    sta joystick_state
+    bra @a_swept
+@a_right:
+    lda joystick_state
+    and #$f7
+    sta joystick_state
+@a_swept:
+    lda frame                   ; the button: pulses in the title / game over / intro..., never in play and on the result screen
+    and #$08
+    bne @a_nofire
+    lda game_state
+    cmp #GS_PLAY
+    beq @a_nofire
+    cmp #GS_RESULT
+    beq @a_nofire
+    lda joystick_state
+    and #$ef
+    sta joystick_state
+@a_nofire:
+    lda cap_state               ; on the way to the beam, in the beam, or carrying the captive: walk under the boss
+    cmp #1
+    beq @a_chase
+    cmp #2
+    beq @a_chase
+    cmp #4
+    bne @a_done
+@a_chase:
+    ldx cap_boss
+    lda player_x                ; left when px > bx + 2, right when px < bx - 2
+    sec
+    sbc ax_lo,x
+    sta d16
+    lda player_x_msb
+    sbc ax_hi,x
+    sta d16+1
+    lda joystick_state
+    ora #$0c                    ; neither
+    sta joystick_state
+    lda d16+1
+    bmi @a_neg
+    bne @a_left
+    lda d16
+    cmp #3
+    bcc @a_carry
+@a_left:
+    lda joystick_state
+    and #$fb
+    sta joystick_state
+    bra @a_carry
+@a_neg: lda d16+1
+    cmp #$ff
+    bne @a_rightgo
+    lda d16
+    cmp #$fe                    ; d >= -2: neither
+    bcs @a_carry
+@a_rightgo:
+    lda joystick_state
+    and #$f7
+    sta joystick_state
+@a_carry:
+    lda cap_state
+    cmp #4
+    bne @a_done
+    lda joystick_state          ; carrying: fire while (frame & 3) < 2
+    ora #$10
+    sta joystick_state
+    lda frame
+    and #$02
+    bne @a_done
+    lda joystick_state
+    and #$ef
+    sta joystick_state
+@a_done:
+    jmp @auto_done
+.else
     lda game_state          ; -DCAPTURE=1: pulse fire to leave title / game over,
     cmp #GS_PLAY            ; idle while a boss beams (so it captures us), then
     beq @cap_play           ; chase and shoot the boss once it dives with the captive
@@ -44,6 +128,7 @@ read_joystick:
     and #$ef
     sta joystick_state
     jmp @auto_done
+.endif
 .endif
     lda frame
     and #$80                ; 128 frames per direction = 256px sweep

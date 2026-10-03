@@ -245,7 +245,7 @@ update_sprite_data:
     bpl @pb_loop
 
     ; Enemy bullets
-    ldx #2
+    ldx #EBN-1
 @eb_loop:
     lda eb_active,x
     bne @eb_on

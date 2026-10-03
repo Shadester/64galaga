@@ -5,6 +5,7 @@
 ; cap_state: 0 none, 1 boss diving to capture, 2 beam on, 3 ship being
 ; pulled up, 4 captive carried by cap_boss, 5 rescued captive flying down.
 
+.ifndef ARCADE
 ; The capture boss was shot. In: X = boss. Preserves nothing.
 
 boss_killed:
@@ -120,6 +121,8 @@ update_capture:
 @rts:
     rts
 
+
+.endif
 
 beam_erase:
     lda #$20
