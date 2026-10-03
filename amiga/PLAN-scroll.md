@@ -38,7 +38,7 @@ The rules (`psp/game.c`) and the rule tests stay as they are.
 - **Regression:** build the commit `406c598` (git worktree) and the new code, same `HALT` ticks (14 values, all scenarios): the pictures must be
   the same except the lives (move them to the same place with a flag, or mask the lives area). This proves the compensation (`x - D`) and the scroll.
 - **Skip logic:** `-DNOSKIP` against the normal build at many ticks (existing `cmp` method), also with `-DNOASM`.
-- `tests/test_selftest.py`, `tests/test_table.py` (rules, unchanged), `tests/shots.py --update` and look at all references.
+- `tests/test_selftest.py` (rules, unchanged), `tests/shots.py --update` and look at all references.
 - **Speed:** `-DPROFILE -DHALT=900 -DAUTOPLAY -DTITLE_HOLD=0` (`LOOPS n Vm`): now about 345 loops; the goal is clearly more (fewer
   stumbles at the sway). Also real-time screenshots for flicker (many shots in a row, the digit trick used before).
 - Re-record the GIF, `make web`; update `README.md`, `CLAUDE.md` (copper scroll, calibration numbers, asm files, lives at the top).

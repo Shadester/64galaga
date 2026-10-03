@@ -1,6 +1,6 @@
 #include "video.h"
 #include "assets.h"
-#include "game.h"                                  /* NAL and EBN: the arcade rules have 40 aliens and 8 bombs, the C64 rules 32 and 3 */
+#include "game.h"                                  /* NAL and EBN: 40 aliens and 8 bombs */
 
 #define CUSTOM ((volatile u16 *)0xdff000)
 #define W(reg) (CUSTOM[(reg) / 2])

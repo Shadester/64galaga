@@ -36,7 +36,7 @@ clean:
 
 .PHONY: all clean
 
-# docs/galaga.adz: the ADF, gzipped (vAmigaWeb plays it from a link, like the C64 version in vc64web)
+# docs/galaga.adz: the ADF, gzipped (vAmigaWeb plays it from a link)
 web: $(BUILD)/galaga.adf
 	python3 -c "import gzip,sys; open('docs/galaga.adz','wb').write(gzip.compress(open('$(BUILD)/galaga.adf','rb').read(), 9, mtime=0))"
 	@ls -l docs/galaga.adz

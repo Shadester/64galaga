@@ -6,7 +6,7 @@ A port of the Galaga clone to the Commodore Amiga 500 (68000, OCS chipset, PAL).
 
 ![Gameplay: the title screen, then the autoplay build with stage intro, fly-in, a tractor beam and a capture](docs/gameplay.gif)
 
-The rules are the rules of the PSP game, the arcade rules: the game uses `../psp/game.c` itself (the reference, which follows the C64 game). It is compiled without floating point, and the flight paths come from a table. A test runs the 68000 build in an emulator and compares the whole game state with the build on the Mac, for 15000 ticks.
+The rules are the rules of the PSP game, the arcade rules: the game uses `../psp/game.c` itself (the reference). It is compiled without floating point (the arcade paths are a table). A test runs the 68000 build in an emulator and compares the whole game state with the build on the Mac, for 15000 ticks.
 
 ## Status
 
@@ -14,7 +14,7 @@ It runs in vAmigaWeb. The rules, the pictures and the keyboard are tested there.
 
 ## Features
 
-The same features as the other versions: 40-alien formation (32 with the C64 rules) with fly-in waves and dives, bosses that take two hits, tractor beam capture, rescue and dual fighter, challenge stages with a 10,000 bonus, a shots / hits / ratio screen after each stage, bonus ships, title picture, jingles and sound effects.
+The same features as the other versions: 40-alien formation with fly-in waves and dives, bosses that take two hits, tractor beam capture, rescue and dual fighter, challenge stages with a 10,000 bonus, a shots / hits / ratio screen after each stage, bonus ships, title picture, jingles and sound effects.
 
 What is different:
 
@@ -42,7 +42,6 @@ make                 # build/galaga.adf: a 880 KB floppy disk image
 tools/run.sh         # build, then run it in FS-UAE
 make web             # docs/galaga.adz: the same, gzipped (for the link above)
 python3 tools/gen_assets.py [preview.png]   # src/assets.h: sprites, title picture, font, sound
-python3 tools/gen_paths.py                  # src/paths_table.h: the flight paths
 python3 tools/make_gif.py                   # record docs/gameplay.gif (about 2 minutes)
 ```
 
@@ -51,12 +50,11 @@ To play it, run `tools/run.sh`: it starts the `.adf` in FS-UAE (`brew install --
 The tests run the game in vAmigaWeb in a headless browser. Install it once: `pip install playwright pillow && playwright install chromium`.
 
 ```sh
-python3 tests/test_table.py      # the flight-path table gives the same game as the float code of psp/game.c (on the Mac)
 python3 tests/test_selftest.py   # the 68000 against the Mac: 4 scenarios, 3000 ticks (a number as argument: more)
 python3 tests/shots.py           # screenshot tests (--update after a change you want)
 ```
 
-The game plays by the rules of the arcade Galaga (40 enemies, the arcade flight paths, dive scheduler and bombs; see `../ARCADE.md`). The rules of the C64 game (32 enemies) are a build option: `make EXTRA_CFLAGS=-DRULES_C64`. `python3 tests/test_selftest.py 3000 c64` runs the selftest with them.
+The game plays by the rules of the arcade Galaga (40 enemies, the arcade flight paths, dive scheduler and bombs; see `../ARCADE.md`).
 
 Debug flags (`make EXTRA_CFLAGS="-DAUTOPLAY -DHALT=900"`): `AUTOPLAY` (the game plays itself), `HALT=n` (freeze after n ticks), `TITLE_HOLD=n` (ticks of the title screen in an autoplay build), `START_STAGE=n`, `FORCECAPTURE`, `SELFTEST=n`, `PROFILE` (with `HALT`: shows the loops of the main loop and the vertical blanks for the ticks: fewer loops = a slower picture).
 
@@ -64,14 +62,14 @@ Debug flags (`make EXTRA_CFLAGS="-DAUTOPLAY -DHALT=900"`): `AUTOPLAY` (the game 
 
 | File | Contents |
 |---|---|
-| `src/game.c` | `psp/game.c` with the flight paths from a table (`GAME_PATHS_TABLE`) |
+| `src/game.c` | `psp/game.c` built without floating point |
 | `src/main.c` | The main loop (one tick for each vertical blank), input, and what the game state looks like on the screen |
 | `src/video.c` | Copper list, three bitmaps, blitter sprites (drawn again only when they change), text, the star sprites, the beam, the title picture, the hud that is drawn only when it changes |
 | `src/audio.c` | Paula: effects on channels 0, 1 and 3, the jingles on channel 2 |
 | `src/boot.s` | The boot block: loads the game into chip RAM and starts it in supervisor mode |
 | `src/hw.s` | Start-up, the vertical-blank interrupt (50 Hz), the keyboard interrupt |
-| `src/assets.h`, `src/paths_table.h` | Generated: sprites, title picture, font, sound, flight paths |
+| `src/assets.h` | Generated: sprites, title picture, font, sound |
 | `src/libc.c`, `src/inc/` | The few C library functions `psp/game.c` needs |
 | `src/selftest.h` | The scripted game and its hash (the Mac and the 68000 both run it) |
-| `tools/` | `setup-macos.sh`, `run.sh` (build and run in FS-UAE), `art.py` (palette and pixel art), `gen_assets.py`, `gen_paths.py`, `make_adf.py` (checksum of the boot block, the disk image), `make_gif.py` |
-| `tests/` | `test_table.py`, `test_selftest.py` (+ `selftest_native.c`), `shots.py` + `ref/`, `vamiga.py` (runs an ADF in vAmigaWeb) |
+| `tools/` | `setup-macos.sh`, `run.sh` (build and run in FS-UAE), `art.py` (palette and pixel art), `gen_assets.py`, `make_adf.py` (checksum of the boot block, the disk image), `make_gif.py` |
+| `tests/` | `test_selftest.py` (+ `selftest_native.c`), `shots.py` + `ref/`, `vamiga.py` (runs an ADF in vAmigaWeb) |

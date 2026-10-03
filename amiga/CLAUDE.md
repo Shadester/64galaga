@@ -1,6 +1,6 @@
 # galaga for the Amiga
 
-Bare-metal Amiga 500 game (68000, OCS, PAL), a bootable ADF. The rules are `../psp/game.c` (the reference; it follows the C64 game),
+Bare-metal Amiga 500 game (68000, OCS, PAL), a bootable ADF. The rules are `../psp/game.c` (the reference),
 built here without floats. `README.md` has the status, controls, commands and the layout.
 
 ## Build, run, test
@@ -10,20 +10,16 @@ tools/setup-macos.sh                  # once: m68k-elf-gcc, binutils, FS-UAE, Pi
 make                                  # build/galaga.adf (m68k-elf-gcc, objcopy, tools/make_adf.py)
 tools/run.sh                          # build and run it in FS-UAE (brew install --cask fs-uae-emulator)
 make web                              # docs/galaga.adz for the play link in the READMEs
-python3 tests/test_table.py           # float paths vs the path table, on the Mac
 python3 tests/test_selftest.py [n]    # the 68000 in vAmigaWeb vs the Mac, 4 scenarios (about 10 s)
-python3 tests/test_selftest.py 3000 c64     # the same with the rules of the C64 game (the default is the arcade rules, see ../ARCADE.md)
-make EXTRA_CFLAGS=-DRULES_C64                  # the game with the C64 rules: 32 enemies, our own paths and dives
 python3 tests/shots.py [--update] [case ...]   # screenshots in vAmigaWeb; look at new refs before you commit them
 ```
 
 - The tests need `playwright` (`pip install playwright pillow && playwright install chromium`) and `m68k-elf-gcc`.
-- A change in `psp/game.c` is a change for all the ports. The Amiga build includes it (`src/game.c`) with `-DGAME_PATHS_TABLE`;
-  `tools/gen_paths.py` makes `src/paths_table.h` again if the paths change (it reads `thumby/Galaga/paths_data.py`).
+- A change in `psp/game.c` is a change for all the ports. The Amiga build includes it (`src/game.c`). The rules are the arcade rules, see `../ARCADE.md`.
 - The art is in `tools/art.py` (palette of 32 and the pixel art, with the shading rules); `tools/gen_assets.py [preview.png]` makes
   `src/assets.h` and a preview picture. Change the art there, not in `assets.h`.
 - Palette: sprites 4 and 5 (the stars) use the colours 25, 26 and 27: keep them mid, dim and bright in `tools/art.py`.
-- Generated and committed: `src/assets.h`, `src/paths_table.h`, `docs/galaga.adz`, `docs/gameplay.gif`.
+- Generated and committed: `src/assets.h`, `docs/galaga.adz`, `docs/gameplay.gif`.
 - `make` does not see a change of `EXTRA_CFLAGS`: the tests delete their build folder first; do `make clean` when you try flags by hand.
 - Never push without the user's OK (global rule). Show a change and wait for the OK before you commit.
 
