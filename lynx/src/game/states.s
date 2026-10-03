@@ -73,10 +73,6 @@ start_game:
     sta level
     sta diff
     sta stage
-.ifdef DIFF
-    lda #DIFF                   ; -DDIFF=n: start at difficulty n (1..8)
-    sta diff
-.endif
     sta fire_pressed            ; Fire held from the title must not shoot
     lda #160
     sta player_x

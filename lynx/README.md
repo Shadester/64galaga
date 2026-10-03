@@ -72,8 +72,8 @@ Pass them to ca65: `make CAFLAGS="-D AUTOPLAY=1 -D HALT=300"`.
 | `HALT=n` | Freeze after n frames, so a screenshot is exact (used by the tests) |
 | `HALTOVER` | Freeze on the game over screen |
 | `PAUSEAT=n`, `QUITAT=n`, `DIEAT=n` | With `HALT`: press pause / quit, or hit the ship, at frame n |
-| `LIVES=n`, `DIFF=n`, `STAGE=n`, `DUAL` | Start with n lives, at difficulty n, at stage n, with a dual fighter |
-| `CAPTURE`, `FORCEPERFECT` | Test helpers: a scripted capture, a perfect challenge stage |
+| `LIVES=n`, `STAGE=n`, `DUAL` | Start with n lives, at stage n, with a dual fighter |
+| `CAPTURE` | Test helper: a scripted capture |
 | `PROFILE` | Count late frames, the most sprites in a frame and the sprites that did not fit (labels `late_frames`, `scb_peak`, `scb_over`) |
 | `GODMODE`, `GODBEAM`, `NODIVE` | Test helpers of `../tools/compare_6502.py`: the ship cannot be hit (GODBEAM: only by the beam), no sorties |
 

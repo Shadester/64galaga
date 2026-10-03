@@ -1,10 +1,6 @@
 ; Result screen of a challenge stage: number of hits and the perfect bonus
 
 chal_result:
-.ifdef FORCEPERFECT
-    lda #MAX_ENEMIES            ; -DFORCEPERFECT=1: pretend every alien was hit
-    sta ch_hits
-.endif
     print msg_nhits, SCREEN_RAM+9*40+12, 1
     setnum num_a
     lda ch_hits

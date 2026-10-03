@@ -7,7 +7,6 @@ start:  sei
         ldx #$ff
         txs
         jmp main
-        .align 256              ; CODE starts on a page boundary (see lynx.cfg)
 
         .segment "LOWCODE"      ; empty: defdir.s (lynx.lib) sizes them
         .segment "ONCE"

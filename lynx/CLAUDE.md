@@ -35,7 +35,7 @@ python3 tools/make_gif.py # re-record docs/gameplay.gif
 - The arcade rules are the only rules. Their data (`src/game/arcade_data.s`) is made by
   `tools/gen_arcade.py` from `../psp/arcade_data.h`; the flight paths are a bit stream (second differences, see the generator), 5.4 KB for 62 paths.
   The aliens' positions are signed 16-bit numbers (`ax_lo/hi`, `ay_lo/hi`): `arc_sync_aliens` makes the sprite tables from them each tick. MAIN ends at about
-  `$9427` (700 bytes less since the C64 rules were removed): it must stay below `$A000` (the frame buffer).
+  `$928D` (1,100 bytes less since the C64 rules and the page padding were removed): it must stay below `$A000` (the frame buffer).
 
 - **Suzy and the CPU:** poll `SPRSYS` for "sprite engine busy" only after `stz CPUSLEEP`: the emulator advances the
   engine while the CPU sleeps. Then `stz SDONEACK`, or the next frame's sleep never ends (`frame_end`).
@@ -44,9 +44,8 @@ python3 tools/make_gif.py # re-record docs/gameplay.gif
 - **Literal sprite lines lose their last pixel** in Gearlynx. Pad every line with one extra byte (`gen_art.py`).
   A line is: offset byte (count including itself), data bytes, and `0` ends the sprite.
 - **Sprite sizes** are 8.8 fixed point. The screen clear is one pixel scaled to 160 x 102 (`bgscb`).
-- **The loader sums the segment sizes** (`defdir.s`): padding that ld65 adds between segments is not loaded. The
-  flight path tables need a page-aligned start, so `STARTUP` is padded to a page in `start.s` (`align` in
-  `lynx.cfg`) and `.align 256` sits inside `CODE`.
+- **The loader sums the segment sizes** (`defdir.s`): padding that ld65 adds between segments is not loaded, so no
+  segment may be aligned (an `align` in `lynx.cfg` would move the code that follows).
 - **Coordinates:** the game keeps C64 values. `view.s` turns them into screen pixels: `(x - 24) / 2`, `(y - 50) / 2`
   as signed 16-bit numbers. A sprite is drawn at that position plus its crop offset (`sprite_dx`, `sprite_dy`).
 - **Messages** replace C64 screen RAM text: `print msg, SCREEN_RAM+row*40+col, colour` (a macro in `game.s`) adds one.
