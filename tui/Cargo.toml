@@ -1,0 +1,12 @@
+[package]
+name = "galaga-tui"
+version = "0.1.0"
+edition = "2021"
+description = "Galaga for the terminal: the arcade rules of psp/game.c in Rust, half-block pixel art"
+
+[dependencies]
+crossterm = "0.28"
+
+[profile.release]
+opt-level = 3
+lto = true
