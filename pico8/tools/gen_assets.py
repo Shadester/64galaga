@@ -5,6 +5,7 @@
   gfx rows 64..127  the title picture, 128 x 64, dithered to the PICO-8 palette (this half of the sheet is also the map: not used)
   sfx 0..4          shoot, explode, hit, death, swoop
   label             the title picture (the cart's picture in the .p8.png)
+  gfx rows 24..63   the flight paths of the arcade rules (with the map memory: tools/gen_arcade_p8.py)
   sfx 8..12         the jingles (thumby/Galaga/jingles/*.rtttl), one note per 16th
 
 The sprite art comes from thumby/tools/gen_assets.py (which decodes ../c64/src/art.asm). Usage: python3 tools/gen_assets.py [preview.png]
@@ -20,6 +21,7 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 TH = os.path.join(ROOT, '..', 'thumby')
 sys.path.insert(0, os.path.join(TH, 'tools'))
 import gen_assets as T  # noqa: E402  (builds the sprite art on import)
+import gen_arcade_p8 as A  # noqa: E402  (the flight paths of the arcade rules: a blob in the free rows 24..63 and in the map)
 
 # thumby art letters -> PICO-8 colours
 PEN = {'.': 0, 'w': 7, 'r': 8, 'b': 12, 'c': 6, 'y': 10, 'g': 11, 'p': 14, 'o': 9, 'l': 6, 'f': 15}
@@ -88,11 +90,14 @@ def sounds():
 
 def cart():
     px = gfx()
-    s = 'pico-8 cartridge // http://www.pico-8.com\nversion 42\n__lua__\n#include paths.lua\n#include game.lua\n#include main.lua\n'
+    blob = A.blob()
+    A.place(px, blob)
+    s = 'pico-8 cartridge // http://www.pico-8.com\nversion 42\n__lua__\n#include paths.lua\n#include arcade_data.lua\n#include game.lua\n#include main.lua\n'
     s += '__gfx__\n' + '\n'.join(''.join('%x' % v for v in row) for row in px) + '\n'
     snd = sounds()
     s += '__sfx__\n' + '\n'.join(snd.get(i, sfx(1, [])) for i in range(max(snd) + 1)) + '\n'
     label = [[0] * 128 for _ in range(32)] + px[64:] + [[0] * 128 for _ in range(32)]
+    s += A.map_section(blob)
     s += '__label__\n' + '\n'.join(''.join('%x' % v for v in row) for row in label) + '\n'
     return s, px
 
